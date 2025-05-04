@@ -173,14 +173,14 @@ def run_evo():
         except Exception as e:
             logging.critical(f"Evo'nun ana döngüsünde beklenmedik kritik hata: {e}", exc_info=True) # Detaylı hata logu için exc_info=True
 
-    finally:
-        # --- Kaynakları Temizleme ---
-        logging.info("Evo kaynakları temizleniyor...")
-        # Tüm başlatılmış objelerin stop veya cleanup metodlarını çağır
-        if 'vision' in sensors and sensors['vision']:
-            sensors['vision'].stop_stream()
-        if 'audio' in sensors and sensors['audio']:
-            sensors['audio'].stop_stream()
+        finally:
+            # --- Kaynakları Temizleme ---
+            logging.info("Evo kaynakları temizleniyor...")
+            # Tüm başlatılmış objelerin stop veya cleanup metodlarını çağır
+            if 'vision' in sensors and sensors['vision']:
+                sensors['vision'].stop_stream()
+            if 'audio' in sensors and sensors['audio']:
+                sensors['audio'].stop_stream()
 
         # Processor'lar genellikle kapatma gerektirmez ama emin olmak için kontrol edilebilir veya cleanup metodu eklenebilir
         # if 'vision' in processors and processors['vision'] and hasattr(processors['vision'], 'cleanup'): processors['vision'].cleanup()
