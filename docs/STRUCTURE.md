@@ -1,90 +1,93 @@
-# Evo
-Doğduğu anda duyuları aktif olacak ve çevreden gelen kesintisiz bir duyu akışını işlemeye başlayacak.
+# Evo Proje Yapısı (Structure)
+
+Evo projesinin yapısı, onun **evrimleşen bir yaşam formu** olma felsefesini yansıtacak şekilde tasarlanmıştır. Modüller, bir canlının farklı sistemleri veya organları gibi düşünülebilir. Bu yapı, Evo'nun büyümesine, yeni yetenekler kazanmasına ve karmaşıklığını yönetmeye olanak tanır.
+
+Aşağıdaki dizin yapısı ve modül açıklamaları, Evo'nun "vücudu" ve "beyninin" nasıl organize edildiğini gösterir:
 
 ```
-/Evo
-├── README.md                 # Projenin Ana Tanıtımı, Hızlı Başlama Rehberi, Kurulum, BAŞLATMA (Canlı Etkileşim Vurgulu)
-├── requirements.txt          # Gerekli Python Kütüphaneleri
-├── .gitignore                # Sürüme Eklenmeyecek Dosyalar
-│
-├── /config                   # Yapılandırma Dosyaları
-│   └── main_config.yaml      # Genel ve Bileşen Bazlı Ayarlar (Tek Fazlara Bağlı Olmayan, Daha Genel Ayarlar)
-│
-├── /data                     # Veri Deposu
-│   ├── /raw                  # Manuel Ham Veri (İlk Eğitim/Test İçin Gerekliyse)
-│   ├── /processed            # Manuel İşlenmiş Veri (İlk Eğitim/Test İçin Gerekliyse)
-│   ├── /labels               # Manuel Etiketler (İlk Öğrenim İçin Gerekliyse)
-│   └── /knowledge_base       # Evo'nun Öğrendiği Kalıcı Bilgi (Hafıza, Kavramlar, İlişkiler)
-│
-├── /docs                     # Proje Dokümantasyonu
-│   ├── README.md             # Detaylı Vizyon, Felsefe ve Evrimsel Yolculuk (Bebek Gelişimi Metoforu ile)
-│   └── STRUCTURE.md          # Depo Yapısı ve Modül Sorumlulukları Açıklaması
-│   # future_docs: module_details/, learning_algorithms/, interaction_protocols/ etc.
-│
-├── /src                      # Evo'nun Kaynak Kodu (Beyni ve Beden Arayüzü)
+.
+├── docs/                 # Dokümantasyon (Evo'nun Kimliği, Felsefesi ve Rehberleri)
+│   ├── README.md         # Dokümantasyon Girişi ve Haritası
+│   ├── PHILOSOPHY.md     # Evo'nun Felsefesi ve Temel Prensiple
+│   ├── ROADMAP.md        # Evo'nun Evrimsel Yolculuğu ve Fazları
+│   └── STRUCTURE.md      # Bu dosya: Proje Yapısı ve Modüller
+│   # Gelecek dokümanlar: INTERACTION_GUIDE.md, TECHNICAL_DETAILS.md, CONTRIBUTING.md etc.
+├── src/                  # Evo'nun Kaynak Kodları (Evo'nun "Beyni" ve "Vücut Sistemleri")
 │   ├── __init__.py
 │   │
-│   ├── /senses               # <-- MERKEZİ: Duyu Girdisi Modülleri (Canlı Akış Odaklı)
+│   ├── /senses               # Duyu Girdisi Modülleri (Evo'nun "Duyuları")
 │   │   ├── __init__.py       # senses paketini tanımlar
-│   │   ├── audio.py            # <-- YENİ: Mikrofon/Ses Akışından Ham Ses Alma VE Temel Ses İşleme (Dalga Formu, Belki Basit Özellik)
-│   │   ├── vision.py           # <-- YENİ: Kamera/Video Akışından Ham Piksel Alma VE Temel Görsel İşleme (Piksel, Belki Boyutlandırma)
-│   │   # future_senses: touch.py, proprioception.py (beden farkındalığı)
+│   │   ├── audio.py            # Mikrofon/Ses Akışından Ham Ses Alma ve Temel Ses İşleme
+│   │   ├── vision.py           # Kamera/Video Akışından Ham Piksel Alma ve Temel Görsel İşleme
+│   │   # Gelecek duyular: touch.py, proprioception.py (beden farkındalığı)
 │   │
-│   ├── /processing           # <-- YENİ: Ham Duyu Verisinden Daha Yüksek Seviye Özellik Çıkarma (Representasyona Hazırlık)
+│   ├── /processing           # Ham Duyu Verisinden Yüksek Seviye Özellik Çıkarma (Duyusal Bilgiyi İşleme Organları)
 │   │   ├── __init__.py       # processing paketini tanımlar
-│   │   ├── audio.py            # <-- YENİ: Ses Dalga Formundan Mel Spektrogram, MFCC gibi özellik çıkarma
-│   │   ├── vision.py           # <-- YENİ: Pikselden Kenar Bulma, Renk Hist., Basit Nesne Parçaları Tespiti gibi özellik çıkarma
-│   │   ├── text.py             # <-- YENİ: Karakter/Kelime Tokenizasyonu, Sekanslama (Metin girdisi eklenince aktifleşir)
-│   │   # future_processing: video.py (hareket tespiti, optik akış)
+│   │   ├── audio.py            # Ses Dalga Formundan Mel Spektrogram, MFCC gibi özellik çıkarma
+│   │   ├── vision.py           # Pikselden Kenar Bulma, Renk Hist., Basit Nesne Parçaları Tespiti gibi özellik çıkarma
+│   │   ├── text.py             # Karakter/Kelime Tokenizasyonu, Sekanslama (Metin girdisi eklenince)
+│   │   # Gelecek işlemciler: video.py (hareket, optik akış)
 │   │
-│   ├── /representation       # <-- MERKEZİ: Temel Özelliklerden Öğrenilmiş İçsel Temsiller (Latent Uzay)
+│   ├── /representation       # Öğrenilmiş İçsel Temsiller (Evo'nun "Beynindeki Soyutlama Katmanı")
 │   │   ├── __init__.py       # representation paketini tanımlar
-│   │   ├── models.py           # <-- YENİ: Modality bazlı veya birleşik Latent Temsil Modelleri (Autoencoder prensipleri)
-│   │                           # (Önceki phase1_representation içeriği daha modüler sınıflar halinde buraya taşınır)
-│   │   # future_representation: multimodal.py (çok modlu birleştirme/dönüşüm modelleri)
+│   │   └── models.py           # Modality bazlı veya birleşik Latent Temsil Modelleri (Autoencoder prensipleri)
+│   │   # Gelecek temsil: multimodal.py (çok modlu birleştirme/dönüşüm)
 │   │
-│   ├── /memory               # <-- MERKEZİ: Öğrenilen Bilgiyi Depolama ve Yönetme
+│   ├── /memory               # Öğrenilen Bilgiyi Depolama ve Yönetme (Evo'nun "Hafıza Sistemleri")
 │   │   ├── __init__.py       # memory paketini tanımlar
-│   │   └── core.py             # <-- YENİ: Hafıza sistemi mantığı (latent, etiket, ilişki depolama) - Önceki memory_system.py içeriği daha genel bir yapıda buraya taşınır
-│   │   # future_memory: episodic.py, semantic.py
+│   │   └── core.py             # Hafıza sistemi mantığı (latent, etiket, ilişki depolama)
+│   │   # Gelecek hafıza: episodic.py, semantic.py
 │   │
-│   ├── /cognition            # <-- YENİ: Üst Seviye Bilişsel İşlevler (Anlama, Karar Verme, Kendi Kendine Öğrenme)
+│   ├── /cognition            # Üst Seviye Bilişsel İşlevler (Evo'nun "Beyninin Düşünen Kısmı")
 │   │   ├── __init__.py       # cognition paketini tanımlar
-│   │   ├── understanding.py    # <-- YENİ: Kavramsal anlama (Faz 3 Classifier taşınır, kendi kendine öğrenme ile kavram keşfi başlar)
-│   │   ├── decision.py         # <-- YENİ: Basit karar verme mekanizmaları (girdi -> temsil -> anlama/hafıza ile etkileşim -> karar)
-│   │   └── learning.py       # <-- YENİ: Farklı öğrenme algoritmaları (denetimli, denetimsiz, pekiştirmeli ajanlar)
-│   │   # future_cognition: reasoning.py, planning.py, consciousness.py (uzun vadeli)
+│   │   ├── understanding.py    # Kavramsal anlama ve keşif
+│   │   ├── decision.py         # Basit karar verme mekanizmaları
+│   │   └── learning.py       # Farklı öğrenme algoritmaları (denetimli, denetimsiz, pekiştirmeli)
+│   │   # Gelecek biliş: reasoning.py, planning.py, consciousness.py (uzun vadeli)
 │   │
-│   ├── /motor_control        # <-- MERKEZİ: İçsel Temsillerden Dışsal Eylemler/Çıktılar (Beden Kontrolü)
+│   ├── /motor_control        # İçsel Temsillerden Dışsal Eylemler/Çıktılar (Evo'nun "Hareket ve İfade Organları")
 │   │   ├── __init__.py       # motor_control paketini tanımlar
-│   │   └── expression.py       # <-- YENİ: Ses (TTS), Metin, Görsel çıktı üretimi (Faz 4 Generatorlar buraya taşınır, daha sonra duygu/stil eklenir)
-│   │   # future_motor_control: manipulation.py (robotik kol/el), locomotion.py (hareket)
+│   │   └── expression.py       # Ses (TTS), Metin, Görsel çıktı üretimi
+│   │   # Gelecek motor kontrol: manipulation.py (robotik kol/el), locomotion.py (hareket)
 │   │
-│   ├── /interaction          # <-- MERKEZİ: Dış Dünya ile İletişim Arayüzleri (API, Robotik Arayüz)
+│   ├── /interaction          # Dış Dünya ile İletişim Arayüzleri (Evo'nun "İletişim Kanalları")
 │   │   ├── __init__.py       # interaction paketini tanımlar
-│   │   └── api.py              # <-- YENİ: Mobil Uygulama/Robot/Diğer Sistemler ile iletişim API'si (çift yönlü veri akışı)
-│   │   # future_interaction: robotics_interface.py
+│   │   └── api.py              # Mobil Uygulama/Robot/Diğer Sistemler ile iletişim API'si (çift yönlü)
+│   │   # Gelecek etkileşim: robotics_interface.py
 │   │
-│   ├── /core                 # Temel AI Yapı Taşları ve Utilities (Önceki /core, /models/components ve /utils'in birleşimi veya yeniden organizasyonu)
+│   ├── /core                 # Temel Yapı Taşları ve Utilities (Evo'nun "Hücresel" veya "Temel Dokusal" Yapısı)
 │   │   ├── __init__.py
-│   │   ├── nn_components.py    # <-- YENİ: GRUCell, ConvLayer, LinearLayer gibi kendi implemente ettiğimiz temel NN katmanları
-│   │   ├── utils.py            # <-- YENİ: Genel yardımcı fonksiyonlar (config_manager, logging, data_utils'dan seçilenler)
-│   │   # future_core: algorithms.py (genel algoritmalar), math.py (özel matematiksel op.)
+│   │   ├── nn_components.py    # Kendi implemente ettiğimiz temel NN katmanları
+│   │   └── utils.py            # Genel yardımcı fonksiyonlar (yapılandırma, loglama, veri yardımcıları)
+│   │   # Gelecek çekirdek: algorithms.py (genel algoritmalar), math.py (özel matematiksel op.)
 │   │
-│   └── run_evo.py            # <-- YENİ: PROJENİN ANA BAŞLATMA NOKTASI. Cognitive Loop'u ve Interaction API'yi başlatır.
-│                               # Bu script çalışınca Evo "canlı" hale gelir.
+│   └── run_evo.py            # PROJENİN ANA BAŞLATMA NOKTASI (Evo'nun "Canlanma" Scripti)
+│                               # Cognitive Loop ve Interaction API'yi başlatır.
 │
-├── /mobile_app               # <-- YENİ: Mobil Uygulama Kaynak Kodları (Ayrı Depo Veya Burada)
+├── /mobile_app               # Mobil Uygulama Kaynak Kodları (Evo ile "İletişim Kurduğumuz Arayüz")
 │   └── README.md             # Mobil Uygulama Açıklaması, Kurulum, Backend API Bağlantısı
 │   └── ... (Flutter/Diğer Mobil Kodları)
 │
-├── /notebooks                # Deneysel Kodlar (Kod tabanına entegre edilmemiş, prototipleme)
+├── /notebooks                # Deneysel Kodlar (Evo Üzerinde Yapılan "Laboratuvar Çalışmaları")
 │
-└── /scripts                  # Yardımcı/Bakım Scriptleri (Manuel Kullanım)
-    ├── setup_dataset.py          # <-- YENİ: Raw data -> Processed data + Vocab (manuel çalıştırma için)
-    ├── train_initial_models.py   # <-- YENİ: Manuel processed data ile temel modelleri (Representasyon, Anlama, İfade) eğitme (manuel çalıştırma için)
-    ├── test_module.py            # <-- YENİ: Belirli bir modülü/fonksiyonu test etme scripti (örn. python -m scripts.test_module senses.audio)
-    # future_scripts: inspect_memory.py, generate_random_expression.py etc.
+├── /scripts                  # Yardımcı/Bakım Scriptleri (Evo'nun "Bakım ve Eğitim Prosedürleri")
+│   ├── setup_dataset.py          # Raw data -> Processed data + Vocab (manuel)
+│   ├── train_initial_models.py   # Manuel processed data ile temel modelleri eğitme (manuel)
+│   ├── test_module.py            # Belirli bir modülü test etme scripti
+│   # Gelecek scriptler: inspect_memory.py, generate_random_expression.py etc.
+│
+├── /config                   # Yapılandırma Dosyaları (Evo'nun "Genetik Kodunun" Ayarları)
+│   └── main_config.yaml      # Genel ve Bileşen Bazlı Ayarlar
+│
+├── /data                     # Veri Deposu (Evo'nun "Deneyim Arşivi" ve "Doğuştan Gelen Bilgi")
+│   ├── /raw                  # Manuel Ham Veri (İlk Eğitim/Test İçin)
+│   ├── /processed            # Manuel İşlenmiş Veri (İlk Eğitim/Test İçin)
+│   ├── /labels               # Manuel Etiketler (İlk Öğrenim İçin)
+│   └── /knowledge_base       # Evo'nun Öğrendiği Kalıcı Bilgi (Hafıza, Kavramlar, İlişkiler)
+│
+├── .gitignore            # Git tarafından yoksayılacak dosyalar
+├── LICENSE               # Lisans Bilgisi (Evo'nun "Yasal Çerçevesi" - CC0)
+└── README.md             # Ana Proje Tanıtımı (Evo'nun "İlk Tanışma Sayfası")
 ```
 
 ---
