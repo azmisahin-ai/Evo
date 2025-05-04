@@ -90,4 +90,24 @@ Aşağıdaki dizin yapısı ve modül açıklamaları, Evo'nun "vücudu" ve "bey
 └── README.md             # Ana Proje Tanıtımı (Evo'nun "İlk Tanışma Sayfası")
 ```
 
+### Ana Bileşenler ve Anlamları
+
+*   **`docs/`**: Projenin felsefesini, yapısını, kullanımını ve gelişimini anlatan belgeler. Evo'nun kimliği, geçmişi ve kullanım kılavuzu gibi düşünülebilir.
+*   **`src/`**: Projenin ana kod tabanı. Evo'nun "vücudu" ve "beyni".
+    *   **`src/senses/`**: Evo'nun **dış dünyadan ham bilgi aldığı** modüller. Farklı "duyular" gibi çalışır. İlk aşamada `camera/` ve `audio/` modülleri temel alınacaktır. Bu modüller kesintisiz akış sağlamayı hedefler.
+    *   **`src/processing/`**: Ham duyu verisini **daha işlenmiş, üst düzey özelliklere dönüştüren** modüller. Duyusal korteksler gibi düşünülebilir.
+    *   **`src/representation/`**: İşlenmiş duyu verisinden **öğrenilmiş, sıkıştırılmış ve anlamlı içsel temsiller (latent)** oluşturan modüller. Beynin soyutlama ve temsil katmanları gibidir.
+    *   **`src/memory/`**: Evo'nun **öğrendiği bilgiyi (temsiller, kavramlar, ilişkiler) depolayan** ve yöneten merkezi birim. Farklı bellek türlerini içerecektir (kısa süreli, uzun süreli, episodik, semantik).
+    *   **`src/cognition/`**: Evo'nun **üst seviye bilişsel işlevlerini** barındıran modüller. Anlama, karar verme, kendi kendine öğrenme, akıl yürütme ve planlama gibi süreçler burada gerçekleşir. Beynin prefrontal korteks gibi düşünen kısımlarına benzer.
+    *   **`src/motor_control/`**: İçsel temsilleri ve kararları **dışsal eylemlere veya çıktılara (ses, metin, görsel, fiziksel hareket)** dönüştüren modüller. Bir canlının motor korteksi ve kasları gibidir.
+    *   **`src/interaction/`**: Evo'nun **dış dünya ile doğrudan iletişim kurduğu arayüzleri** içeren modüller. API'ler veya robotik sürücüler gibi. Konuşma organları veya uzuvlar gibi düşünülebilir.
+    *   **`src/core/`**: Temel AI yapı taşlarını (sinir ağı katmanları) ve genel yardımcı fonksiyonları barındıran düşük seviye modüller. Bir canlının hücresel yapısı veya temel dokuları gibidir.
+    *   **`run_evo.py`**: Evo'nun **"canlanma" scripti**. Bilişsel döngüyü (`cognitive_loop`) ve dış arayüzleri (API) başlatarak Evo'yu "hayata getirir".
+*   **`tests/`**: Evo'nun farklı "organlarının" ve "sistemlerinin" beklendiği gibi çalışıp çalışmadığını kontrol eden testler. Canlının periyodik sağlık kontrolleri gibi düşünülebilir.
+*   **`scripts/`**: Projeyi kurmak, veri hazırlamak, temel modelleri eğitmek veya bakımını yapmak için kullanılan **manuel yardımcı scriptler**. Evo'nun eğitim veya bakım prosedürleri gibi düşünülebilir.
+*   **Diğer Dizinler (`config`, `data`, `mobile_app`, `notebooks`)**: Projenin genel konfigürasyonu, veri depolama alanları, Evo ile etkileşim kurmak için arayüz projeleri ve deneysel çalışmalar için alanlardır.
+
+Bu yapı, Evo'nun farklı yeteneklerini (duyular, içsel işlem, hafıza, düşünme, eylemler) modüler hale getirerek, her bir parçanın nispeten bağımsız olarak geliştirilmesine ve Evo'nun zamanla "organlarını" ve "sistemlerini" geliştirmesine olanak tanır. Bu, Evo'nun evrimsel büyümesini teknik olarak destekler.
+
 ---
+
