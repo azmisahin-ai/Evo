@@ -5,7 +5,7 @@ import time
 # Temel modülleri import edeceğiz
 from src.senses.vision import VisionSensor
 from src.senses.audio import AudioSensor
-# Yeni processing modüllerini import et
+# Processing modüllerini import et
 from src.processing.vision import VisionProcessor
 from src.processing.audio import AudioProcessor
 # Diğer modüller (representation, memory, cognition, motor_control, interaction) geldikçe buraya eklenecek
@@ -26,6 +26,13 @@ def load_config():
             'audio_chunk_size': 1024,
             # 'audio_input_device_index': None # None varsayılanı kullanır
         },
+        'processing_vision': { # Vision Processor için konfigürasyon
+             'output_width': 64,
+             'output_height': 64
+        },
+         'processing_audio': { # Audio Processor için konfigürasyon
+             # Örneğin, MFCC sayısı gibi ayarlar buraya gelebilir
+         },
         'cognitive_loop_interval': 0.1 # Bilişsel döngünün ne sıklıkla çalışacağı (saniye)
     }
 
@@ -46,31 +53,33 @@ def run_evo():
     logging.info("Konfigürasyon yüklendi.")
 
     # --- Modülleri Başlatma ---
-    # Modüller başlatılırken hata olursa yakalamak için try-except blokları kullanılabilir.
-    vision_sensor = None
-    audio_sensor = None
-    vision_processor = None
-    audio_processor = None
-    # representation_module = None # Gelecekte
-    # memory_module = None # Gelecekte
-    # cognition_module = None # Gelecekte
-    # motor_control_module = None # Gelecekte
-    # interaction_api = None # Gelecekte
+    # Modül objelerini depolamak için sözlük veya liste kullanmak daha düzenli olabilir.
+    sensors = {}
+    processors = {}
+    # Diğer modül kategorileri geldikçe eklenecek
 
+    modules_initialized_successfully = False # Başlatma başarılı oldu mu?
 
     try:
         # Faz 0: Duyusal Sensörleri Başlat
         logging.info("Faz 0: Duyusal sensörler başlatılıyor...")
-        vision_sensor = VisionSensor(config.get('vision', {}))
-        audio_sensor = AudioSensor(config.get('audio', {}))
-        # Sensörlerin durumu loglar içinde belirtiliyor.
+        sensors['vision'] = VisionSensor(config.get('vision', {}))
+        sensors['audio'] = AudioSensor(config.get('audio', {}))
+
+        # Başlatma durumunu kontrol et ve logla
+        active_sensors = [name for name, sensor in sensors.items() if getattr(sensor, 'is_camera_available', False) or getattr(sensor, 'is_audio_available', False)]
+        if active_sensors:
+            logging.info(f"Duyusal Sensörler başarıyla başlatıldı ({', '.join(active_sensors)} aktif).")
+        else:
+            logging.warning("Hiçbir duyusal sensör aktif değil. Evo girdi alamayacak.")
 
 
         # Faz 1: Processing Modüllerini Başlat
         logging.info("Faz 1: Processing modülleri başlatılıyor...")
-        vision_processor = VisionProcessor(config.get('processing_vision', {})) # processing_vision config'i yok, varsayılan kullanılacak
-        audio_processor = AudioProcessor(config.get('processing_audio', {})) # processing_audio config'i yok, varsayılan kullanılacak
+        processors['vision'] = VisionProcessor(config.get('processing_vision', {}))
+        processors['audio'] = AudioProcessor(config.get('processing_audio', {}))
         logging.info("Processing modülleri başarıyla başlatıldı.")
+
 
         # TODO: Diğer modülleri burada başlat (Faz 1 ve sonrası)
         # representation_module = RepresentationModule(config.get('representation', {}))
@@ -80,105 +89,105 @@ def run_evo():
         # interaction_api = InteractionAPI(config.get('interaction', {}))
         # interaction_api.start() # API bir thread içinde çalışabilir
 
-
         logging.info("Tüm başlatılması gereken modüller başlatıldı (aktif olanlar loglarda).")
+        modules_initialized_successfully = True # Başlatma bloğu hatasız tamamlandı
 
     except Exception as e:
         logging.critical(f"Modüller başlatılırken kritik hata oluştu: {e}", exc_info=True)
-        # Hata durumunda tüm başlatılmış kaynakları temizle
-        # Bu kısım cleanup_evo fonksiyonuna taşınabilir
-        if vision_sensor: vision_sensor.stop_stream()
-        if audio_sensor: audio_sensor.stop_stream()
-        # TODO: Diğer modüllerin kapatılmasını sağla
-        logging.critical("Evo başlangıç hatası nedeniyle durduruldu.")
-        return # Başlangıç hatasında Evo'yu durdur
+        # Başlatma hatası durumunda döngüye girmeyecek, cleanup yapılacak.
+
 
     # --- Ana Bilişsel Döngü ---
-    logging.info("Evo'nun bilişsel döngüsü başlatıldı...")
-    loop_interval = config.get('cognitive_loop_interval', 0.1) # Döngü hızı
+    # Sadece modüller başarılı başlatıldıysa döngüye gir
+    if modules_initialized_successfully:
+        logging.info("Evo'nun bilişsel döngüsü başlatıldı...")
+        loop_interval = config.get('cognitive_loop_interval', 0.1) # Döngü hızı
 
-    try:
-        while True:
-            start_time = time.time()
+        try:
+            while True:
+                start_time = time.time()
 
-            # --- Duyu Verisini Yakala (Faz 0) ---
-            visual_input = None
-            if vision_sensor: # Sensör objesi oluşturulduysa
-                 visual_input = vision_sensor.capture_frame()
+                # --- Duyu Verisini Yakala (Faz 0) ---
+                # Sensör objeleri varsa capture metodlarını çağır
+                raw_inputs = {}
+                if 'vision' in sensors and sensors['vision']:
+                     raw_inputs['visual'] = sensors['vision'].capture_frame()
+                if 'audio' in sensors and sensors['audio']:
+                     raw_inputs['audio'] = sensors['audio'].capture_chunk()
 
-            audio_input = None
-            if audio_sensor: # Sensör objesi oluşturulduysa
-                 audio_input = audio_sensor.capture_chunk()
+                # logging.debug("Duyusal veri yakalama tamamlandı.")
 
-            # logging.debug("Duyu verisi yakalama tamamlandı.")
-
-            # --- Yakalanan Veriyi İşle (Faz 1) ---
-            processed_visual = None
-            if vision_processor and visual_input is not None: # İşlemci ve girdi varsa
-                 processed_visual = vision_processor.process(visual_input)
-                 if processed_visual is not None:
-                      logging.debug(f"Görsel input işlendi. Output Shape: {processed_visual.shape}")
-                 # else: logging.debug("Görsel input işlenemedi veya None döndü.")
-
-
-            processed_audio = None
-            if audio_processor and audio_input is not None: # İşlemci ve girdi varsa
-                 processed_audio = audio_processor.process(audio_input)
-                 if processed_audio is not None:
-                      logging.debug(f"Sesli input işlendi. Output Shape: {processed_audio.shape}")
-                 # else: logging.debug("Sesli input işlenemedi veya None döndü.")
+                # --- Yakalanan Veriyi İşle (Faz 1) ---
+                processed_inputs = {}
+                if 'vision' in processors and processors['vision'] and raw_inputs.get('visual') is not None:
+                     processed_inputs['visual'] = processors['vision'].process(raw_inputs['visual'])
+                     if processed_inputs['visual'] is not None:
+                          # logging.debug(f"Görsel input işlendi. Output Shape: {processed_inputs['visual'].shape}")
+                          pass # Zaten VisionProcessor içindeki loglar detay veriyor
+                     # else: logging.debug("Görsel input işlenemedi veya None döndü.")
 
 
-            # TODO: İşlenmiş veriyi representation modülüne ilet (Faz 1 sonrası)
-            # learned_representation = representation_module.learn(processed_visual, processed_audio)
-
-            # TODO: Temsili hafızaya kaydet ve/veya hafızadan bilgi al (Faz 2)
-            # memory_module.store(learned_representation)
-            # relevant_memory = memory_module.retrieve(learned_representation)
-
-            # TODO: Hafıza ve temsile göre bilişsel işlem yap (anlama, karar verme) (Faz 3+)
-            # decision = cognition_module.decide(learned_representation, relevant_memory)
-
-            # TODO: Karara göre bir tepki üret (Faz 3+)
-            # raw_output = motor_control_module.generate_response(decision)
-
-            # TODO: Tepkiyi interaction API üzerinden dışarı aktar (Faz 3+)
-            # interaction_api.send_output(raw_output)
+                if 'audio' in processors and processors['audio'] and raw_inputs.get('audio') is not None:
+                     processed_inputs['audio'] = processors['audio'].process(raw_inputs['audio'])
+                     if processed_inputs['audio'] is not None:
+                          # logging.debug(f"Sesli input işlendi. Output: {processed_inputs['audio']:.4f}")
+                          pass # Zaten AudioProcessor içindeki loglar detay veriyor
+                     # else: logging.debug("Sesli input işlenemedi veya None döndü.")
 
 
-            # --- Döngü Gecikmesi ---
-            # Döngünün belirli bir hızda çalışmasını sağla
-            elapsed_time = time.time() - start_time
-            sleep_time = loop_interval - elapsed_time
-            if sleep_time > 0:
-                time.sleep(sleep_time)
-            else:
-                # Döngü intervalinden uzun süren durumlar için uyarı
-                # DEBUG seviyesinde loglamak, sürekli uyarı vermesini engeller
-                logging.debug(f"Bilişsel döngü {loop_interval} saniyeden daha uzun sürdü ({elapsed_time:.4f}s). İşlem yükü yüksek olabilir.")
+                # TODO: İşlenmiş veriyi representation modülüne ilet (Faz 1 sonrası)
+                # learned_representation = representation_module.learn(processed_inputs) # processed_inputs sözlüğünü ilet
+
+                # TODO: Temsili hafızaya kaydet ve/veya hafızadan bilgi al (Faz 2)
+                # memory_module.store(learned_representation)
+                # relevant_memory = memory_module.retrieve(learned_representation)
+
+                # TODO: Hafıza ve temsile göre bilişsel işlem yap (anlama, karar verme) (Faz 3+)
+                # decision = cognition_module.decide(learned_representation, relevant_memory)
+
+                # TODO: Karara göre bir tepki üret (Faz 3+)
+                # raw_output = motor_control_module.generate_response(decision)
+
+                # TODO: Tepkiyi interaction API üzerinden dışarı aktar (Faz 3+)
+                # if 'interaction_api' in locals() and interaction_api:
+                #    interaction_api.send_output(raw_output)
 
 
-            # Gelecekte döngüyü sonlandıracak bir mekanizma eklenecek (örn. kullanıcı sinyali, içsel durum)
-            # if cognition_module.should_stop(): break # Örnek: Evo uykuya dalarsa
+                # --- Döngü Gecikmesi ---
+                # Döngünün belirli bir hızda çalışmasını sağla
+                elapsed_time = time.time() - start_time
+                sleep_time = loop_interval - elapsed_time
+                if sleep_time > 0:
+                    time.sleep(sleep_time)
+                else:
+                    # Döngü intervalinden uzun süren durumlar için uyarı
+                    # DEBUG seviyesinde loglamak, sürekli uyarı vermesini engeller
+                    logging.debug(f"Bilişsel döngü {loop_interval} saniyeden daha uzun sürdü ({elapsed_time:.4f}s). İşlem yükü yüksek olabilir.")
 
-    except KeyboardInterrupt:
-        logging.warning("Ctrl+C algılandı. Evo durduruluyor...")
-    except Exception as e:
-        logging.critical(f"Evo'nun ana döngüsünde beklenmedik kritik hata: {e}", exc_info=True) # Detaylı hata logu için exc_info=True
+
+                # Gelecekte döngüyü sonlandıracak bir mekanizma eklenecek (örn. kullanıcı sinyali, içsel durum)
+                # if 'cognition_module' in locals() and cognition_module and cognition_module.should_stop(): break # Örnek: Evo uykuya dalarsa
+
+        except KeyboardInterrupt:
+            logging.warning("Ctrl+C algılandı. Evo durduruluyor...")
+        except Exception as e:
+            logging.critical(f"Evo'nun ana döngüsünde beklenmedik kritik hata: {e}", exc_info=True) # Detaylı hata logu için exc_info=True
 
     finally:
         # --- Kaynakları Temizleme ---
         logging.info("Evo kaynakları temizleniyor...")
         # Tüm başlatılmış objelerin stop veya cleanup metodlarını çağır
-        if vision_sensor:
-            vision_sensor.stop_stream()
-        if audio_sensor:
-            audio_sensor.stop_stream()
-        # TODO: Diğer başlatılan modüllerin kapatılmasını sağla
-        # if interaction_api: interaction_api.stop()
-        # Processor'lar genellikle kapatma gerektirmez ama emin olmak için kontrol edilebilir:
-        # if vision_processor: vision_processor.cleanup() # Eğer cleanup metodu varsa
-        # if audio_processor: audio_processor.cleanup() # Eğer cleanup metodu varsa
+        if 'vision' in sensors and sensors['vision']:
+            sensors['vision'].stop_stream()
+        if 'audio' in sensors and sensors['audio']:
+            sensors['audio'].stop_stream()
+
+        # Processor'lar genellikle kapatma gerektirmez ama emin olmak için kontrol edilebilir veya cleanup metodu eklenebilir
+        # if 'vision' in processors and processors['vision'] and hasattr(processors['vision'], 'cleanup'): processors['vision'].cleanup()
+        # if 'audio' in processors and processors['audio'] and hasattr(processors['audio'], 'cleanup'): processors['audio'].cleanup()
+
+        # TODO: Diğer başlatılan modüllerin kapatılmasını sağla (API gibi thread'ler)
+        # if 'interaction_api' in locals() and interaction_api: interaction_api.stop()
 
 
         logging.info("Evo durduruldu.")
