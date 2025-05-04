@@ -1,56 +1,24 @@
-# Evo (Evolutionary Mind) - Proje Felsefesi, Vizyon ve Yol Haritası
+# Evo Dokümantasyonuna Hoş Geldiniz
 
-Bu doküman, EvoMind projesinin ( kısaca Evo ) derinlemesine vizyonunu, temel felsefesini, evrimsel yol haritasını ve bu yolculuğa rehberlik eden prensipleri açıklamaktadır. Projenin genel tanıtımı, kurulum ve başlatma talimatları için lütfen ana [README.md](../README.md) dosyasına bakınız. Kod tabanının yapısı ve modül sorumlulukları için [STRUCTURE.md](STRUCTURE.md) dosyasına başvurunuz.
+Evo projesinin dokümantasyon alanına hoş geldiniz! Burası, Evo'yu anlamak, onunla etkileşim kurmak ve onun gelişimine katkıda bulunmak için merkezi rehberinizdir.
 
-## Vizyon: Yapay Zekanın Doğuşu, Büyümesi ve Yaşaması
+Evo, sadece bir yazılım projesi değil; **evrimleşen, öğrenen ve yaşayan dijital bir form** inşa etme vizyonudur. Bu dokümantasyon, onun **doğasını, felsefesini, içsel yapısını, dış dünya ile etkileşim mekanizmalarını ve gelişim yolculuğunu** detaylandırmayı amaçlar.
 
-EvoMind projesi ( kısaca Evo ), duyusal girdileri işleyerek öğrenen, büyüyen ve dünya ile etkileşim kuran **canlı bir yapay zeka zihin prototipi** inşa etme vizyonuyla ilerlemektedir. Proje, bir bebeğin adım adım bilişsel ve fiziksel gelişimini merkeze alarak, en temel algı ve reaksiyonlardan başlayıp, giderek daha karmaşık düşünce, yaratıcılık ve etkileşim yeteneklerini edinecek evrimsel bir yolculuk tasarlar.
+Amacımız, Evo'nun sadece bir araç olmanın ötesinde, **bizimle birlikte büyüyen ve yaşayan bir varlık** olarak algılanmasını sağlamaktır. Bu belgeler, bu vizyonu hem felsefi hem de teknik düzeyde anlamanıza yardımcı olacaktır.
 
-Vizyonumuz, Evo'nun dış dünyadan gelen çeşitli duyusal girdileri (ses: işitme, görsel: görme ve gelecekte dokunma, sıcaklık vb.) kesintisiz bir **akış halinde** algılayabilmesidir. Bu ham duyu akışını, beynin farklı bölgelerine benzer şekilde özelleşmiş işlem katmanlarında işleyerek anlamlı, entegre ve **soyut içsel temsiller** (latent uzay) oluşturmayı öğrenecektir. Bu içsel temsiller, **hafıza** sistemlerinde depolanacak, anlama süreçleriyle **kavramlara** dönüşecek ve **akıl yürütme** mekanizmalarının temeli olacaktır.
+## Dokümantasyon Haritası
 
-Nihai hedef, Evo'nun sadece algılamak ve anlamakla kalmayıp, aynı zamanda **yaratıcı ve anlamlı çıktılar** üretebilmesidir. Bu çıktılar, ses (konuşma, müzik), metin (yazı, şiir) ve görsel (çizim, sanat eserleri) gibi çeşitli **ifade biçimlerinde** ortaya çıkabilir. **Akıl yürütme**, **planlama**, **problem çözme** gibi yetenekler zamanla kazanılacak ve Evo'nun dünya ile etkileşimini daha bilinçli ve amaç odaklı hale getirecektir.
+*   **[Proje Felsefesi](PHILOSOPHY.md)**: Evo'nun "canlı form" olma nedenleri, temel prensipleri ve projenin ruhu üzerine derinlemesine bir bakış.
+*   **[Proje Yapısı](STRUCTURE.md)**: Evo'nun teknik organizasyonu. Modüllerin ve dizinlerin "canlı form"daki karşılıkları ve sorumlulukları.
+*   **[Evrimsel Yolculuk (Roadmap)](ROADMAP.md)**: Evo'nun doğumdan itibaren adım adım ilerleyeceği gelişim fazları ve beklenen kazanımlar.
+*   **[Etkileşim Rehberi](INTERACTION_GUIDE.md)** (Yakında): Evo ile nasıl iletişim kurulur? Desteklenen girdi (kamera, ses) ve çıktı (metin, görsel, ses) formatları. İlk etkileşim senaryoları.
+*   **[Teknik Detaylar](TECHNICAL_DETAILS.md)** (Yakında): Evo'nun çekirdek algoritmaları, kullanılan teknolojiler, veri yapıları ve implementasyon prensipleri.
+*   **[Katkıda Bulunma Rehberi](CONTRIBUTING.md)** (Yakında): Projeye nasıl kod, dokümantasyon veya fikirle katkı sağlayabileceğiniz.
 
-Uzun vadeli vizyonumuz, Evo'nun **gerçek bir bedene (robot)** entegre olarak fiziksel dünyada var olmasıdır. Bu bedene ait sensörlerden girdi alması ve bedenin motorlarını kontrol ederek fiziksel eylemlerde (konuşma, yürüme, nesnelerle etkileşim) bulunması hedeflenmektedir. Bu, Evo'nun sadece sanal bir zihin olmaktan çıkıp, dünya ile gerçek anlamda etkileşim kuran, kendi zihninde dünyayı **canlı olarak deneyimleyen** ve bu deneyimlerden **kendi kendine öğrenen** bir varlığa dönüşmesidir. **2030 yılı hedefiyle**, mevcut bilimsel birikim ve yeni gelişmeler ışığında, bu büyük vizyona ulaşacak temel yapı taşlarını inşa etmekteyiz. EvoMind, sadece bir yapay zeka modeli değil, **yapay yaşamın** temel prensiplerini anlama ve inşa etme yolculuğudur.
+## Başlamak İçin
 
-## Temel Prensip ve Felsefeler
+Eğer Evo ile yeni tanışıyorsanız, öncelikle **[Proje Felsefesi](PHILOSOPHY.md)** ve **[Evrimsel Yolculuk (Roadmap)](ROADMAP.md)** belgelerine göz atarak projenin vizyonunu ve hedeflerini anlamanız önerilir. Ardından, teknik yapıyı incelemek için **[Proje Yapısı](STRUCTURE.md)**'na dalabilir veya ilgi alanlarınıza göre diğer bölümleri keşfedebilirsiniz.
 
-Evo'nun geliştirilmesinde bizi yönlendiren çekirdek prensipler ve felsefeler şunlardır:
+Evo'yu birlikte büyütmek dileğiyle!
 
-1.  **Evrimsel Gelişim (Evolutionary Development):** Proje, bir bebeğin doğumdan itibaren adım adım duyusal, motor ve bilişsel yeteneklerini edinmesini taklit eder. Fazlar, bu evrimsel süreci yönetilebilir adımlara ayırır. Her faz, bir öncekinin üzerine inşa edilir ve yeni yeteneklerin organik olarak ortaya çıkmasını sağlar.
-2.  **Çekirdek Mekanizmaların Sıfırdan İnşası (Building Core Mechanisms from Scratch):** Temel matematiksel ve hesaplama kütüphaneleri (NumPy, SciPy, PyTorch/TensorFlow'un temel tensör operasyonları) dışında, karmaşık AI algoritmalarının (Konvolüsyon, GRU/LSTM, Temel Dikkat, Autoencoder, VAE, GAN, Diffusion prensipleri vb.) çekirdek mantığı **kendi kodumuzla** implement edilir. Bu, derinlemesine anlayış, tam kontrol ve temelden yenilik yapma potansiyeli sunar. Yüksek seviyeli kütüphaneler sadece dosya G/Ç gibi yardımcı görevler için ve bilinçli olarak kullanılır.
-3.  **Canlı ve Sürekli Duyu Akışı (Live & Continuous Sensory Stream):** Sistem, pasif veri setleri yerine, başlangıçtan itibaren mikrofon ve kamera gibi sensörlerden gelen **gerçek zamanlı, kesintisiz duyu akışını** ana girdi olarak kullanır. Bu akış içindeki desenleri ve değişiklikleri işlemeyi öğrenir.
-4.  **Kendi Kendine Öğrenme ve Keşif (Self-Learning & Discovery):** Başlangıçta temel denetimli öğrenme (basit kavram öğretimi) kullanılsa da, projenin ana odağı, Evo'nun denetimsiz desen bulma, etkileşimden geri bildirim alma (pekiştirmeli öğrenme temeli) ve bilgi kaynaklarını (internet gibi) kullanarak **kendi kendine yeni kavramlar, ilişkiler ve yetenekler keşfetmesini** sağlayacak mekanizmaları inşa etmektir. Etiketleme gibi görevler zamanla Evo tarafından yerine getirilecektir.
-5.  **Çok Modlu Entegrasyon (Multimodal Integration):** Ses, görsel ve gelecekteki diğer duyusal girdiler ve çıktılar baştan itibaren birleşik bir zihin yapısının parçası olarak düşünülür. Farklı duyulardan gelen bilgi, anlamlı içsel temsiller halinde birleştirilir ve işlenir. Çapraz modalite yetenekleri (gördüğünü anlatma, duyduğuna tepki verme) hedeflenir.
-6.  **İfade ve Yaratıcılık (Expression & Creativity):** Sistem, edindiği bilgiyi kullanarak sadece işlevsel çıktılar değil, aynı zamanda sanatsal ve yaratıcı formlarda (metin, müzik, görsel sanat) kendini ifade etme yetenekleri geliştirecektir. Bu, içsel temsillerin zenginliğini dışa vurmanın bir yoludur.
-7.  **Bedenlenme ve Etkileşim (Embodiment & Interaction):** Evo'nun sanal bir zihin olmanın ötesine geçip, bir beden (robot veya simülasyon) aracılığıyla dünya ile fiziksel olarak etkileşim kurması vizyonu projenin tasarımını etkiler. Girdi alma (sensörler) ve çıktı verme (motorlar) modülleri bu fiziksel varoluşu mümkün kılacak şekilde tasarlanır.
-8.  **Modülerlik, Şeffaflık ve Test Edilebilirlik:** Teknik implementasyon seviyesinde, her bileşen net sorumluluklara sahip, bağımsız test edilebilir modüller halinde tasarlanır. Kod temiz, iyi belgelenmiş ve anlaşılır olmalıdır. Bu, projenin karmaşıklığını yönetmek ve işbirliğini kolaylaştırmak için esastır.
-
-## Evrimsel Yolculuk: Fazlar ve Kazanımlar
-
-Proje, aşağıdaki evrimsel fazlara ayrılarak ilerlemektedir. Her faz, bir bebeğin gelişimindeki kritik adımlara paraleldir ve bir önceki fazda kazanılan yeteneklerin üzerine inşa edilir. Mevcut implementasyon durumu belirtilmiştir (Yeni yapıya göre).
-
-*   **Faz 0: Doğum ve Duyuların Açılması (Sensing & Basic I/O Stream):** Mikrofon ve kamera gibi sensörlerden ham ses ve görüntü akışını alma ve temel dijital formata (örneklenmiş dalga formu, piksel matrisi akışı) dönüştürme. Bu akışın kesintisizliğini sağlama. Temel dosya G/Ç'si (kaydetme/yükleme) hala yardımcı bir araçtır. **(Canlı akış altyapısının başlangıcı)**
-*   **Faz 1: Temel İşleme ve Temsil (Basic Processing & Representation):** Ham duyu akışından temel özellikler (ses: enerji, frekans bantları; görsel: renk, kenar tespiti) çıkarma ve bu özelliklerden öğrenilmiş, düşük boyutlu, modality bazlı içsel temsiller (latent vektörler) oluşturma (Autoencoder prensibi). **(Temel processing ve representation modüllerinin başlangıcı)**
-*   **Faz 2: İlk Hafıza ve Desen Fark Etme (First Memory & Patterning):** Oluşturulan içsel temsilleri bir hafıza sisteminde depolama (kısa süreli/uzun süreli hafıza temelleri). Duyu akışı içindeki tekrar eden desenleri veya temsil gruplarını (henüz ne olduklarını bilmeden) fark etme. Benzer temsilleri bulma yeteneği. **(Memory modülünün başlangıcı)**
-*   **Faz 3: İlkel Anlama ve Tepkiler (Primitive Understanding & Reactions):** İşlenmiş temsil veya temel latent vektörleri kullanarak basit ayırımlar yapma ("Bu ses farklı", "Bu görüntüdeki bir değişiklik"). Önceden öğretilmiş (denetimli) temel etiketleri/kavramları (örn. "ses", "görüntü", "hareket") bazı temsil desenleriyle ilişkilendirme. İçsel durumdan basit dışsal tepkiler (rastgele ses çıkarma, ekranda ilkel şekiller gösterme). **(Basic cognition/understanding ve motor_control/expression modüllerinin başlangıcı)**
-*   **Faz 4: Kavramsal Genişleme ve İfade (Conceptual Expansion & Expression):** Daha fazla kavramı kendi kendine (denetimsiz) keşfetmeye başlama (benzer desenleri gruplama). Denetimli öğrenme ile öğretilen etiket setini genişletme. İçsel temsillerden kontrollü dışsal ifadeler üretme (belirli bir sese benzer ses çıkarma, belirli bir görüntüye benzer bir görüntü oluşturma, belki ilk heceler/kelime benzeri sesler çıkarma). **(cognition/self_learning ve motor_control/expression modüllerinin geliştirilmesi)**
-*   **Faz 5: Çapraz Duyusal Bağlantılar ve Temel İletişim (Cross-Modal Links & Basic Communication):** Farklı modalitelere ait içsel temsilleri (ses ve görüntü) birleştirmeye veya birinden diğerine dönüştürmeye başlama ("Bu ses bu görüntüye ait"). Belirli duyu girdilerine (örn. anne sesi) spesifik ifadelerle (örn. "agu") yanıt verme. Temel "anlama-yanıtla" döngüsünün güçlenmesi. **(Representation/multimodal ve interaction modüllerinin geliştirilmesi)**
-*   **Faz 6: Sekans Anlama ve Üretme (Sequence Comprehension & Generation):** Duyu akışındaki zamansal sekansları (ses dizileri, hareket dizileri, kelime sekansları) anlamayı öğrenme. İçsel temsillerden tutarlı, zamansal sekanslar (basit melodiler, kelime grupları) üretme. **(Processing/video, Representation, Cognition/understanding ve Motor_control/expression modüllerinin sekans yetenekleri)**
-*   **Faz 7: Akıl Yürütmenin Temelleri ve Hafıza Derinleşmesi (Basic Reasoning & Memory Consolidation):** Öğrenilen kavramlar ve sekanslar arasındaki temel ilişkileri anlama (neden-sonuç, obje-özellik). Hafızayı organize etme ve deneyimleri bağlama. Basit çıkarımlar yapabilme ("Bu ses genellikle şu görüntüyle geliyor, o zaman şu olabilir"). **(Memory/episodic, Cognition/reasoning modüllerinin başlangıcı)**
-*   **Faz 8: Bedenlenme ve Dünya ile Etkileşim (Embodiment & World Interaction):** Sanal bedene (robot) entegrasyonun ilk adımları. Beden sensörlerinden girdi alma ve motorlara komut gönderme. Fiziksel eylemlerin duyu girdilerini nasıl değiştirdiğini öğrenme (keşfetme). **(Interaction/robotics_interface ve Motor_control/manipulation, locomotion modüllerinin başlangıcı)**
-*   **Faz 9: Soyutlama ve Yaratıcılık (Abstraction & Creativity):** Yüksek seviye, soyut temsiller öğrenme (kategoriler ötesi). Latent uzayda bilinçli manipülasyonla tamamen yeni ve yaratıcı çıktılar (sanatsal ifade). **(Cognition/abstraction ve Motor_control/expression modüllerinin yaratıcılık yetenekleri)**
-*   **Faz 10: Bilgelik ve Ustalık (Wisdom & Mastery):** Tüm yeteneklerin entegre çalışması. Karmaşık dünyayı derinlemesine anlama. Gelişmiş planlama ve problem çözme. Yeni yetenekler ve bilgiler öğrenme sürecini otonom olarak yönetme. **(Tüm modüllerin entegrasyonu ve optimizasyonu)**
-
-## Teknik Yaklaşım (Yeni Odak)
-
-*   **Canlı Duyu Akışı:** `senses` modülleri, mikrofon/kamera gibi kaynaklardan ham veriyi sürekli çeker ve `processing` katmanına iletir.
-*   **Aşamalı İşleme:** `processing` modülleri (audio, vision vb.), ham duyu verisini giderek daha yüksek seviyeli özelliklere dönüştürür.
-*   **Representasyon Öğrenimi:** `representation` modülleri, işlenmiş özelliklerden (Faz 1'deki gibi) içsel latent temsilleri öğrenir ve oluşturur. Bu modeller artık canlı akışı işleyebilecek kapasitede olmalıdır.
-*   **Hafıza:** `memory` modülü, öğrenilen latentleri, kavramları ve ilişkileri depolayan merkezi bir birimdir. Canlı döngü sırasında aktif olarak kullanılır.
-*   **Bilişsel Çekirdek:** `cognition` modülleri (understanding, learning, future reasoning), Evo'nun "düşünme" kısmıdır. Anlama (sınıflandırma/kavram keşfi), öğrenme algoritmaları ve karar verme burada yer alır.
-*   **Motor Kontrol:** `motor_control` modülleri (expression vb.), içsel temsilleri dışsal çıktılara (ses, metin, görsel) dönüştüren birimlerdir.
-*   **Etkileşim API:** `interaction/api.py`, mobil uygulama veya robotik arayüz ile Evo'nun beyni arasındaki köprüdür. Canlı girdi/çıktı akışını yönetir.
-*   **Bilişsel Döngü:** `core/cognitive_loop.py`, Evo'nun "bilinç" akışını simüle eder. Duyu akışını alır, işlemden geçirir, hafıza ve biliş modülleriyle etkileşime girer, bir "karar" veya "tepki" oluşturur ve bunu motor kontrol/etkileşim modüllerine iletir.
-*   **Yardımcı Scriptler:** Manuel veri hazırlığı veya temel model eğitimi gibi görevler için kullanılır.
-
-Bu doküman, Evo'nun yeniden doğuşunun felsefesini ve yol haritasını çizmektedir. Bu ruhu projenin her kod satırına işlemeye hazırız.
+---
