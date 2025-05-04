@@ -13,7 +13,7 @@ class AudioSensor:
     """
     def __init__(self, config=None):
         logging.info("AudioSensor başlatılıyor...")
-        self.config = config if config is not None else {} # None kontrolü ekle
+        self.config = config if config is not None else {}
 
         # Ses ayarları
         self.format = pyaudio.paInt16 # 16-bit integer formatı
@@ -39,6 +39,8 @@ class AudioSensor:
                  except Exception as e:
                       logging.warning(f"Varsayılan ses input cihazı bulunamadı: {e}. İlk cihaz deneniyor veya simüle edilmiş girdi kullanılacak.")
                       # input_device_index 0 denenirse ve hata verirse de yakalanacak
+                      input_device_index = 0 # İlk cihazı varsayılan olarak dene
+
 
             # Ses akışını başlatma
             # Eğer input_device_index hala None ise veya geçersizse open hata verecektir, bunu yakalayacağız.
@@ -65,6 +67,7 @@ class AudioSensor:
             self.audio = None
             self.stream = None
 
+
         # Ses kullanılamıyorsa sahte veri boyutunu belirle (chunk_size ve channels)
         # Bunlar zaten init başında ayarlandı, sadece is_audio_available False ise kullanılacak.
         logging.info(f"AudioSensor başlatıldı. Ses aktif: {self.is_audio_available}")
@@ -73,15 +76,16 @@ class AudioSensor:
     def capture_chunk(self):
         """
         Mikrofondan sesin küçük bir bölümünü (chunk) yakalar veya ses akışı aktif değilse sahte bir chunk döndürür.
-        Blocking okuma yapılır. Veri bekler veya hata durumunda sahte döner.
+        Blocking okuma (varsayılan timeout) veya non-blocking (timeout=0). Platform uyumluluğu için timeout kaldırıldı.
+        Şu an blocking olmayan okuma için `stream.read(..., timeout=0)` kullanıldı. Eğer bu hata verirse,
+        timeout=0 kaldırılıp blocking hale getirilebilir veya farklı bir non-blocking yöntem denenir.
+        NOT: Önceki hata PyAudio versiyonundan veya platformdan kaynaklı timeout argümanı uyumsuzluğu olabilir.
+        Bu düzeltmede timeout argümanı kaldırıldı. Sadece exception_on_overflow=False kaldı.
         """
         if self.is_audio_available and self.stream.is_active():
             try:
-                # Blocking read (timeout ile veya defaıult) veya Non-blocking read (timeout=0)
-                # Şimdilik basit blocking read kullanalım veya non-blocking için timeout=0 ekleyelim
-                # Blocking okuma yaparsak döngü bu satırda takılabilir!
-                # Non-blocking okuma (timeout=0) daha uygun
-                data = self.stream.read(self.chunk_size, exception_on_overflow=False, timeout=0)
+                # timeout=0 argümanı kaldırıldı
+                data = self.stream.read(self.chunk_size, exception_on_overflow=False)
 
                 # PyAudio verisi bytes cinsindendir. NumPy array'e dönüştürelim.
                 audio_chunk = np.frombuffer(data, dtype=np.int16)
@@ -91,6 +95,8 @@ class AudioSensor:
             except IOError as e:
                  # Ses tamponu henüz dolu değilse veya okuma hatası olursa
                  # logging.debug(f"Ses chunk okunamadı (IOError: {e}). Simüle edilmiş chunk döndürülüyor.")
+                 # IOError durumunda (veri yok gibi) None döndürmek veya sahte dönmek tartışılır.
+                 # Şimdilik simüle dönelim ki downstream processing patlamasın.
                  return self._generate_dummy_chunk() # Hata durumunda sahte chunk döndür
 
             except Exception as e:
@@ -162,31 +168,34 @@ if __name__ == '__main__':
         sensor = AudioSensor(test_config)
 
         # Ses akışının oturması için biraz bekle (gerçek mikrofon deneniyorsa)
-        if sensor.is_audio_available:
-            print("Mikrofon dinleniyor... Ses yakalamak için birkaç saniye bekleyin.")
-            time.sleep(2) # Akışın oturması için biraz bekle
+        # if sensor.is_audio_available:
+        #     print("Mikrofon dinleniyor... Ses yakalamak için birkaç saniye bekleyin.")
+        #     time.sleep(2) # Akışın oturması için biraz bekle
 
 
         print("Ses chunk yakalama denemesi (gerçek veya simüle)...")
-        chunk = sensor.capture_chunk()
+        # Döngüde birden fazla chunk yakalamak test etmek için daha iyi olabilir
+        for _ in range(5): # 5 chunk dene
+            chunk = sensor.capture_chunk()
 
-        if chunk is not None:
-            print(f"Yakalanan Ses Chunk Verisi (NumPy Array Shape): {chunk.shape}, Data Type: {chunk.dtype}")
+            if chunk is not None:
+                print(f"Yakalanan Ses Chunk Verisi (NumPy Array Shape): {chunk.shape}, Data Type: {chunk.dtype}")
+                # Sahte olup olmadığını kontrol etmek için basit bir test (tüm değerler 0 mı)
+                if not sensor.is_audio_available and np.all(chunk == 0):
+                     print("  (Simüle edilmiş chunk)")
+                elif sensor.is_audio_available:
+                     # Gerçek veriyse, enerjiye göre basit bir ses aktivitesi kontrolü
+                     energy = np.sum(chunk**2) / len(chunk) # Ortalama enerji
+                     print(f"  (Gerçek chunk, Enerji: {energy:.2f})")
+                     if energy < 100: # Çok düşük enerji = sessizlik olabilir (eşik değeri ayarlanmalı)
+                          print("  (Muhtemelen sessizlik)")
 
-            # Sahte olup olmadığını kontrol etmek için basit bir test (tüm değerler 0 mı)
-            if not sensor.is_audio_available and np.all(chunk == 0):
-                 print("Simüle edilmiş (sessiz) chunk başarıyla alındı.")
-            elif sensor.is_audio_available:
-                 print("Gerçek veya okunamayan chunk başarıyla alındı/oluşturuldu.")
 
-            # Ses verisi üzerinde temel analizler yapılabilir (örn. enerji seviyesi)
-            # energy = np.sum(chunk**2)
-            # print(f"Yakalanan Ses Chunk Enerjisi: {energy}")
-
-        else:
-            # Bu kısma normalde düşmemeli çünkü hata durumunda sahte chunk dönüyor.
-            print("Hata: capture_chunk None döndürdü (beklenmeyen durum).")
-
+            else:
+                # Bu kısma normalde düşmemeli çünkü hata durumunda sahte chunk dönüyor.
+                print("Hata: capture_chunk None döndürdü (beklenmeyen durum).")
+            
+            time.sleep(test_config.get('cognitive_loop_interval', 0.1)) # Döngü aralığı gibi bekle
 
     except Exception as e:
         logging.exception("AudioSensor test sırasında hata oluştu:")
