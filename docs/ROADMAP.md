@@ -64,7 +64,7 @@ Aşağıdaki fazlar, Evo'nın doğumundan (temel algı) bilgelik ve ustalığa (
     *   [x] Bu modüllerin temel döngüye entegrasyonu (`run_evo.py` içinde çağrılıyorlar).
 
     *   **Faz 1 Gerçek Implementasyon Görevleri (Mevcut Odak Noktamız - Görsel & İşitsel):**
-        *   [ ] Ham **görsel** veriden temel, düşük seviyeli özellikler (renk, basit kenarlar, hareket - gelecekte) çıkarma algoritmalarının `src/processing/vision.py` içine implementasyonu.
+        *   [x] Ham **görsel** veriden temel, düşük seviyeli özellikler (renk, basit kenarlar, hareket - gelecekte) çıkarma algoritmalarının `src/processing/vision.py` içine implementasyonu.
         *   [ ] Ham **işitsel** veriden temel, düşük seviyeli özellikler (enerji, frekans, MFCC - gelecekte) çıkarma algoritmalarının `src/processing/audio.py` içine implementasyonu.
         *   [ ] İşlenmiş **görsel ve işitsel** özelliklerden öğrenilmiş, düşük boyutlu, modality bazlı içsel temsiller (latent vektörler) oluşturma (örn: Basit bir Autoencoder veya VAE prensibi) implementasyonu (`src/representation/models.py`).
         *   [ ] `RepresentationLearner.learn_representation` metodunun bu öğrenme/dönüştürme sürecini içerecek şekilde implementasyonu.
