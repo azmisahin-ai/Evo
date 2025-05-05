@@ -1,4 +1,4 @@
-# Evo'nun Evrimsel Yolculuğu: Fazlar ve Kazanımlar (Güncel Durum ve Görev Listesi)
+# Evo'nın Evrimsel Yolculuğu: Fazlar ve Kazanımlar (Güncel Durum ve Görev Listesi)
 
 Evo projesinin gelişimi, bir **canlının büyüme aşamalarına** benzer şekilde, adım adım ilerleyen evrimsel fazlara ayrılmıştır. Her faz, bir öncekinin üzerine inşa edilir ve Evo'nun yeni bilişsel, duyusal ve motor yetenekler kazanmasını sağlar. Bu yol haritası, projenin nereye doğru ilerlediğini gösteren yaşayan bir belgedir ve **yapılacak görevler (task listesi/backlog) için referans görevi görür.**
 
@@ -27,7 +27,7 @@ Aşağıdaki fazlar, Evo'nun doğumundan (temel algı) bilgelik ve ustalığa (k
     *   [ ] **TODO:** Temel hata yönetimi/istisna işleme yapısını olgunlaştırmak ve modüller arası yaygınlaştırmak.
         *   [x] Duyusal sensörler (`src/senses/vision.py`, `src/senses/audio.py`) için temel hata yakalama ve loglama mekanizmaları eklendi.
         *   [x] Processing modülleri (`src/processing/vision.py`, `src/processing/audio.py`) için temel hata yakalama ve loglama mekanizmaları eklendi.
-        *   [ ] Representation, Memory, Cognition, MotorControl, Interaction modülleri için temel hata yakalama ve loglama mekanizmaları eklenecek.
+        *   [x] Representation, Memory, Cognition, MotorControl, Interaction modülleri için temel hata yakalama ve loglama mekanizmaları eklendi.
         *   [ ] Hata durumlarında sistemin davranışı için daha genel prensipler tanımlanacak (örn: non-kritik hatalarda devam et, kritik hatalarda durdur).
     *   [ ] **TODO:** Faz 0 ile ilgili genel kod kalitesi ve refactoring.
 
