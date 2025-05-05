@@ -38,16 +38,19 @@ Aşağıdaki fazlar, Evo'nın doğumundan (temel algı) bilgelik ve ustalığa (
             *   [x] src/senses modüllerine (vision, audio) docstring ve yorumlar eklendi.
             *   [x] src/processing modüllerine (vision, audio) docstring ve yorumlar eklendi.
             *   [x] Diğer Faz 0 kapsamındaki modüllere (memory/core, cognition/core, motor_control/core, interaction/api, interaction/output_channels) docstring ve yorumlar eklendi.
-        *   [ ] Girdi kontrolü yardımcı fonksiyonlarının (`src/core/utils.py`) uygun metotlara uygulanması.
+        *   [x] Genel kod tekrarı azaltma ve isimlendirme/tutarlılık iyileştirmeleri.
+            [ ] Girdi kontrolü yardımcı fonksiyonlarının (`src/core/utils.py`) uygun metotlara uygulanması.
             *   [x] Processing modüllerinde (vision, audio) girdi kontrolleri için src/core/utils.py yardımcı fonksiyonları kullanıldı.
             *   [x] Representation modülünde (models.py - learn metodu) girdi kontrolleri için src/core/utils.py yardımcı fonksiyonları kullanılması.
             *   [x] Memory modülünde (core.py - store, retrieve metotları) girdi kontrolleri için src/core/utils.py yardımcı fonksiyonları kullanılması.
             *   [x] Cognition modülünde (core.py - decide metodu) girdi kontrolleri için src/core/utils.py yardımcı fonksiyonları kullanılması.
             *   [x] MotorControl modülünde (core.py - generate_response metodu) girdi kontrolleri için src/core/utils.py yardımcı fonksiyonları kullanılması.
             *   [x] Interaction modülünde (api.py - send_output metodu, output_channels.py - send metotları) girdi kontrolleri için src/core/utils.py yardımcı fonksiyonları kullanılması.
-        *   [ ] Tekrar eden kod kalıplarını (örn: benzer try-except yapıları dışındaki) yardımcı fonksiyonlara taşıma.
-        *   [ ] İsimlendirme ve dosya/sınıf sorumluluklarında genel tutarlılık iyileştirmeleri.
-        *   [ ] Magic numbers/strings yerine sabitler veya config kullanımı.
+            *   [x] src/core/utils.py içindeki check_numpy_input fonksiyonunda tuple ndim ve dtype kontrolü düzeltildi.
+            *   [x] Diğer modüllerde (Sense, Representation, Memory, Cognition, MotorControl, Interaction) girdi kontrolleri için src/core/utils.py yardımcı fonksiyonları kullanılması.
+            *   [x] Module_loader.py içinde tekrar eden modül başlatma ve temizleme kalıpları yardımcı fonksiyonlara taşıldı.
+            *   [ ] İsimlendirme ve dosya/sınıf sorumluluklarında genel tutarlılık iyileştirmeleri.
+            *   [ ] Magic numbers/strings yerine sabitler veya config kullanımı.
         *   [ ] Unit testler için temel iskeletin kurulması.
         *   [ ] ... Diğer refactoring adımları ...
 
