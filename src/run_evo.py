@@ -42,7 +42,8 @@ def load_config():
              'representation_dim': 128 # Öğrenilecek temsil boyutu
          },
          'memory': { # Memory modülü için konfigürasyon
-             'max_memory_size': 1000 # Saklanacak maksimum temsil sayısı (geçici hafıza)
+             'max_memory_size': 1000, # Saklanacak maksimum temsil sayısı (geçici hafıza)
+             'num_retrieved_memories': 5 # Her döngüde kaç hafıza girdisi geri çağrılacak (placeholder için)
              # Gelecekte kalıcı depolama ayarları buraya gelebilir
          },
         'cognitive_loop_interval': 0.1 # Bilişsel döngünün ne sıklıkla çalışacağı (saniye)
@@ -69,7 +70,7 @@ def run_evo():
     sensors = {}
     processors = {}
     representers = {}
-    memories = {} # Memory modülleri için yeni kategori
+    memories = {}
     other_modules = {} # Cognition, motor_control, interaction vb. buraya gelecek
 
     # Başlatma başarılı olduysa main loop'u çalıştırmak için flag
@@ -112,7 +113,7 @@ def run_evo():
         logging.warning("Hiçbir duyusal sensör aktif değil. Evo girdi alamayacak.")
 
 
-    # Faz 1 Başlangıcı: Processing Modülleri Başlat
+    # Faz 1 Başlangici: Processing Modülleri Başlat
     logging.info("Faz 1: Processing modülleri başlatılıyor...")
     try:
         processors['vision'] = VisionProcessor(config.get('processing_vision', {}))
@@ -124,7 +125,7 @@ def run_evo():
          can_run_main_loop = False
 
 
-    # Faz 1 Devamı: Representation Modülleri Başlat
+    # Faz 1 Devami: Representation Modülleri Başlat
     logging.info("Faz 1: Representation modülleri başlatılıyor...")
     # Representation modülü processing çıktısına bağımlı, eğer processing yoksa başlatmanın anlamı yok.
     # Veya dummy/placeholder representation modülü başlatılabilir.
@@ -141,7 +142,7 @@ def run_evo():
          logging.warning("Processing modülleri başlatılamadığı için Representation modülleri atlandı.")
 
 
-    # Faz 2 Başlangıcı: Memory Modülü Başlat
+    # Faz 2 Başlangici: Memory Modülü Başlat
     logging.info("Faz 2: Memory modülü başlatılıyor...")
     # Memory modülü representation'a bağımlı. Eğer representation yoksa başlatmanın anlamı yok.
     if can_run_main_loop: # Eğer processing ve representation başlatma hatası olmadıysa
@@ -172,13 +173,21 @@ def run_evo():
 
     if can_run_main_loop:
          # Ana döngüye gireceksek, en az bir sensör, tüm işlemci, tüm representation ve tüm memory modülleri başarılı mı?
-         # Modül kategorilerinin boş olmaması gerekiyor.
-         if active_sensors and processors and representers and memories:
-             logging.info("Tüm temel modüller başarıyla başlatıldı. Evo bilişsel döngüye hazır.")
+         # Modül kategorilerinin objeleri None değilse başarılı kabul edelim.
+         if sensors and all(sensors.values()) and \
+            processors and all(processors.values()) and \
+            representers and all(representers.values()) and \
+            memories and all(memories.values()): # Temel modüllerin varlığını ve None olmadığını kontrol et
+             logging.info("Tüm temel modüller başarıyla başlatıldı ve aktif. Evo bilişsel döngüye hazır.")
          else:
-              logging.warning("Temel modüllerin bazıları başlatılamadı. Evo bilişsel döngüsü sınırlı çalışabilir veya durdurulabilir.")
-              # Daha katı bir kural eklenebilir: Eğer temel modül kategorilerinden herhangi biri (sensors, processors, etc.) tam değilse can_run_main_loop = False yap.
-              # Şimdilik loglayıp devam edelim.
+              # Eğer buraya geldiyse ama bazı temel modüller None ise, loglayıp döngüye gireceğiz ama eksik modüller None kontrolü ile atlanacak.
+              # Bu esnek bir yaklaşım. Daha katı olmak için burada can_run_main_loop = False yapabiliriz.
+              logging.warning("Temel modüllerin bazıları başlatılamadı veya aktif değil. Evo bilişsel döngüsü sınırlı çalışabilir.")
+              # Hangi modüllerin None olduğunu loglayabiliriz:
+              # missing_modules = {k: v for cat_dict in [sensors, processors, representers, memories] for k, v in cat_dict.items() if v is None}
+              # if missing_modules:
+              #     logging.warning(f"Başlatılamayan temel modüller: {list(missing_modules.keys())}")
+
 
     else:
          logging.critical("Modül başlatma hataları nedeniyle Evo'nun bilişsel döngüsü başlatılamadı.")
@@ -189,6 +198,7 @@ def run_evo():
     if can_run_main_loop:
         logging.info("Evo'nun bilişsel döngüsü başlatıldı...")
         loop_interval = config.get('cognitive_loop_interval', 0.1) # Döngü hızı
+        num_memories_to_retrieve = config.get('memory', {}).get('num_retrieved_memories', 5) # Her döngüde kaç hafıza çağırılacak
 
         try:
             while True: # Main loop runs as long as no unhandled error or KeyboardInterrupt
@@ -234,22 +244,32 @@ def run_evo():
 
 
                 # --- Temsili Hafızaya Kaydet ve/veya Hafızadan Bilgi Al (Faz 2 Başlangıcı) ---
+                relevant_memory_entries = [] # Başlangıçta ilgili bellek girdileri yok
                 # Sadece memory objesi None değilse ve öğrenilmiş temsil None değilse
-                relevant_memory = None # Başlangıçta ilgili bellek yok
                 if memories.get('core_memory') and learned_representation is not None:
                      # Öğrenilen temsili hafızaya kaydet
                      memories['core_memory'].store(learned_representation)
                      # TODO: Buraya hafızadan ilgili bilgi çağırma mantığı eklenecek (Faz 2 devamı)
-                     # relevant_memory = memories['core_memory'].retrieve(learned_representation)
-                     # if relevant_memory:
-                     #      logging.debug(f"Hafızadan ilgili bilgi alındı. Örnek: {relevant_memory[:min(len(relevant_memory), 10)]}...") # İlk 10 elemanı logla
+                     # Şimdilik, hafızadan rastgele N girdi çağırarak placeholder retrieve fonksiyonunu test edelim.
+                     # Gerçekte query_representation = learned_representation olmalı.
+                     relevant_memory_entries = memories['core_memory'].retrieve(
+                         learned_representation, # Sorgu temsili
+                         num_results=num_memories_to_retrieve
+                     )
+                     if relevant_memory_entries:
+                          logging.debug(f"Hafızadan {len(relevant_memory_entries)} ilgili girdi geri çağrıldı (placeholder).")
+                          # Geri çağrılan girdilerin içeriğini loglamak DEBUG seviyesinde çok fazla çıktı üretebilir,
+                          # sadece sayısını veya basit özetini loglamak daha iyi.
+                          # Örneğin: logging.debug(f"Hafızadan ilgili girdi temsil şekli: {relevant_memory_entries[0]['representation'].shape}...")
+
+                     # else: logging.debug("Hafızadan ilgili girdi çağrılamadı.")
 
 
                 # TODO: Hafıza ve temsile göre bilişsel işlem yap (anlama, karar verme) (Faz 3+)
-                # if other_modules.get('cognition') and (learned_representation is not None or relevant_memory is not None):
+                # if other_modules.get('cognition') and (learned_representation is not None or relevant_memory_entries):
                 #      decision = other_modules['cognition'].decide(
                 #          learned_representation, # Temsil None olabilir
-                #          relevant_memory if 'relevant_memory' in locals() else None # Hafıza None olabilir
+                #          relevant_memory_entries # Liste boş olabilir
                 #      )
                 #      if decision is not None:
                 #           logging.debug(f"Bilişsel karar alındı: {decision}")
