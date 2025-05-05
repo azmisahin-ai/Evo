@@ -38,7 +38,13 @@ Aşağıdaki fazlar, Evo'nın doğumundan (temel algı) bilgelik ve ustalığa (
             *   [x] src/senses modüllerine (vision, audio) docstring ve yorumlar eklendi.
             *   [x] src/processing modüllerine (vision, audio) docstring ve yorumlar eklendi.
             *   [x] Diğer Faz 0 kapsamındaki modüllere (memory/core, cognition/core, motor_control/core, interaction/api, interaction/output_channels) docstring ve yorumlar eklendi.
-        *   [ ] Genel kod tekrarı azaltma ve isimlendirme/tutarlılık iyileştirmeleri.
+        *   [x] Genel kod tekrarı azaltma ve isimlendirme/tutarlılık iyileştirmeleri.
+            *   [x] Processing modüllerinde (vision, audio) girdi kontrolleri için src/core/utils.py yardımcı fonksiyonları kullanıldı.
+            *   [ ] Diğer modüllerde (Sense, Representation, Memory, Cognition, MotorControl, Interaction) girdi kontrolleri için src/core/utils.py yardımcı fonksiyonları kullanılması.
+            *   [ ] Tekrar eden kod kalıplarını (örn: benzer try-except yapıları) yardımcı fonksiyonlara taşıma.
+            *   [ ] İsimlendirme ve dosya/sınıf sorumluluklarında genel tutarlılık iyileştirmeleri.
+            *   [ ] Magic numbers/strings yerine sabitler veya config kullanımı.
+        *   [ ] Unit testler için temel iskeletin kurulması.
         *   [ ] ... Diğer refactoring adımları ...
 
 
@@ -64,7 +70,7 @@ Aşağıdaki fazlar, Evo'nın doğumundan (temel algı) bilgelik ve ustalığa (
     *   [x] Memory modülüne `store_memory` ve `retrieve_memory` placeholder/temel işlevselliğin eklenmesi.
     *   [x] Metadata desteğinin eklenmesi.
     *   [x] Basit (rastgele) geri çağırma mantığının implementasyonu.
-    *   [x] Belleğin temel döngüye entegrasyonu (`run_evo.py` içinde çağriliyor).
+    *   [x] Belleğin temel döngüye entegrasyonu (`run_evo.py` içinde çağrılıyor).
 
     *   **Faz 2 Gerçek Implementasyon Görevleri:**
         *   [ ] Bellek depolama yöntemleri (basit dosya, veritabanı, vektör veritabanı, grafik veritabanı, vs.) araştırılması.
