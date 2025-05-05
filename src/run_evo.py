@@ -14,7 +14,9 @@ from src.representation.models import RepresentationLearner
 from src.memory.core import Memory # core.py dosyasındaki Memory sınıfı
 # Cognition modülünü import et
 from src.cognition.core import CognitionCore # core.py dosyasındaki CognitionCore sınıfı
-# Diğer modüller (motor_control, interaction) geldikçe buraya eklenecek
+# Motor Control modülünü import et
+from src.motor_control.core import MotorControlCore # core.py dosyasındaki MotorControlCore sınıfı
+# Diğer modüller (interaction) geldikçe buraya eklenecek
 
 # Konfigürasyon yükleme (şimdilik basit bir placeholder)
 # Gelecekte config/main_config.yaml dosyasından okunacak
@@ -51,12 +53,15 @@ def load_config():
          'cognition': { # Cognition modülü için konfigürasyon
              # Örneğin, karar eşikleri veya model yolları buraya gelebilir
          },
+         'motor_control': { # Motor Control modülü için konfigürasyon
+             # Örneğin, çıktı tipi (metin, ses vb.) veya sentezleyici ayarları
+         },
         'cognitive_loop_interval': 0.1 # Bilişsel döngünün ne sıklıkla çalışacağı (saniye)
     }
 
 def run_evo():
     """
-    Evo'nun çekirdek bilişsel döngüsünü ve arayüzlerini başlatır.
+    Evo'nın çekirdek bilişsel döngüsünü ve arayüzlerini başlatır.
     Bu fonksiyon çağrıldığında Evo "canlanır".
     """
     # Logging ayarları (dosya başında veya ayrı bir utility fonksiyonda olabilir)
@@ -76,8 +81,10 @@ def run_evo():
     processors = {}
     representers = {}
     memories = {}
-    cognition_modules = {} # Cognition modülleri için yeni kategori
-    other_modules = {} # Motor control, interaction vb. buraya gelecek
+    cognition_modules = {}
+    motor_control_modules = {} # Motor Control modülleri için yeni kategori
+    other_modules = {} # Interaction vb. buraya gelecek
+
 
     # Başlatma başarılı olduysa main loop'u çalıştırmak için flag
     can_run_main_loop = True
@@ -177,44 +184,43 @@ def run_evo():
     else:
          logging.warning("Önceki modüller başlatılamadığı için Cognition modülü atlandı.")
 
+    # Faz 3 Devami: Motor Control Modülü Başlat
+    logging.info("Faz 3: Motor Control modülü başlatılıyor...")
+    # Motor Control modülü Cognition'a bağımlı. Eğer Cognition yoksa başlatmanın anlamı yok.
+    if can_run_main_loop: # Eğer processing, representation, memory ve cognition başlatma hatası olmadıysa
+        try:
+            motor_control_modules['core_motor_control'] = MotorControlCore(config.get('motor_control', {}))
+            logging.info("Motor Control modülü başarıyla başlatıldı.")
+        except Exception as e:
+            logging.critical(f"Motor Control modülü başlatılırken kritik hata oluştu: {e}", exc_info=True)
+            # Motor Control kritik hata verirse main loop'u engelle.
+            can_run_main_loop = False
+    else:
+         logging.warning("Önceki modüller başlatılamadığı için Motor Control modülü atlandı.")
+
 
     # TODO: Diğer modülleri burada başlat (Faz 3 ve sonrası).
-    # Bunların başlatılması main loop'u engellememeli (kritik değillerse),
-    # bu yüzden bireysel try-except kullanın ve kritik hata durumunda objeyi None yapın.
+    # Interaction API gibi modüller main loop'u engellememeli, bireysel hata yönetimi yapın.
     # try:
-    #     logging.info("Motor Control modülü başlatılıyor...")
-    #     other_modules['motor_control'] = MotorControlModule(config.get('motor_control', {}))
-    #     logging.info("Motor Control modülü başarıyla başlatıldı.")
+    #     logging.info("Interaction modülü başlatılıyor...")
+    #     other_modules['interaction'] = InteractionAPI(config.get('interaction', {}))
+    #     other_modules['interaction'].start() # Threaded olabilir
+    #     logging.info("Interaction modülü başarıyla başlatıldı.")
     # except Exception as e:
-    #     logging.critical(f"Motor Control modülü başlatılırken kritik hata oluştu: {e}", exc_info=True)
-    #     other_modules['motor_control'] = None
-    #     # Motor Control kritikse main loop'u engelle: can_run_main_loop = False
+    #     logging.critical(f"Interaction modülü başlatılırken kritik hata oluştu: {e}", exc_info=True)
+    #     other_modules['interaction'] = None # Hata durumunda objeyi None yap
 
 
+    # Tüm temel modül kategorileri başlatıldı mı kontrolü (eğer can_run_main_loop True ise)
     if can_run_main_loop:
-         # Ana döngüye gireceksek, gerekli tüm temel modül kategorileri (sensors, processors, representers, memories, cognition_modules) başarılı mı?
-         # Kategori sözlüklerinin boş olmaması ve içlerindeki objelerin None olmaması gerekiyor (eğer objeleri None yapıyorsak kritik hatada).
-         # Şu anki mantıkta kritik hata main loop'u engelliyor. Sadece eksik ama kritik olmayanlar None olabilir.
-         # Sensörler None olmaz ama is_available False olabilir. Diğer kritik modüller None olursa can_run_main_loop = False olur.
-         # O yüzden sadece can_run_main_loop kontrolü yeterli gibi görünüyor başlatma try-except yapısıyla.
-         # Yine de modül kategorisi sözlüklerinin dolu olduğunu kontrol etmek temiz bir yaklaşım olabilir.
-         if sensors and processors and representers and memories and cognition_modules: # Temel modül kategorileri mevcut mu?
+         if sensors and processors and representers and memories and cognition_modules and motor_control_modules:
             # Kategorilerdeki objelerin None olup olmadığını da kontrol et (eğer kritik hata yerine None yapıyorsak)
-            # all(sensors.values()) ve (getattr(s, 'is_camera_available', False) or getattr(s, 'is_audio_available', False) for s in sensors.values())
-            # all(processors.values()) and all(representers.values()) and all(memories.values()) and all(cognition_modules.values()): # Temel objeler None değil mi?
-            # Karmaşık kontrol yerine basitçe loglayalım:
-             logging.info("Tüm temel modül kategorileri başlatıldı. Evo bilişsel döngüye hazır.")
+            # Basitçe loglayalım:
+             logging.info("Tüm temel modül kategorileri başarıyla başlatıldı. Evo bilişsel döngüye hazır.")
          else:
               # Bu durum should not happen if can_run_main_loop is True with current logic,
               # unless some non-critical module init fails silently (which we handle with logging).
-              logging.warning("Bazı temel modül kategorileri başlatılamadı veya eksik. Evo bilişsel döngüsü sınırlı çalışabilir.")
-              # Hangi kategorilerin eksik olduğunu loglayabiliriz:
-              # missing_categories = [cat_name for cat_name, cat_dict in [('Sensors', sensors), ('Processors', processors), ('Representers', representers), ('Memories', memories), ('Cognition', cognition_modules)] if not cat_dict]
-              # if missing_categories:
-              #     logging.warning(f"Eksik modül kategorileri: {', '.join(missing_categories)}")
-              # missing_modules_in_categories = {cat_name: list(cat_dict.keys()) for cat_name, cat_dict in [('Sensors', sensors), ('Processors', processors), ('Representers', representers), ('Memories', memories), ('Cognition', cognition_modules)] if cat_dict and any(v is None for v in cat_dict.values())}
-              # if missing_modules_in_categories:
-              #      logging.warning(f"None olan modül objeleri: {missing_modules_in_categories}")
+              logging.warning("Temel modüllerin bazıları başlatılamadı veya eksik. Evo bilişsel döngüsü sınırlı çalışabilir.")
 
 
     else:
@@ -317,17 +323,23 @@ def run_evo():
                 #      # logging.debug("Cognition modülü veya işlenecek girdi (temsil/bellek) mevcut değil.")
                 #      pass # Debug logu çok sık gelebilir.
 
+                # --- Karara göre bir Tepki Üret (Faz 3 Devamı) ---
+                response_output = None # Başlangıçta bir tepki yok
+                # Sadece motor control objesi None değilse ve bir karar alındıysa
+                if motor_control_modules.get('core_motor_control') and decision is not None:
+                     response_output = motor_control_modules['core_motor_control'].generate_response(decision)
+                     if response_output is not None:
+                          logging.debug(f"Motor kontrol tepki üretti (placeholder). Output: '{response_output}'")
+                     # else: logging.debug("Motor kontrol tepki üretemedi veya None döndü.")
 
-                # TODO: Karara göre bir tepki üret (Faz 3 Devamı)
-                # if other_modules.get('motor_control') and decision is not None:
-                #      raw_output = other_modules['motor_control'].generate_response(decision)
-                #      if raw_output:
-                #           logging.debug(f"Tepki üretildi. İlk kısım: {str(raw_output)[:min(len(str(raw_output)), 50)]}...")
+                # else:
+                #     # logging.debug("Motor Control modülü veya karar mevcut değil.")
+                #     pass # Debug logu çok sık gelebilir.
 
 
                 # TODO: Tepkiyi interaction API üzerinden dışarı aktar (Faz 3 Devamı)
-                # if other_modules.get('interaction') and 'raw_output' in locals() and raw_output is not None:
-                #    other_modules['interaction'].send_output(raw_output)
+                # if other_modules.get('interaction') and response_output is not None:
+                #    other_modules['interaction'].send_output(response_output)
                 #    logging.debug("Tepki dışarı aktarıldı.")
 
 
@@ -344,7 +356,7 @@ def run_evo():
 
 
                 # Gelecekte döngüyü sonlandıracak bir mekanizma eklenecek (örn. kullanıcı sinyali, içsel durum)
-                # if other_modules.get('cognition') and other_modules['cognition'].should_stop(): break # Örnek: Evo uykuya dalarsa
+                # if cognition_modules.get('core_cognition') and cognition_modules['core_cognition'].should_stop(): break # Örnek: Evo uykuya dalarsa
 
         except KeyboardInterrupt:
             logging.warning("Ctrl+C algılandı. Evo durduruluyor...")
@@ -384,6 +396,11 @@ def run_evo():
             # if cognition_modules.get('core_cognition') and hasattr(cognition_modules['core_cognition'], 'cleanup'):
             #      logging.info("Cognition modülü temizleniyor...")
             #      cognition_modules['core_cognition'].cleanup()
+
+            # Motor Control modülü genellikle kapatma gerektirmez
+            # if motor_control_modules.get('core_motor_control') and hasattr(motor_control_modules['core_motor_control'], 'cleanup'):
+            #      logging.info("Motor Control modülü temizleniyor...")
+            #      motor_control_modules['core_motor_control'].cleanup()
 
 
             # TODO: Diğer başlatılan modüllerin kapatılmasını sağla (API gibi thread'ler)
