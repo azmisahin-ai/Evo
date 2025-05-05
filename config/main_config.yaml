@@ -1,0 +1,65 @@
+# config/main_config.yaml
+# Evo projesinin ana yapılandırma dosyası.
+# Modül ayarları, genel parametreler ve diğer yapılandırmalar burada tanımlanır.
+
+# Genel Ayarlar
+cognitive_loop_interval: 0.1 # Bilişsel döngünün ne sıklıkla çalışacağı (saniye)
+
+# Modül Ayarları
+
+vision:
+  camera_index: 0 # Varsayılan kamera indeksi
+  dummy_width: 640 # Simüle kare genişliği (gerçek kamera yoksa)
+  dummy_height: 480 # Simüle kare yüksekliği (gerçek kamera yoksa)
+  # is_dummy: True # Gerçek kamera yerine simülasyon kullanılsın mı? (Gelecek)
+
+audio:
+  audio_rate: 44100 # Ses örnekleme oranı
+  audio_chunk_size: 1024 # Her seferinde işlenecek ses örneği sayısı
+  # audio_input_device_index: null # null varsayılan cihazı kullanır, belirli bir index verilebilir.
+
+processing_vision: # src/processing/vision.py için ayarlar
+  output_width: 64 # İşlenmiş görsel çıktının genişliği
+  output_height: 64 # İşlenmiş görsel çıktının yüksekliği
+
+processing_audio: # src/processing/audio.py için ayarlar
+  # Örneğin, MFCC sayısı gibi ayarlar buraya gelebilir
+  # output_features: ['energy', 'mfcc'] # Gelecekte
+  output_dim: 1 # Şu anki enerji çıktısı için boyut
+
+representation: # src/representation/models.py için ayarlar
+  # input_dim, processing çıktılarının boyutuna göre dinamik belirlenmeli veya config_utils içinde hesaplanmalı.
+  # Eğer Processing Vision 64x64 gri dönerse: 64*64=4096. Audio 1 enerji dönerse: 1. input_dim = 4096 + 1 = 4097
+  input_dim: 4097 # Öğrenilecek temsil modelinin girdi boyutu (vision + audio)
+  representation_dim: 128 # Öğrenilecek temsil boyutu
+
+memory: # src/memory/core.py için ayarlar
+  max_memory_size: 1000 # Saklanacak maksimum temsil sayısı (geçici hafıza)
+  num_retrieved_memories: 5 # Her döngüde kaç hafıza girdisi geri çağrılacak (placeholder için)
+  # Gelecekte kalıcı depolama ayarları buraya gelebilir (örn: file_path: data/memory.json)
+
+cognition: # src/cognition/* için ayarlar
+  # Örneğin, karar eşikleri veya model yolları buraya gelebilir
+  # decision_threshold: 0.7
+
+motor_control: # src/motor_control/* için ayarlar
+  # Örneğin, çıktı tipi (metin, ses vb.) veya sentezleyici ayarları
+  # default_output_type: text
+
+interaction: # src/interaction/* için ayarlar
+  enabled_channels: ['console'] # Aktif çıktı kanalları listesi. 'console', 'web_api' vb.
+  channel_configs: # Kanal bazlı özel ayarlar
+    web_api:
+      port: 5000
+      # host: 127.0.0.1 # Gelecekte
+
+# Logging Ayarları (Gelecekte buraya taşınabilir)
+# logging:
+#   level: DEBUG
+#   format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+#   handlers:
+#     - type: console
+#       stream: stdout
+#     - type: file
+#       filename: evo.log
+#       level: INFO # Dosyaya sadece INFO ve üstü yazılsın
