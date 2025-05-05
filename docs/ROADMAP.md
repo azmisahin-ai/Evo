@@ -22,13 +22,13 @@ Aşağıdaki fazlar, Evo'nun doğumundan (temel algı) bilgelik ve ustalığa (k
     *   [x] Temel hata yönetimi ve logging iyileştirmelerinin başlangıcı (`run_evo.py` içindeki try-except blokları ve logging çağrıları).
     *   [x] DEBUG loglarının neden görünmediği konusunu araştırmak ve çözmek.
     *   [x] Yapılandırma yönetimini ayrı bir modül haline getirmek ve `.yaml` dosyasından okumayı implement etmek (`config.py`, `PyYAML` entegrasyonu).
-
-
-    *   [ ] **TODO:** Temel hata yönetimi/istisna işleme yapısını olgunlaştırmak ve modüller arası yaygınlaştırmak.
+    *   [x] **TODO:** Temel hata yönetimi/istisna işleme yapısını olgunlaştırmak ve modüller arası yaygınlaştırmak.
         *   [x] Duyusal sensörler (`src/senses/vision.py`, `src/senses/audio.py`) için temel hata yakalama ve loglama mekanizmaları eklendi.
         *   [x] Processing modülleri (`src/processing/vision.py`, `src/processing/audio.py`) için temel hata yakalama ve loglama mekanizmaları eklendi.
         *   [x] Representation, Memory, Cognition, MotorControl, Interaction modülleri için temel hata yakalama ve loglama mekanizmaları eklendi.
-        *   [ ] Hata durumlarında sistemin davranışı için daha genel prensipler tanımlanacak (örn: non-kritik hatalarda devam et, kritik hatalarda durdur).
+        *   [x] Hata durumlarında sistemin davranışı için daha genel prensipler tanımlandı (örn: non-kritik hatalarda devam et, kritik hatalarda durdur).
+
+
     *   [ ] **TODO:** Faz 0 ile ilgili genel kod kalitesi ve refactoring.
 
 
@@ -87,7 +87,7 @@ Aşağıdaki fazlar, Evo'nun doğumundan (temel algı) bilgelik ve ustalığa (k
 
 ---
 
-*   **Faz 4 - Faz 10:** (Bu fazlar mevcut commit geçmişinde spesifik implementasyon adımları olarak henüz görünmüyor. Mevcut `ROADMAP.md`'deki yüksek seviye hedefler olarak kalıyorlar ve Faz 1, 2, 3'teki temel implementasyonlar tamamlandıkça detaylandırılacaklar.)
+*   **Faz 4 - Faz 10:** (Bu fazlar mevcut commit geçmişinde spesifik implementasyon adımları olarak henüz görünmüyor. Mevcut `ROADMAP.md`'deki yüksek seviye hedenler olarak kalıyorlar ve Faz 1, 2, 3'teki temel implementasyonlar tamamlandıkça detaylandırılacaklar.)
 
 *   **Faz 4: Kavramsal Genişleme ve İfade Gelişimi (Dünyayı Keşfetme ve İletişim Çabaları)**
     *   [ ] Hedef: Daha fazla kavramı kendi kendine (denetimsiz öğrenme ile) keşfetmeye başlama. Denetimli öğrenme ile öğretilen etiket setini genişletme. İçsel temsillerden daha kontrollü dışsal ifadeler üretme (ses sentezi, basit görsel çıktılar).
