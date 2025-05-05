@@ -47,17 +47,15 @@ Aşağıdaki fazlar, Evo'nın doğumundan (temel algı) bilgelik ve ustalığa (
             *   [x] src/core/utils.py içindeki check_numpy_input fonksiyonunda tuple ndim ve dtype kontrolü düzeltildi.
             *   [x] Diğer modüllerde (Sense, Representation, Memory, Cognition, MotorControl, Interaction) girdi kontrolleri için src/core/utils.py yardımcı fonksiyonları kullanılması.
             *   [x] Module_loader.py içinde tekrar eden modül başlatma ve temizleme kalıpları yardımcı fonksiyonlara taşıldı.
-            *   [ ] İsimlendirme ve dosya/sınıf sorumluluklarında genel tutarlılık iyileştirmeleri.
+            *   [x] İsimlendirme ve dosya/sınıf sorumluluklarında genel tutarlılık iyileştirmeleri.
                 *   [x] Cognition modülü (src/cognition) gözden geçirildi (yapısal niyet belirlendi).
                 *   [x] Bellek modülü (src/memory) gözden geçirildi (yapısal niyet belirlendi).
                 *   [x] Sense (src/senses) ve Processing (src/processing) modülleri gözden geçirildi.
                 *   [x] Representation (src/representation) modülü gözden geçirilecek.
                 *   [x] MotorControl (src/motor_control) modülü gözden geçirilecek.
-                *   [ ] Interaction (src/interaction) modülü gözden geçirilecek.
-            *   [ ] Tekrar eden kod kalıplarını (örn: benzer try-except yapıları dışındaki) yardımcı fonksiyonlara taşıma.                
-            *   [ ] Magic numbers/strings yerine sabitler veya config kullanımı.
+                *   [x] Interaction (src/interaction) modülü gözden geçirilecek.
+            *   [ ] Tekrar eden kod kalıplarını (örn: benzer try-except yapıları dışındaki) yardımcı fonksiyonlara 
         *   [ ] Unit testler için temel iskeletin kurulması.
-        *   [ ] ... Diğer refactoring adımları ...
 
 
 *   **Faz 1: Temel İşleme ve Temsil (Duyusal Veriden Özellik Çıkarma)**
