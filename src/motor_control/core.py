@@ -1,105 +1,79 @@
 # src/motor_control/core.py
-
 import logging
-import numpy as np
+
+# Bu modül için bir logger oluştur
+logger = logging.getLogger(__name__)
+
+# motor_control/expression.py dosyası şu an sadece placeholder olabilir
+# Gelecekte bu sınıflar veya fonksiyonlar burada import edilecek
+# from .expression import ExpressionGenerator # Gelecek
+
 
 class MotorControlCore:
     """
-    Evo'nun temel motor kontrol ve çıktı üretim birimini temsil eder.
-    Bilişsel modülden gelen kararlara göre dış dünyaya tepkiler üretir.
+    Evo'nın motor kontrol çekirdeği. Bilişsel kararları dışsal tepkilere dönüştürür.
     """
-    def __init__(self, config=None):
-        logging.info("MotorControl modülü başlatılıyor...")
-        self.config = config if config is not None else {}
-
-        # Çıktı formatları veya ayarlar burada yüklenebilir
-        # Örneğin: self.output_type = self.config.get('output_type', 'text')
-
-        logging.info("MotorControl modülü başlatıldı.")
+    def __init__(self, config):
+        self.config = config
+        logger.info("MotorControl modülü başlatılıyor...")
+        # Alt modüllerin başlatılması buraya gelebilir (ExpressionGenerator vb.)
+        # self.expression_generator = ExpressionGenerator(config.get('expression', {})) # Gelecek
+        logger.info("MotorControl modülü başlatıldı.")
 
     def generate_response(self, decision):
         """
-        Bilişsel modülden gelen kararı (decision) alır
-        ve bu karara göre bir çıktı/tepki üretir (basit metin).
+        Bilişsel karara dayanarak dış dünyaya bir tepki (response) üretir.
+        Şimdilik çok basit placeholder mantığı.
 
-        decision: cognition modülünden gelen çıktı (string veya başka format)
+        Args:
+            decision (str or None): Cognition modülünden gelen karar.
+
+        Returns:
+            str or None: Üretilen tepki (çıktı) veya hata durumunda veya karar None ise None.
+                         Gelecekte daha yapısal bir çıktı formatı (örn: {'type': 'text', 'content': '...'})
         """
-        # logging.debug(f"MotorControl: Tepki üretiliyor. Alinan karar: {decision}")
+        # Temel hata yönetimi: Karar None ise işleme
+        if decision is None:
+            logger.debug("MotorControlCore.generate_response: Karar None. Tepki üretilemiyor.")
+            return None # Karar yoksa tepki de yok
 
-        # --- Gerçek Tepki Üretme Mantığı Buraya Gelecek (Faz 3 ve sonrası) ---
-        # Örnek: Metin oluşturma modeli, TTS, görsel motor kontrol sinyali vb.
+        response_output = None # Üretilen çıktıyı tutacak değişken
 
-        response_output = None # Varsayılan çıktı
+        try:
+            # Basit Placeholder Tepki Üretme Mantığı:
+            # Gelen karara göre basit bir metin tepkisi üret.
+            # Gelecekte: Karara göre metin, ses, görsel veya fiziksel eylemler.
+            if decision == "processing_and_remembering":
+                response_output = "Çevreyi algılıyorum ve hatırlıyorum." # Basit metin yanıtı
+            elif decision == "greet": # Gelecekte eklenebilecek bir karar
+                 response_output = "Merhaba!"
+            else:
+                 # Beklenmeyen veya işlenemeyen karar
+                 logger.warning(f"MotorControlCore.generate_response: Bilinmeyen veya işlenemeyen karar: '{decision}'. Varsayilan tepki üretiliyor.")
+                 response_output = "Ne yapacağımı bilemedim." # Varsayılan tepki
 
-        # Şimdilik basit bir placeholder tepki: Kararın türüne göre metin döndür
-        if decision == "processing_and_remembering":
-            response_output = "Çevreyi algılıyorum ve hatırlıyorum."
-        elif decision == "processing_new_input":
-            response_output = "Yeni bir şeyler algılıyorum."
-        elif decision == "recalling_memory":
-            response_output = "Geçmişten bir şeyler hatırladım."
-        elif decision == "no_input":
-            response_output = "Etrafta algıladığım bir şey yok." # Çok sık tekrar edebilir, dikkatli loglanmalı
-        else:
-            # Beklenmeyen karar tipi
-            response_output = f"Anlayamadığım bir karar verildi: {decision}" # Debug için
-
-        # logging.debug(f"MotorControl: Tepki üretildi (placeholder). Output: '{response_output}'")
-
-        return response_output # Üretilen çıktıyı (string veya başka format) döndür
-
-    # Gelecekte kullanılacak, farklı çıktı formatları için metotlar
-    # def generate_audio_response(self, text):
-    #     # Text-to-Speech (TTS) kullanarak ses çıktısı üretir
-    #     pass
-    # def generate_visual_response(self, internal_state):
-    #      # İçsel duruma göre basit görsel ifade üretir
-    #      pass
+            # Gelecekte:
+            # if decision['type'] == 'text_response':
+            #    response_output = self.expression_generator.generate_text(decision['content']) # Metin üretme modülü
+            # elif decision['type'] == 'play_sound':
+            #    response_output = self.expression_generator.generate_sound(decision['sound_id']) # Ses üretme modülü
 
 
-    def __del__(self):
-        """
-        Nesne silindiğinde kaynakları temizler.
-        """
-        logging.info("MotorControl modülü objesi silindi.")
+            # DEBUG logu: Üretilen tepki (None değilse)
+            # if response_output is not None:
+            #      logger.debug(f"MotorControlCore.generate_response: Motor kontrol tepki üretti (placeholder). Output: '{response_output}'")
 
-# Modülü bağımsız test etmek için örnek kullanım
-if __name__ == '__main__':
-    logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
-    print("MotorControl modülü test ediliyor...")
 
-    motor_control = MotorControlCore()
+        except Exception as e:
+            # Tepki üretme sırasında beklenmedik hata
+            logger.error(f"MotorControlCore.generate_response: Tepki üretme sırasında beklenmedik hata: {e}", exc_info=True)
+            return None # Hata durumunda None döndür
 
-    # Sahte karar çıktıları ile test et
-    dummy_decision_1 = "processing_and_remembering"
-    dummy_decision_2 = "no_input"
-    dummy_decision_3 = "unknown_state"
+        return response_output # Başarılı durumda tepkiyi döndür
 
-    print("\nKarar 'processing_and_remembering' ile test et:")
-    response_1 = motor_control.generate_response(dummy_decision_1)
-    print(f"Üretilen tepki: '{response_1}'")
-    if response_1 == "Çevreyi algılıyorum ve hatırlıyorum.":
-        print("Tepki doğru görünüyor.")
-
-    print("\nKarar 'no_input' ile test et:")
-    response_2 = motor_control.generate_response(dummy_decision_2)
-    print(f"Üretilen tepki: '{response_2}'")
-    if response_2 == "Etrafta algıladığım bir şey yok.":
-        print("Tepki doğru görünüyor.")
-
-    print("\nBeklenmeyen karar 'unknown_state' ile test et:")
-    response_3 = motor_control.generate_response(dummy_decision_3)
-    print(f"Üretilen tepki: '{response_3}'")
-    if "Anlayamadığım bir karar verildi" in response_3:
-        print("Beklenmeyen karar doğru işlendi.")
-
-    # None girdi ile test et
-    print("\nNone girdi ile MotorControl testi:")
-    response_none = motor_control.generate_response(None)
-    print(f"Alinan tepki: {response_none}")
-    if response_none is None:
-        print("None girdi ile tepki doğru şekilde None döndü.")
-    else:
-         print("None girdi ile tepki None dönmedi (beklenmeyen durum).")
-
-    print("\nMotorControl modülü testi bitti.")
+    def cleanup(self):
+        """Kaynakları temizler (alt modülleri vb.)."""
+        logger.info("MotorControl modülü objesi siliniyor...")
+        # Alt modüllerin cleanup metodunu çağır (varsa)
+        # if hasattr(self.expression_generator, 'cleanup'): self.expression_generator.cleanup() # Gelecek
+        logger.info("MotorControl modülü objesi silindi.")
