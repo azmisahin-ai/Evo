@@ -3,9 +3,13 @@
 # Görsel duyu verisini işler.
 # Ham piksel verisinden temel görsel özellikleri (örn. yeniden boyutlandırma, gri tonlama) çıkarır.
 
-import cv2 # OpenCV kütüphanesi. requirements.txt'e eklenmeli.
+import cv2 # OpenCV kütüphanesi, kamera yakalama ve temel görsel işlemler için. requirements.txt'e eklenmeli.
 import numpy as np # Sayısal işlemler ve arrayler için.
 import logging # Loglama için.
+
+# Yardımcı fonksiyonları import et (özellikle girdi kontrolleri için)
+from src.core.utils import check_input_not_none, check_numpy_input # <<< Yeni import
+
 
 # Bu modül için bir logger oluştur
 # 'src.processing.vision' adında bir logger döndürür.
@@ -59,19 +63,19 @@ class VisionProcessor:
                                     veya hata durumunda veya girdi None ise None.
         """
         # Hata yönetimi: Girdi None ise veya beklenen tipte değilse
-        if visual_input is None:
-            # Girdi None ise, bu bir hata değil, sadece o döngüde görsel veri yok demektir.
-            # DEBUG seviyesinde logla ve None döndürerek işlemeyi atla.
-            logger.debug("VisionProcessor: Girdi None. İşleme atlanıyor.")
-            return None
+        # check_input_not_none fonksiyonunu kullan (None ise loglar ve False döner)
+        if not check_input_not_none(visual_input, input_name="visual_input", logger_instance=logger):
+             return None # Girdi None ise işlemeyi atla ve None döndür.
 
         # Girdinin numpy array ve doğru dtype (uint8) olup olmadığını kontrol et.
-        # VisionSensor uint8 döndürdüğü için bu kontrol önemlidir.
-        if not isinstance(visual_input, np.ndarray) or visual_input.dtype != np.uint8:
-             logger.error(f"VisionProcessor: Beklenmeyen girdi tipi veya dtype: {type(visual_input)}, {visual_input.dtype}. numpy.ndarray (dtype uint8) bekleniyordu.")
+        # check_numpy_input fonksiyonunu kullan. Bu fonksiyon aynı zamanda np.ndarray kontrolü de yapar.
+        # Beklenen boyut 2D (gri) veya 3D (renkli) olabilir. dtype uint8 bekleniyor.
+        # check_numpy_input, hata durumunda ERROR loglar ve False döner.
+        if not check_numpy_input(visual_input, expected_dtype=np.uint8, expected_ndim=(2, 3), input_name="visual_input", logger_instance=logger):
              return None # Geçersiz tip veya dtype ise işlemeyi durdur ve None döndür.
 
-        # DEBUG logu: Girdi detayları (boyutları ve tipi).
+
+        # DEBUG logu: Girdi detayları (boyutları ve tipi). Artık check_numpy_input içinde de benzer log var ama burada da kalabilir.
         # logger.debug(f"VisionProcessor: Görsel veri alindi. Shape: {visual_input.shape}, Dtype: {visual_input.dtype}")
 
         processed_frame = None # İşlem sonucunu tutacak değişken.
@@ -79,7 +83,7 @@ class VisionProcessor:
         try:
             # 1. Gri tonlamaya çevir (Eğer girdi renkli ise).
             # Girdinin shape'i (Yükseklik, Genişlik, Kanal) ve kanal sayısının 3 (BGR) olduğunu varsayıyoruz.
-            # Gri tonlama görüntünün shape'i (Yükseklik, Genişlik) olur.
+            # len(visual_input.shape) == 3 ve visual_input.shape[2] == 3 kontrolü yeterli.
             if len(visual_input.shape) == 3 and visual_input.shape[2] == 3:
                 processed_frame = cv2.cvtColor(visual_input, cv2.COLOR_BGR2GRAY)
                 # logger.debug("VisionProcessor: Görsel veri BGR'den gri tonlamaya çevrildi.")
@@ -88,11 +92,12 @@ class VisionProcessor:
                 processed_frame = visual_input.copy() # Orijinal girdiyi değiştirmemek için kopya al.
                 # logger.debug("VisionProcessor: Görsel girdi zaten gri tonlama gibi. Çevirme atlandi.")
             else:
-                 # Beklenmeyen girdi boyutu (ne 2D gri ne de 3D renkli).
-                 logger.warning(f"VisionProcessor: Beklenmeyen görsel girdi boyutu: {visual_input.shape}. Gri tonlamaya çevrilemedi veya işlenemedi.")
+                 # check_numpy_input'ta ndim=(2,3) kontrolü yapıldı, buraya gelinmemeli ama sağlamlık için kalsın.
+                 logger.warning(f"VisionProcessor: Beklenmeyen görsel girdi boyutu (ndim değil): {visual_input.shape}. İşlenemedi.")
                  return None # Beklenmeyen boyutsa işleyemeyiz, None döndür.
 
             # 2. Yeniden boyutlandır (Yapılandırmada belirtilen output_width x output_height boyutuna).
+            # Hedef boyut tuple olarak verilir: (genişlik, yükseklik).
             # Interpolation metodu belirtilebilir, INTER_AREA küçültme için iyidir.
             processed_frame = cv2.resize(processed_frame, (self.output_width, self.output_height), interpolation=cv2.INTER_AREA)
             # logger.debug(f"VisionProcessor: Görsel veri ({self.output_width}, {self.output_height}) boyutuna yeniden boyutlandırıldı.")
