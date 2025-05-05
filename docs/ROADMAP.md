@@ -33,6 +33,11 @@ Aşağıdaki fazlar, Evo'nın doğumundan (temel algı) bilgelik ve ustalığa (
         *   [x] Modül başlatma ve temizleme mantığı `run_evo.py` dosyasından `src/core/module_loader.py` modülüne taşınarak kod tekrarı azaltıldı.
         *   [x] Loglama altyapısını yapılandırma dosyası (`main_config.yaml`) üzerinden kontrol edilebilir hale getirme (log seviyesi, çıktı hedefleri vb.).
         *   [ ] Docstrings ve Yorumlar eklendi/güncellendi.
+            *   [x] run_evo.py dosyasına docstring ve yorumlar eklendi/güncellendi.
+            *   [ ] src/core yardımcı modüllerine (logging_utils, config_utils, module_loader) docstring ve yorumlar eklenecek.
+            *   [ ] src/senses modüllerine (vision, audio) docstring ve yorumlar eklenecek.
+            *   [ ] src/processing modüllerine (vision, audio) docstring ve yorumlar eklenecek.
+            *   [ ] Diğer Faz 0 kapsamındaki modüllere (memory/core, cognition/core, motor_control/core, interaction/api, interaction/output_channels) docstring ve yorumlar eklenecek.
         *   [ ] ... Diğer refactoring adımları ...
 
 
@@ -129,7 +134,7 @@ Aşağıdaki fazlar, Evo'nın doğumundan (temel algı) bilgelik ve ustalığa (
 
 *   [x] Temel dokümantasyon yapısının oluşturulması.
 *   [ ] Proje dokümantasyonunun güncel tutulması (yapılan her adımı dokümanlara yansıtma).
-*   [x] `requirements.txt` dosyasının oluşturulması ve temel bağımlılıklerin listelenmesi.
+*   [x] `requirements.txt` dosyasının oluşturulması ve temel bağımlılıkların listelenmesi.
     *   [ ] **TODO:** requirements.txt dosyasını proje geliştikçe güncel tutmak.
 *   [ ] Unit testlerin yazılması ve çalıştırılması.
 *   [ ] Entegrasyon testlerinin yazılması ve çalıştırılması.
