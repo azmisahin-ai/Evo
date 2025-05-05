@@ -128,7 +128,7 @@ class MotorControlCore:
             # Eğer karar {'action': 'move', 'direction': 'forward'} gibi bir şeyse LocomotionController'ı kullan.
             # Eğer karar {'action': 'grasp', 'target': '...'} gibi bir şeyse Manipulator'ı kullan.
 
-            # Basit Placeholder Karar Yönlendirme ve Tepki Üretme Mantığı:
+            # Basit Placeholder Karar Yönlendirme ve Tepki Ü üretme Mantığı:
             # Alt modüller (expression_generator vb.) başlatıldıysa onları kullanmayı dene.
             # Başlatılmadıysa veya karar alt modüllere uygun değilse placeholder mantığı kullan.
 

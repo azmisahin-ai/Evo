@@ -15,7 +15,7 @@ class LocomotionController:
 
     Fiziksel bir robotun temel hareketlerini (ileri, geri, dönme vb.) kontrol etmeyi hedefler.
     Bilişsel çekirdekten gelen hareket kararlarını alır ve fiziksel komutlara çevirir.
-    Gelecekte robotik arayüzler ve navigasyon alg algoritmaları implement edilecektir.
+    Gelecekte robotik arayüzler ve navigasyon algoritmaları implement edilecektir.
     """
     def __init__(self, config):
         """
@@ -23,7 +23,7 @@ class LocomotionController:
 
         Args:
             config (dict): Lokomosyon modülü yapılandırma ayarları.
-                           Gelecekte robotik temel ayarları, hız limitleri gibi ayarlar gelebilir.
+                           Gelecekte robotik temel ayarlar, hız limitleri gibi ayarlar gelebilir.
         """
         self.config = config
         logger.info("LocomotionController başlatılıyor (Placeholder)...")

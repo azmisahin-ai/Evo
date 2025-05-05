@@ -27,7 +27,7 @@ class ExpressionGenerator:
         """
         self.config = config
         logger.info("ExpressionGenerator başlatılıyor (Placeholder)...")
-        # Modül başlatma mantığı buraya gelebilir (örn: TTS model yükleme)
+        # Modül başlatma mantığı buraya gelebilir (örn: model yükleme)
         logger.info("ExpressionGenerator başlatıldı.")
 
     def generate(self, decision):
