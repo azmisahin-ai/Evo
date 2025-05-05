@@ -52,7 +52,7 @@ Aşağıdaki fazlar, Evo'nın doğumundan (temel algı) bilgelik ve ustalığa (
                 *   [x] Bellek modülü (src/memory) gözden geçirildi (yapısal niyet belirlendi).
                 *   [x] Sense (src/senses) ve Processing (src/processing) modülleri gözden geçirildi.
                 *   [x] Representation (src/representation) modülü gözden geçirilecek.
-                *   [ ] MotorControl (src/motor_control) modülü gözden geçirilecek.
+                *   [x] MotorControl (src/motor_control) modülü gözden geçirilecek.
                 *   [ ] Interaction (src/interaction) modülü gözden geçirilecek.
             *   [ ] Tekrar eden kod kalıplarını (örn: benzer try-except yapıları dışındaki) yardımcı fonksiyonlara taşıma.                
             *   [ ] Magic numbers/strings yerine sabitler veya config kullanımı.
