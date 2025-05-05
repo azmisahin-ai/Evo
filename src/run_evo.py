@@ -65,9 +65,10 @@ def load_config():
              # Örneğin, çıktı tipi (metin, ses vb.) veya sentezleyici ayarları
          },
          'interaction': { # Interaction modülü için konfigürasyon
-             # Örneğin, API portu veya çıktı kanalları (konsol, dosya, ağ)
-             # 'api_port': 5000
-             # 'output_channel': 'console' # Şimdilik sadece console desteklenecek
+             'enabled_channels': ['console'], # Aktif çıktı kanalları listesi. Şimdilik sadece 'console'.
+             'channel_configs': { # Kanal bazlı özel ayarlar
+                 'web_api': {'port': 5000} # 'web_api' kanalı aktif edilirse kullanılacak örnek ayar
+             }
          },
         'cognitive_loop_interval': 0.1 # Bilişsel döngünün ne sıklıkla çalışacağı (saniye)
     }
@@ -211,7 +212,7 @@ def run_evo():
     else:
          logging.warning("Önceki modüller başlatılamadığı için Motor Control modülü atlandı.")
 
-    # Faz 3 Devami: Interaction Modülü Başlat
+    # Faz 3 Tamamlanması: Interaction Modülü Başlat
     logging.info("Faz 3: Interaction modülü başlatılıyor...")
     # Interaction modülü Motor Control'e bağımlı. Eğer Motor Control yoksa başlatmanın anlamı yok.
     # Ancak Interaction API'si dış dünya ile bağlantı kurduğu için, bu modülün başlatılması
@@ -237,12 +238,16 @@ def run_evo():
          # Interaction modülü None olsa bile ana döngü çalışabilir (sadece çıktı veremez).
          pipeline_modules_ok = sensors and processors and representers and memories and cognition_modules and motor_control_modules
          # Check if all required *objects* within these categories are not None (based on our init logic)
-         all_pipeline_objects_ok = all(sensors.values()) and all(processors.values()) and \
-                                   all(representers.values()) and all(memories.values()) and \
-                                   all(cognition_modules.values()) and all(motor_control_modules.values())
+         # Sensör objeleri None olmayabilir ama is_available False olabilir, o yüzden all(sensors.values()) tek başına yeterli değil.
+         # Ama diğer kritik modüllerin (Process, Represent, Memory, Cognition, MotorControl) None olmaması gerekiyor.
+         all_critical_objects_ok = all(processors.values()) and \
+                                   all(representers.values()) and \
+                                   all(memories.values()) and \
+                                   all(cognition_modules.values()) and \
+                                   all(motor_control_modules.values())
 
 
-         if pipeline_modules_ok and all_pipeline_objects_ok:
+         if active_sensors and all_critical_objects_ok: # En az bir aktif sensör ve tüm kritik modül objeleri var mı?
             # Basitçe loglayalım:
              logging.info("Tüm ana pipeline modül kategorileri başarıyla başlatıldı. Evo bilişsel döngüye hazır.")
              if not interaction_modules.get('core_interaction'):
@@ -365,7 +370,7 @@ def run_evo():
                      response_output = motor_control_modules['core_motor_control'].generate_response(decision)
                      if response_output is not None:
                           logging.debug(f"Motor kontrol tepki üretti (placeholder). Output: '{response_output}'")
-                     # else: logging.debug("Motor kontrol tepki üretemedi veya None döndü.")
+                     # else: logging.debug("Motor control tepki üretemedi veya None döndü.")
 
                 # else:
                 #     # logging.debug("Motor Control modülü veya karar mevcut değil.")
