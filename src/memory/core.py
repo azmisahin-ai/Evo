@@ -1,28 +1,48 @@
 # src/memory/core.py
-import numpy as np
-import time # Anı zaman damgası için
-import random # Placeholder retrieve için
-import logging # Loglama için
+#
+# Evo'nın temel bellek sistemini temsil eder.
+# Öğrenilmiş temsilleri saklar ve gerektiğinde geri çağırır.
+
+import numpy as np # Temsil vektörleri (numpy array) için.
+import time # Anıların zaman damgası için.
+import random # Placeholder retrieve (rastgele seçim) için.
+import logging # Loglama için.
 
 # Bu modül için bir logger oluştur
+# 'src.memory.core' adında bir logger döndürür.
 logger = logging.getLogger(__name__)
 
 class Memory:
     """
-    Evo'nın bellek sistemi. Öğrenilmiş temsilleri saklar ve gerektiğinde geri çağırır.
-    Şimdilik basit bir liste tabanlı geçici hafıza implementasyonu.
-    Gelecekte kalıcı depolama, indeksleme ve daha gelişmiş geri çağırma gelecek.
+    Evo'nın bellek sistemi sınıfı.
+
+    RepresentationLearner'dan gelen öğrenilmiş temsil vektörlerini depolar.
+    Basit bir kısa süreli bellek gibi çalışır (maksimum boyutu aşarsa en eski anıyı siler - FIFO).
+    Bellekten ilgili anıları geri çağırma (retrieve) yeteneğine sahiptir (şimdilik placeholder).
     """
     def __init__(self, config):
-        self.config = config
-        self.max_memory_size = config.get('max_memory_size', 1000) # Saklanacak maksimum temsil sayısı
-        self.num_retrieved_memories = config.get('num_retrieved_memories', 5) # Her çağrıda kaç tane döndürülecek
+        """
+        Memory modülünü başlatır.
 
-        self.memory_storage = [] # Bellek öğeleri listesi [{representation: ndarray, metadata: dict, timestamp: float}]
+        Args:
+            config (dict): Bellek sistemi yapılandırma ayarları.
+                           'max_memory_size': Bellekte saklanacak maksimum temsil sayısı (int, varsayılan 1000).
+                           'num_retrieved_memories': retrieve metodunda varsayılan olarak geri çağrılacak anı sayısı (int, varsayılan 5).
+        """
+        self.config = config
+        # Yapılandırmadan ayarları al, yoksa varsayılanları kullan.
+        self.max_memory_size = config.get('max_memory_size', 1000)
+        self.num_retrieved_memories = config.get('num_retrieved_memories', 5)
+
+        # Bellek depolama yapısı: Anı öğelerinin listesi.
+        # Her öğe bir sözlüktür: {'representation': numpy_array, 'metadata': dict, 'timestamp': float}
+        self.memory_storage = []
 
         logger.info("Memory modülü başlatılıyor...")
-        # Kalıcı bellekten yükleme (gelecekte)
+        # Kalıcı bellekten yükleme mantığı buraya gelebilir (Gelecek TODO).
+        # Örneğin, dosyadan veya veritabanından eski anıları yükleme.
         # self._load_from_storage() # Gelecek TODO
+
 
         logger.info(f"Memory modülü başlatıldı. Maksimum boyut: {self.max_memory_size}")
 
@@ -30,104 +50,150 @@ class Memory:
     def store(self, representation, metadata=None):
         """
         Öğrenilmiş bir temsili (ve ilişkili metadatayı) belleğe kaydeder.
-        Maksimum boyutu aşarsa en eski anıyı siler (FIFO - First-In, First-Out).
+
+        Eğer representation None ise veya beklenmeyen tipte ise kaydetme işlemini atlar.
+        Bellek boyutu self.max_memory_size değerini aşarsa, en eski anıyı (listenin başındaki) siler (FIFO prensibi).
+        Başarısızlık durumunda hatayı loglar.
 
         Args:
-            representation (numpy.ndarray): Saklanacak temsil vektörü.
-            metadata (dict, optional): Temsille ilişkili ek bilgiler (örn: kaynak, zaman aralığı vb.). Varsayılan None.
+            representation (numpy.ndarray or None): Belleğe saklanacak temsil vektörü.
+                                                    Genellikle RepresentationLearner'dan gelir.
+                                                    Beklenen format: shape (D,), dtype sayısal.
+            metadata (dict, optional): Temsille ilişkili ek bilgiler (örn: kaynak, zaman aralığı, durum vb.).
+                                       Varsayılan None. None ise boş sözlük olarak saklanır.
         """
-        # Temel hata yönetimi: Girdi tipi kontrolü
+        # Hata yönetimi: Saklanacak representation'ın None veya yanlış tipte olup olmadığını kontrol et.
         if representation is None:
-             logger.debug("Memory.store: Saklanacak representation None.")
-             return # None gelirse saklama
-        if not isinstance(representation, np.ndarray):
-             logger.error(f"Memory.store: Beklenmeyen representation tipi: {type(representation)}. numpy.ndarray bekleniyordu.")
-             return # Geçersiz tipse saklama
+             # Representation None ise sessizce atla, hata değil.
+             logger.debug("Memory.store: Saklanacak representation None. Saklama atlanıyor.")
+             return
+        if not isinstance(representation, np.ndarray) or not np.issubdtype(representation.dtype, np.number):
+             # Beklenmeyen tipte representation gelirse hata logla ve atla.
+             logger.error(f"Memory.store: Beklenmeyen representation tipi veya dtype: {type(representation)}, {representation.dtype}. numpy.ndarray (sayısal) bekleniyordu.")
+             return
+
 
         try:
-            # Yeni bellek öğesi oluştur
+            # Yeni bellek öğesi oluştur.
+            # Representation, metadata (varsa) ve zaman damgasını içerir.
             memory_entry = {
                 'representation': representation,
-                'metadata': metadata if metadata is not None else {}, # Metadata yoksa boş sözlük
-                'timestamp': time.time() # Kayıt zamanı
+                'metadata': metadata if metadata is not None else {}, # Metadata yoksa boş sözlük sakla.
+                'timestamp': time.time() # Kayıt zamanı (epoch zamanı float olarak).
             }
 
-            # Belleğe ekle
+            # Bellek depolama listesine yeni öğeyi ekle (listenin sonuna).
             self.memory_storage.append(memory_entry)
+            # DEBUG logu: Saklama işleminin başarıyla yapıldığı ve güncel boyut bilgisi.
             # logger.debug(f"Memory.store: Temsil başarıyla saklandı. Güncel hafıza boyutu: {len(self.memory_storage)}")
 
 
-            # Maksimum boyutu aştıysa en eski öğeyi sil
+            # Maksimum bellek boyutu aşıldıysa en eski öğeyi sil (FIFO).
             if len(self.memory_storage) > self.max_memory_size:
-                # En eski öğe listede ilk sıradadır (FIFO)
+                # Listenin başındaki (en eski) öğeyi çıkar.
                 removed_entry = self.memory_storage.pop(0)
-                # logger.debug(f"Memory.store: Maksimum boyut aşıldı, en eski anı silindi (timestamp: {removed_entry['timestamp']:.2f}).")
+                # DEBUG logu: Silinen anı hakkında bilgi.
+                # logger.debug(f"Memory.store: Maksimum boyut aşıldı ({self.max_memory_size}). En eski anı silindi (timestamp: {removed_entry['timestamp']:.2f}).")
 
 
         except Exception as e:
-            # Saklama sırasında beklenmedik hata
+            # Saklama işlemi sırasında beklenmedik bir hata oluşursa logla.
+            # Listeye ekleme veya listeden çıkarma sırasında oluşabilecek hatalar nadirdir.
             logger.error(f"Memory.store: Belleğe kaydetme sırasında beklenmedik hata: {e}", exc_info=True)
-            # Hata durumunda liste bozulabilir, bu kritik olabilir.
-            # Şimdilik sadece logla ve devam et, ama gelecekte daha sağlam olmalı.
+            # Hata durumunda programın çökmesini engelle, sadece logla ve devam et.
 
 
     def retrieve(self, query_representation, num_results=None):
         """
         Bellekten ilgili anıları geri çağırır.
-        Şimdilik sadece bellekteki tüm anıları veya belirtilen sayıda rastgele anıyı döndürür.
-        Gelecekte 'query_representation' kullanılarak benzerlik tabanlı arama yapılacak.
+
+        Şimdilik placeholder mantığı: query_representation parametresini kullanmaz.
+        Bunun yerine bellekteki anıların bir alt kümesini (belirtilen sayıda rastgele anı)
+        veya belleğin tamamını (num_results çok büyükse veya None ise) döndürür.
+        Gelecekte 'query_representation' kullanılarak benzerlik (similarity) tabanlı arama yapılacak.
+        Hata durumunda veya bellek boşsa boş liste döndürür.
 
         Args:
-            query_representation (numpy.ndarray or None): Sorgu için kullanılan temsil vektörü (şimdilik kullanılmıyor).
-            num_results (int, optional): Geri çağrılacak maksimum anı sayısı. Varsayılan self.num_retrieved_memories.
+            query_representation (numpy.ndarray or None): Sorgu için kullanılan temsil vektörü.
+                                                         Gelecekte anılarla benzerliğini ölçmek için kullanılacak.
+                                                         Şimdilik kullanılmıyor, None olabilir.
+            num_results (int, optional): Geri çağrılacak maksimum anı sayısı.
+                                         Varsayılan self.num_retrieved_memories.
+                                         None ise varsayılan kullanılır. Geçersiz int ise varsayılan veya 5 kullanılır.
 
         Returns:
-            list: İlgili bellek öğelerinin listesi. Hata durumunda veya anı yoksa boş liste [].
+            list: Geri çağrılan bellek öğelerinin listesi.
+                  Her öğe bir sözlüktür: {'representation': numpy_array, 'metadata': dict, 'timestamp': float}.
+                  Hata durumunda veya bellek boşsa boş liste `[]` döner.
         """
-        # num_results için varsayılan değeri ayarla
+        # num_results için varsayılan değeri ayarla (eğer None olarak geldiyse).
         if num_results is None:
             num_results = self.num_retrieved_memories
 
-        # Temel hata yönetimi: Bellek boşsa veya num_results geçersizse
-        if not self.memory_storage:
-            # logger.debug("Memory.retrieve: Bellek boş. Geri çağrılamadı.")
-            return [] # Bellek boşsa boş liste döndür
-
+        # Hata yönetimi: num_results'ın geçerli bir integer (>= 0) olup olmadığını kontrol et.
         if not isinstance(num_results, int) or num_results < 0:
-             logger.warning(f"Memory.retrieve: Geçersiz num_results değeri: {num_results}. Varsayılan ({self.num_retrieved_memories}) veya 0 kullanılacak.")
+             logger.warning(f"Memory.retrieve: Geçersiz num_results değeri: {num_results}. Varsayılan ({self.num_retrieved_memories}) veya 5 kullanılacak.")
+             # Geçersiz değer ise varsayılanı (kendi değişkeninden) veya mutlak bir varsayılanı (5) kullan.
              num_results = self.num_retrieved_memories if isinstance(self.num_retrieved_memories, int) and self.num_retrieved_memories >= 0 else 5
-             if num_results <= 0: return [] # num_results hala geçersizse boş liste
 
-        # query_representation şimdilik kullanılmıyor ama gelecekte buraya işlenecek.
+        # Hata yönetimi: Bellek boşsa (veya num_results 0 ise)
+        if not self.memory_storage or num_results <= 0:
+            # logger.debug("Memory.retrieve: Bellek boş veya istenen sonuç sayısı 0 veya negatif. Geri çağrılamadı.")
+            return [] # Bellek boşsa veya sonuç sayısı 0/negatifse boş liste döndür.
+
+        # query_representation şimdilik kullanılmıyor ama gelecekte buraya işlenecek (örn: anıların similarity score'unu hesaplamak için).
         # if query_representation is not None and not isinstance(query_representation, np.ndarray):
-        #      logger.warning(f"Memory.retrieve: Sorgu representation tipi beklenmiyor: {type(query_representation)}. numpy.ndarray veya None bekleniyordu.")
+        #      logger.warning(f"Memory.retrieve: Sorgu representation tipi beklenmiyor: {type(query_representation)}. numpy.ndarray veya None bekleniyordu. Sorgu dikkate alinmayacak.")
         #      # Hata vermeden devam et ama logla.
 
-        retrieved_list = [] # Geri çağrılacak anıları tutacak liste
+        retrieved_list = [] # Geri çağrılacak anıları tutacak liste.
 
         try:
-            # Şimdilik placeholder: Bellekteki anıların bir alt kümesini veya tamamını döndür
-            # Rastgele seçim yapalım (retrieve mantığı geliştikçe burası değişecek)
-            actual_num_results = min(num_results, len(self.memory_storage)) # Bellek boyutunu aşmasın
-            if actual_num_results > 0:
+            # Placeholder Geri Çağırma Mantığı:
+            # Bellekteki anıların bir alt kümesini veya tamamını rastgele seçerek döndür.
+            # random.sample fonksiyonu, bir listeden belirli sayıda eşsiz öğe seçer.
+            # Seçilecek anı sayısı (actual_num_results), istenen sayı (num_results) ile bellekteki toplam anı sayısının minimumu olmalıdır.
+            actual_num_results = min(num_results, len(self.memory_storage))
+            if actual_num_results > 0: # Seçilecek en az bir anı varsa random.sample çağır.
                  retrieved_list = random.sample(self.memory_storage, actual_num_results)
 
-            # DEBUG logu: Geri çağrılan anı sayısı
+            # DEBUG logu: Geri çağrılan anı sayısı.
             # logger.debug(f"Memory.retrieve: Hafızadan {len(retrieved_list)} girdi geri çağrıldı (placeholder).")
+            # Bu log run_evo.py'de de var, çift loglamayı önlemek için birini yorum satırı yapabiliriz.
 
 
         except Exception as e:
-            # Geri çağırma sırasında beklenmedik hata (örn: random.sample hatası)
+            # Geri çağırma işlemi sırasında beklenmedik bir hata oluşursa logla.
+            # random.sample gibi fonksiyonlarda veya gelecekteki daha karmaşık arama algoritmalarında hata olabilir.
             logger.error(f"Memory.retrieve: Bellekten geri çağırma sırasında beklenmedik hata: {e}", exc_info=True)
-            return [] # Hata durumunda boş liste döndür
+            return [] # Hata durumunda boş liste döndürerek main loop'un devam etmesini sağla.
 
-        return retrieved_list # Başarılı durumda listeyi döndür
+        return retrieved_list # Başarılı durumda geri çağrılan anı listesini döndür.
 
     def cleanup(self):
-        """Kaynakları temizler (kalıcı bellek kaydetme vb.)."""
+        """
+        Memory modülü kaynaklarını temizler.
+
+        Şimdilik sadece bellekteki anı listesini temizler ve bilgilendirme logu içerir.
+        Gelecekte kalıcı bellek depolamaya kaydetme (save) mantığı buraya gelebilir.
+        module_loader.py bu metodu program sonlanırken çağırır (varsa).
+        """
         logger.info("Memory modülü objesi siliniyor...")
-        # Belleği kalıcı depolamaya kaydet (gelecekte)
+        # Belleği kalıcı depolamaya kaydetme mantığı buraya gelebilir (Gelecek TODO).
+        # Örneğin, anıları bir dosyaya kaydetme.
         # self._save_to_storage() # Gelecek TODO
-        # Şimdilik sadece listeyi temizleyelim (objeler garbage collection ile silinir)
-        self.memory_storage = []
+
+        # Bellekteki anı listesini temizle.
+        # Listeyi None yapmak veya boş bir liste atamak, objelerin garbage collection tarafından toplanmasına yardımcı olur.
+        self.memory_storage = [] # Veya self.memory_storage = None
+
         logger.info("Memory modülü objesi silindi.")
+
+# # Kalıcı depolama için yardımcı metotlar (Gelecek TODO)
+# def _load_from_storage(self):
+#     """Kalıcı depolamadan (dosya vb.) belleği yükler."""
+#     pass # Implement edilecek
+
+# def _save_to_storage(self):
+#     """Belleği kalıcı depolamaya (dosya vb.) kaydeder."""
+#     pass # Implement edilecek

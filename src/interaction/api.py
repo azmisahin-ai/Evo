@@ -1,121 +1,199 @@
 # src/interaction/api.py
-import logging
+#
+# Evo'nın dış dünya ile iletişim arayüzünü temsil eder.
+# Motor Control'den gelen tepkileri alır ve aktif çıktı kanallarına gönderir.
+# Gelecekte dış dünyadan girdi de alacak (Input kanalları).
 
-# Output kanallarını import et
-from .output_channels import ConsoleOutputChannel, WebAPIOutputChannel, OutputChannel # OutputChannel base sınıfı da gerekli olabilir
+import logging # Loglama için.
+# import threading # Web API'si bir thread olarak çalışacaksa gerekebilir (Gelecek).
+# import requests # API endpoint'lerine çıktı göndermek için gerekebilir (Gelecek).
+
+# Çıktı kanalı sınıflarını import et
+from .output_channels import ConsoleOutputChannel, WebAPIOutputChannel, OutputChannel # Base sınıfı da referans için import edildi.
 
 # Bu modül için bir logger oluştur
+# 'src.interaction.api' adında bir logger döndürür.
 logger = logging.getLogger(__name__)
 
 
 class InteractionAPI:
     """
-    Evo'nın dış dünya ile iletişim arayüzü.
-    Motor Control'den gelen tepkileri alır ve aktif çıktı kanallarına gönderir.
-    Gelecekte dış dünyadan girdi de alacak (Input kanalları).
+    Evo'nın dış dünya ile iletişim arayüzü sınıfı.
+
+    MotorControl modülünden gelen tepkileri (output_data) alır
+    ve yapılandırmada belirtilen tüm aktif çıktı kanallarına gönderir.
+    Farklı çıktı kanallarını (konsol, Web API vb.) yönetir.
+    Gelecekte dış dünyadan girdi alımı için arayüzler de buraya eklenecek.
     """
     def __init__(self, config):
-        self.config = config
-        self.enabled_channels = config.get('enabled_channels', ['console']) # Config'ten aktif kanalları al
-        self.channel_configs = config.get('channel_configs', {}) # Kanal bazlı özel ayarları al
+        """
+        InteractionAPI modülünü başlatır.
 
-        self.output_channels = {} # Aktif çıktı kanalı objelerini tutacak sözlük
+        Yapılandırmadan aktif çıktı kanallarını okur ve bu kanalları başlatır.
+        Kanal başlatma sırasında oluşabilecek hataları yönetir.
+
+        Args:
+            config (dict): Interaction modülü yapılandırma ayarları.
+                           'enabled_channels': Aktif edilecek çıktı kanallarının adlarını içeren liste (örn: ['console', 'web_api']).
+                           'channel_configs': Kanal adlarına göre özel yapılandırma ayarları içeren sözlük (örn: {'web_api': {'port': 5000}}).
+        """
+        self.config = config
+        # Yapılandırmadan aktif kanalların listesini al, yoksa sadece 'console' kullan.
+        self.enabled_channels = config.get('enabled_channels', ['console'])
+        # Yapılandırmadan kanal bazlı özel ayarları al, yoksa boş sözlük kullan.
+        self.channel_configs = config.get('channel_configs', {})
+
+        # Başlatılan aktif çıktı kanalı objelerini tutacak sözlük.
+        # Anahtar: kanal adı (string), Değer: kanal objesi (OutputChannel veya alt sınıfı).
+        self.output_channels = {}
 
         logger.info("InteractionAPI modülü başlatılıyor...")
         logger.info(f"InteractionAPI: Konfigurasyondan aktif kanallar: {self.enabled_channels}")
 
-
-        # Çıktı kanallarını başlat
-        # Hata yönetimi: Kanal başlatma hatalarını yakala
-        channel_classes = { # Desteklenen kanal sınıfları
+        # Desteklenen çıktı kanalı sınıflarının eşleştirmesi.
+        # Yeni kanal türleri eklendikçe bu sözlük güncellenmeli.
+        channel_classes = {
             'console': ConsoleOutputChannel,
-            'web_api': WebAPIOutputChannel,
-            # Diğer kanallar buraya eklenecek
+            'web_api': WebAPIOutputChannel, # Placeholder sınıfı
+            # Gelecekte diğer kanallar buraya eklenecek (örn: 'file': FileOutputChannel, 'robot': RobotOutputChannel)
         }
 
+        # Yapılandırmada belirtilen her aktif kanalı başlatmayı dene.
+        # Hata yönetimi: Bir kanal başlatılırken hata olsa bile diğerleri denenmeye devam etmeli.
         for channel_name in self.enabled_channels:
+            # İlgili kanal sınıfı tanımlanmış mı kontrol et.
             channel_class = channel_classes.get(channel_name)
             if channel_class:
+                # Kanal sınıfı bulundu, şimdi başlatmayı dene.
+                # Konfigurasyondan o kanala ait özel ayarları al, yoksa boş sözlük kullan.
                 channel_config = self.channel_configs.get(channel_name, {})
                 try:
-                    # Kanal objesini oluştur
+                    # Kanal objesini oluştur ve başlat.
                     channel_instance = channel_class(channel_config)
+                    # Başarıyla başlatıldıysa aktif kanallar sözlüğüne ekle.
                     self.output_channels[channel_name] = channel_instance
                     logger.info(f"InteractionAPI: OutputChannel '{channel_name}' başarıyla başlatıldı.")
                 except Exception as e:
-                    # Kanal başlatılırken hata oluştu
+                    # Kanal başlatılırken beklenmedik bir hata oluştuysa logla.
+                    # Bu tür bir hata başlatma sırasında kritik kabul edilmiyor policy gereği,
+                    # sadece o kanal kullanılamaz hale gelir.
                     logger.error(f"InteractionAPI: OutputChannel '{channel_name}' başlatılırken hata oluştu: {e}", exc_info=True)
-                    # Hata veren kanalı aktif listeye ekleme
-                    if channel_name in self.output_channels:
-                         del self.output_channels[channel_name]
+                    # Hata veren kanalı aktif kanallar sözlüğüne eklememek önemlidir.
+                    # Eğer hata oluşmadan önce eklenmişse (olası değil init sırasında), buradan silmek gerekebilir.
+                    # if channel_name in self.output_channels:
+                    #      del self.output_channels[channel_name]
             else:
-                # Config'te tanımlı ama kodda karşılığı olmayan kanal
-                logger.warning(f"InteractionAPI: Bilinmeyen OutputChannel adı konfigurasyonda: '{channel_name}'. Bu kanal atlandı.")
+                # Config'te adı geçen ama channel_classes sözlüğünde karşılığı olmayan kanal adları için uyarı.
+                logger.warning(f"InteractionAPI: Konfigurasyonda bilinmeyen OutputChannel adı: '{channel_name}'. Bu kanal atlandı.")
 
+        # Başlatılan InteractionAPI modülünün genel durumunu logla.
+        # Aktif çıktı kanallarının listesini göster.
         logger.info(f"InteractionAPI modülü başlatıldı. Aktif Output Kanalları: {list(self.output_channels.keys())}")
+
+        # Eğer Web API kanalı aktifse, API sunucusunu başlatma mantığı buraya gelebilir (ayrı bir thread/process?).
+        # Bu, InteractionAPI.start() metoduna taşınmıştır.
+        # if 'web_api' in self.output_channels and hasattr(self.output_channels['web_api'], 'start_server'):
+        #      self.output_channels['web_api'].start_server() # Eğer WebAPIOutputChannel'da böyle bir metot varsa
+
+        # TODO: Girdi kanallarını başlatma mantığı buraya gelecek (Gelecek TODO).
+        # self._initialize_input_channels() # Gelecek TODO
 
 
     def send_output(self, output_data):
         """
-        Motor Control'den gelen çıktıyı tüm aktif çıktı kanallarına gönderir.
+        MotorControl'den gelen çıktıyı (tepki) tüm aktif çıktı kanallarına gönderir.
+
+        Her aktif OutputChannel objesinin `send` metodunu çağırır.
+        Bir kanala gönderme sırasında hata oluşsa bile diğer kanallara gönderme devam eder.
+        Gönderilecek veri None ise işlem yapmaz.
 
         Args:
-            output_data (any): Gönderilecek çıktı verisi.
+            output_data (any): Motor Control modülünden gelen gönderilecek çıktı verisi (tepki).
+                               Formatı kanaldan kanala değişebilir (str, dict, numpy array vb.).
+                               None olabilir, bu durumda gönderme atlanır.
         """
-        # Temel hata yönetimi: Gönderilecek veri None ise işlem yapma
+        # Hata yönetimi: Gönderilecek veri None ise işlem yapma.
         if output_data is None:
+            # Çıktı verisi yoksa, gönderme işlemi atlanır. Bu bir hata değil.
             logger.debug("InteractionAPI: Gönderilecek çıktı verisi None. Gönderme atlanıyor.")
             return
 
+        # DEBUG logu: Çıktının hangi kanallara gönderileceği.
         logger.debug(f"InteractionAPI: Çikti {list(self.output_channels.keys())} kanallarına gönderiliyor.")
 
-        # Her aktif kanala çıktıyı gönder
-        # Hata yönetimi: Bir kanal hata verse bile diğerleri devam etmeli
+        # Her aktif kanala çıktıyı gönderme döngüsü.
+        # Hata yönetimi: Bir kanala gönderme hatası diğerlerini etkilememeli.
+        # output_channels sözlüğü üzerinde dönerken, send metodunun içinde bu sözlükte değişiklik
+        # yapılmadığı varsayılır. Eğer send metodu kanalı pasifize edip sözlükten silerse,
+        # döngünün bir kopyası üzerinde dönmek (list(self.output_channels.items())) daha güvenli olabilir.
         for channel_name, channel_instance in self.output_channels.items():
             try:
-                # Kanalın send metodunu çağır
-                # send metotlarının kendi içlerinde de hata yakalama olmalı.
+                # Kanalın send metodunu çağır.
+                # OutputChannel alt sınıflarının send metotları kendi içlerinde de hata yakalamalı.
                 # Burada yakaladığımız hata, send metodunun kendisinin çağrılması sırasında
-                # veya send metodunun içindeki *işlenmemiş* bir hatadan kaynaklanır.
+                # veya send metodunun içindeki *işlenmemiş* kritik bir hatadan kaynaklanır.
                 channel_instance.send(output_data)
+                # DEBUG logu: Hangi kanala gönderim yapıldığı.
                 # logger.debug(f"InteractionAPI: Çikti OutputChannel '{channel_name}' kanalına gönderildi.")
-            except Exception as e:
-                # Kanalın send metodunu çağırırken veya çalıştırırken hata
-                logger.error(f"InteractionAPI: OutputChannel '{channel_name}' send metodu çalıştırılırken beklenmedik hata: {e}", exc_info=True)
-                # Bu kanalın bir daha kullanılmaması için listeden çıkarılabilir (gelecekteki bir iyileştirme)
-                # del self.output_channels[channel_name] # Dikkat: Döngü sırasında dict'i değiştirmek sorun yaratabilir
 
+            except Exception as e:
+                # Kanalın send metodunu çağırırken veya çalıştırırken beklenmedik bir hata oluşursa logla.
+                logger.error(f"InteractionAPI: OutputChannel '{channel_name}' send metodu çalıştırılırken beklenmedik hata: {e}", exc_info=True)
+                # Hata veren bu kanalın bir daha kullanılmaması için aktif listesinden çıkarılması düşünülebilir
+                # (Gelecekteki bir iyileştirme/policy). Şu an sadece loglayıp devam ediyoruz.
+                # del self.output_channels[channel_name] # Döngü sırasında dict'i değiştirmek sorun yaratabilir!
 
     def start(self):
-        """API servisini veya diğer arayüzleri başlatır (Gelecek)."""
-        # Eğer bir API servisi thread veya process olarak çalışacaksa burası kullanılacak
+        """
+        Interaction arayüzlerini başlatır (örn: Web API sunucusu).
+
+        Bu metot, run_evo.py tarafından program başlatıldığında çağrılır.
+        Şimdilik placeholder.
+        """
         logger.info("InteractionAPI başlatılıyor (Placeholder)...")
-        # Örn: self.api_thread = threading.Thread(target=self._run_api_server); self.api_thread.start()
+        # Eğer Web API kanalı aktifse ve sunucuyu başlatma yeteneği varsa, burası çağrılabilir.
+        # if 'web_api' in self.output_channels and hasattr(self.output_channels['web_api'], 'start_server'):
+        #      logger.info("InteractionAPI: Web API sunucusu başlatılıyor...")
+        #      self.output_channels['web_api'].start_server() # Web API başlatma metodu
+
 
     def stop(self):
-        """API servisini veya arayüzleri durdurur ve kaynakları temizler."""
+        """
+        Interaction arayüzlerini durdurur ve tüm aktif çıktı kanallarının kaynaklarını temizler.
+
+        Bu metot, run_evo.py tarafından program sonlanırken çağrılır.
+        """
         logger.info("InteractionAPI durduruluyor...")
-        # Alt kanalların cleanup metodunu çağır
-        for channel_name, channel_instance in list(self.output_channels.items()): # list() kopyası üzerinde dönmek güvenlidir
-            try:
-                channel_instance.cleanup()
-                logger.info(f"InteractionAPI: OutputChannel '{channel_name}' temizlendi.")
-            except Exception as e:
-                 logger.error(f"InteractionAPI: OutputChannel '{channel_name}' temizlenirken hata oluştu: {e}", exc_info=True)
-                 # Hata veren kanalı temizlenmiş gibi kabul edip listeden çıkarabiliriz.
-                 if channel_name in self.output_channels:
-                      del self.output_channels[channel_name]
+        # Tüm aktif çıktı kanallarının cleanup metotlarını çağır.
+        # Sözlük üzerinde dönerken değişiklik yapmamak için list() kullanarak bir kopya üzerinde dönülür.
+        for channel_name, channel_instance in list(self.output_channels.items()):
+            # Eğer obje None değilse (başlatma hatası olmadıysa) ve cleanup metodu varsa
+            if channel_instance and hasattr(channel_instance, 'cleanup'):
+                logger.info(f"InteractionAPI: OutputChannel '{channel_name}' temizleniyor...")
+                try:
+                    channel_instance.cleanup()
+                    logger.info(f"InteractionAPI: OutputChannel '{channel_name}' temizlendi.")
+                except Exception as e:
+                     # Temizleme sırasında beklenmedik bir hata oluşursa logla.
+                     logger.error(f"InteractionAPI: OutputChannel '{channel_name}' temizlenirken hata oluştu: {e}", exc_info=True)
+                # Hata veren veya temizlenen kanalı listeden çıkarmak (isteğe bağlı).
+                # if channel_name in self.output_channels: # Zaten kopya üzerinde dönüyoruz, bu kontrol gerekli olmayabilir.
+                #      del self.output_channels[channel_name]
 
-        self.output_channels = {} # Listeyi tamamen boşalt
+        # Aktif kanallar sözlüğünü tamamen boşalt (temizlendiğini belirtmek için).
+        self.output_channels = {} # Veya self.output_channels = None
 
-        # API servisi thread/process durdurma mantığı buraya gelecek (eğer start metodu kullanıldıysa)
-        # if self.api_thread and self.api_thread.is_alive(): self.api_thread.stop(); self.api_thread.join()
+        # Eğer API sunucusu bir thread/process olarak başlatıldıysa, durdurma mantığı buraya gelecek (Gelecek TODO).
+        # if hasattr(self, 'api_thread') and self.api_thread and self.api_thread.is_alive():
+        #      logger.info("InteractionAPI: API sunucusu durduruluyor...")
+        #      self.api_thread.stop() # API thread'inin stop metodu olmalı
+        #      self.api_thread.join() # Thread'in bitmesini bekle
 
 
-        logger.info("InteractionAPI objesi temizlendi.")
+        logger.info("InteractionAPI objesi silindi.")
 
 
     # Gelecekte:
     # def receive_input(self):
     #     """Dış dünyadan girdi alır (örn: API endpoint'inden gelen istek)."""
-    #     pass
+    #     pass # Implement edilecek input alma mekanizmaları
