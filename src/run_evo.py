@@ -2,7 +2,10 @@
 
 import logging
 import time
-import numpy as np # Shape kontrolü için
+import numpy as np
+
+# Yeni loglama yardımcı fonksiyonunu import et
+from src.core.logging_utils import setup_logging # <<< Yeni import
 
 # Temel modülleri import edeceğiz
 from src.senses.vision import VisionSensor
@@ -14,11 +17,11 @@ from src.processing.audio import AudioProcessor
 from src.representation.models import RepresentationLearner
 # Memory modülünü import et
 from src.memory.core import Memory # core.py dosyasındaki Memory sınıfı
-# Cognition modülünü import et
+# Cognition modülü import et
 from src.cognition.core import CognitionCore # core.py dosyasındaki CognitionCore sınıfı
-# Motor Control modülünü import et
+# Motor Control modülü import et
 from src.motor_control.core import MotorControlCore # core.py dosyasındaki MotorControlCore sınıfı
-# Interaction modülünü import et
+# Interaction modülü import et
 from src.interaction.api import InteractionAPI # api.py dosyasındaki InteractionAPI sınıfı
 
 
@@ -80,20 +83,18 @@ def run_evo():
     Evo'nın çekirdek bilişsel döngüsünü ve arayüzlerini başlatır.
     Bu fonksiyon çağrıldığında Evo "canlanır".
     """
-    # Logging ayarları (dosya başında veya ayrı bir utility fonksiyonda olabilir)
-    # İlk logging config ayarı, modül başlatma hatalarını görebilmek için try bloğu dışında olmalı
-    logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
-    # src içindeki detaylı logları göstermek için seviyeyi DEBUG yap
-    logging.getLogger('src').setLevel(logging.DEBUG)
-    # Root logger'ın da seviyesini kontrol edebiliriz (genellikle basicConfig bunu ayarlar)
-    # logging.getLogger().setLevel(logging.DEBUG)
+    # Loglama sistemini merkezi utility ile yapılandır
+    setup_logging(level=logging.DEBUG) # <<< Yeni setup çağrısı - DEBUG seviyesiyle
 
+    # Bu dosyanın kendi logger'ını oluştur (setup_logging'den sonra)
+    # __name__ 'src.run_evo' olacak
+    logger = logging.getLogger(__name__) # <<< Adlandırılmış logger oluşturuldu
 
-    logging.info("Evo canlanıyor...")
+    logger.info("Evo canlanıyor...") # <<< Adlandırılmış logger kullanıldı
 
     # Konfigürasyonu yükle
     config = load_config()
-    logging.info("Konfigürasyon yüklendi.")
+    logger.info("Konfigürasyon yüklendi.") # <<< Adlandırılmış logger kullanıldı
 
     # Modül objelerini depolamak için sözlükler
     sensors = {}
@@ -109,29 +110,29 @@ def run_evo():
     can_run_main_loop = True
 
     # --- Modülleri Başlatma ---
-    logging.info("Modüller başlatılıyor...")
+    logger.info("Modüller başlatılıyor...") # <<< Adlandırılmış logger kullanıldı
 
     # Faz 0: Duyusal Sensörleri Başlat - Bireysel Hata Yönetimi ile
-    logging.info("Faz 0: Duyusal sensörler başlatılıyor (Bireysel hata yönetimi aktif)...")
+    logger.info("Faz 0: Duyusal sensörler başlatılıyor (Bireysel hata yönetimi aktif)...") # <<< Adlandırılmış logger kullanıldı
     try:
-        logging.info("VisionSensor başlatılıyor...")
+        logger.info("VisionSensor başlatılıyor...") # <<< Adlandırılmış logger kullanıldı
         sensors['vision'] = VisionSensor(config.get('vision', {}))
         if not (sensors.get('vision') and getattr(sensors['vision'], 'is_camera_available', False)):
-             logging.warning("VisionSensor tam başlatılamadı veya kamera açılamadı.")
+             logger.warning("VisionSensor tam başlatılamadı veya kamera açılamadı.") # <<< Adlandırılmış logger kullanıldı
              # Simüle edilmiş girdi kullanılacaksa objenin is_camera_available False olacak. Objeyi None yapma!
     except Exception as e:
-        logging.critical(f"VisionSensor başlatılırken kritik hata oluştu: {e}", exc_info=True)
+        logger.critical(f"VisionSensor başlatılırken kritik hata oluştu: {e}", exc_info=True) # <<< Adlandırılmış logger kullanıldı
         sensors['vision'] = None # Kritik hata durumunda objeyi None yap
 
 
     try:
-        logging.info("AudioSensor başlatılıyor...")
+        logger.info("AudioSensor başlatılıyor...") # <<< Adlandırılmış logger kullanıldı
         sensors['audio'] = AudioSensor(config.get('audio', {}))
         if not (sensors.get('audio') and getattr(sensors['audio'], 'is_audio_available', False)):
-             logging.warning("AudioSensor tam başlatılamadı veya ses akışı aktif değil.")
+             logger.warning("AudioSensor tam başlatılamadı veya ses akışı aktif değil.") # <<< Adlandırılmış logger kullanıldı
              # Simüle edilmiş girdi kullanılacaksa objenin is_audio_available False olacak. Objeyi None yapma!
     except Exception as e:
-        logging.critical(f"AudioSensor başlatılırken kritik hata oluştu: {e}", exc_info=True)
+        logger.critical(f"AudioSensor başlatılırken kritik hata oluştu: {e}", exc_info=True) # <<< Adlandırılmış logger kullanıldı
         sensors['audio'] = None # Kritik hata durumunda objeyi None yap
 
 
@@ -140,85 +141,85 @@ def run_evo():
     active_sensors = [name for name, sensor in sensors.items()
                       if sensor and (getattr(sensor, 'is_camera_available', False) or getattr(sensor, 'is_audio_available', False))]
     if active_sensors:
-        logging.info(f"Duyusal Sensörler başlatıldı ({', '.join(active_sensors)} aktif).")
+        logger.info(f"Duyusal Sensörler başlatıldı ({', '.join(active_sensors)} aktif).") # <<< Adlandırılmış logger kullanıldı
     else:
-        logging.warning("Hiçbir duyusal sensör aktif değil. Evo girdi alamayacak.")
+        logger.warning("Hiçbir duyusal sensör aktif değil. Evo girdi alamayacak.") # <<< Adlandırılmış logger kullanıldı
 
 
     # Faz 1 Başlangici: Processing Modülleri Başlat
-    logging.info("Faz 1: Processing modülleri başlatılıyor...")
+    logger.info("Faz 1: Processing modülleri başlatılıyor...") # <<< Adlandırılmış logger kullanıldı
     try:
         processors['vision'] = VisionProcessor(config.get('processing_vision', {}))
         processors['audio'] = AudioProcessor(config.get('processing_audio', {}))
-        logging.info("Processing modülleri başarıyla başlatıldı.")
+        logger.info("Processing modülleri başarıyla başlatıldı.") # <<< Adlandırılmış logger kullanıldı
     except Exception as e:
-         logging.critical(f"Processing modülleri başlatılırken kritik hata oluştu: {e}", exc_info=True)
+         logger.critical(f"Processing modülleri başlatılırken kritik hata oluştu: {e}", exc_info=True) # <<< Adlandırılmış logger kullanıldı
          # Processing kritik hata verirse sensörler çalışsa bile anlamı yok, main loop'u engelle.
          can_run_main_loop = False
 
 
     # Faz 1 Devami: Representation Modülleri Başlat
-    logging.info("Faz 1: Representation modülleri başlatılıyor...")
+    logger.info("Faz 1: Representation modülleri başlatılıyor...") # <<< Adlandırılmış logger kullanıldı
     # Representation modülü processing çıktısına bağımlı, eğer processing yoksa başlatmanın anlamı yok.
     # Veya dummy/placeholder representation modülü başlatılabilir.
     # Şimdilik processing başarılıysa başlatmayı deneyelim.
     if can_run_main_loop: # Eğer processing başlatma hatası olmadıysa
         try:
             representers['main_learner'] = RepresentationLearner(config.get('representation', {}))
-            logging.info("Representation modülü başarıyla başlatıldı.")
+            logger.info("Representation modülü başarıyla başlatıldı.") # <<< Adlandırılmış logger kullanıldı
         except Exception as e:
-            logging.critical(f"Representation modülü başlatılırken kritik hata oluştu: {e}", exc_info=True)
+            logger.critical(f"Representation modülü başlatılırken kritik hata oluştu: {e}", exc_info=True) # <<< Adlandırılmış logger kullanıldı
             can_run_main_loop = False # Representation kritik hata verirse main loop'u engelle.
     else:
          # Bu durum loglanmalı, çünkü can_run_main_loop zaten False yapıldı.
-         logging.warning("Processing modülleri başlatılamadığı için Representation modülleri atlandı.")
+         logger.warning("Processing modülleri başlatılamadığı için Representation modülleri atlandı.") # <<< Adlandırılmış logger kullanıldı
 
 
     # Faz 2 Başlangici: Memory Modülü Başlat
-    logging.info("Faz 2: Memory modülü başlatılıyor...")
+    logger.info("Faz 2: Memory modülü başlatılıyor...") # <<< Adlandırılmış logger kullanıldı
     # Memory modülü representation'a bağımlı. Eğer representation yoksa başlatmanın anlamı yok.
     if can_run_main_loop: # Eğer processing ve representation başlatma hatası olmadıysa
         try:
             memories['core_memory'] = Memory(config.get('memory', {}))
-            logging.info("Memory modülü başarıyla başlatıldı.")
+            logger.info("Memory modülü başarıyla başlatıldı.") # <<< Adlandırılmış logger kullanıldı
         except Exception as e:
-            logging.critical(f"Memory modülü başlatılırken kritik hata oluştu: {e}", exc_info=True)
+            logger.critical(f"Memory modülü başlatılırken kritik hata oluştu: {e}", exc_info=True) # <<< Adlandırılmış logger kullanıldı
             # Memory kritik hata verirse ana döngüyü engellemeyebilir (projeye bağlı),
             # ama başlangıçta engellemek daha güvenli.
             can_run_main_loop = False
     else:
-         logging.warning("Önceki modüller başlatılamadığı için Memory modülü atlandı.")
+         logger.warning("Önceki modüller başlatılamadığı için Memory modülü atlandı.") # <<< Adlandırılmış logger kullanıldı
 
     # Faz 3 Başlangici: Cognition Modülü Başlat
-    logging.info("Faz 3: Cognition modülü başlatılıyor...")
+    logger.info("Faz 3: Cognition modülü başlatılıyor...") # <<< Adlandırılmış logger kullanıldı
     # Cognition modülü representation ve memory'ye bağımlı. Eğer bunlar yoksa başlatmanın anlamı yok.
     if can_run_main_loop: # Eğer processing, representation ve memory başlatma hatası olmadıysa
         try:
             cognition_modules['core_cognition'] = CognitionCore(config.get('cognition', {}))
-            logging.info("Cognition modülü başarıyla başlatıldı.")
+            logger.info("Cognition modülü başarıyla başlatıldı.") # <<< Adlandırılmış logger kullanıldı
         except Exception as e:
-            logging.critical(f"Cognition modülü başlatılırken kritik hata oluştu: {e}", exc_info=True)
+            logger.critical(f"Cognition modülü başlatılırken kritik hata oluştu: {e}", exc_info=True) # <<< Adlandırılmış logger kullanıldı
             # Cognition kritik hata verirse main loop'u engelle.
             can_run_main_loop = False
     else:
-         logging.warning("Önceki modüller başlatılamadığı için Cognition modülü atlandı.")
+         logger.warning("Önceki modüller başlatılamadığı için Cognition modülü atlandı.") # <<< Adlandırılmış logger kullanıldı
 
     # Faz 3 Devami: Motor Control Modülü Başlat
-    logging.info("Faz 3: Motor Control modülü başlatılıyor...")
+    logger.info("Faz 3: Motor Control modülü başlatılıyor...") # <<< Adlandırılmış logger kullanıldı
     # Motor Control modülü Cognition'a bağımlı. Eğer Cognition yoksa başlatmanın anlamı yok.
     if can_run_main_loop: # Eğer processing, representation, memory ve cognition başlatma hatası olmadıysa
         try:
             motor_control_modules['core_motor_control'] = MotorControlCore(config.get('motor_control', {}))
-            logging.info("Motor Control modülü başarıyla başlatıldı.")
+            logger.info("Motor Control modülü başarıyla başlatıldı.") # <<< Adlandırılmış logger kullanıldı
         except Exception as e:
-            logging.critical(f"Motor Control modülü başlatılırken kritik hata oluştu: {e}", exc_info=True)
+            logger.critical(f"Motor Control modülü başlatılırken kritik hata oluştu: {e}", exc_info=True) # <<< Adlandırılmış logger kullanıldı
             # Motor Control kritik hata verirse main loop'u engelle.
             can_run_main_loop = False
     else:
-         logging.warning("Önceki modüller başlatılamadığı için Motor Control modülü atlandı.")
+         logger.warning("Önceki modüller başlatılamadığı için Motor Control modülü atlandı.") # <<< Adlandırılmış logger kullanıldı
 
     # Faz 3 Tamamlanması: Interaction Modülü Başlat
-    logging.info("Faz 3: Interaction modülü başlatılıyor...")
+    logger.info("Faz 3: Interaction modülü başlatılıyor...") # <<< Adlandırılmış logger kullanıldı
     # Interaction modülü Motor Control'e bağımlı. Eğer Motor Control yoksa başlatmanın anlamı yok.
     # Ancak Interaction API'si dış dünya ile bağlantı kurduğu için, bu modülün başlatılması
     # main loop'un çalışmasını engellememeli (eğer kritik bir hata değilse, sadece API'nin çalışmadığı anlamına gelir).
@@ -229,9 +230,9 @@ def run_evo():
         # Eğer API bir thread içinde çalışacaksa burada start() çağrılmalı
         # if hasattr(interaction_modules['core_interaction'], 'start'):
         #      interaction_modules['core_interaction'].start()
-        logging.info("Interaction modülü başarıyla başlatıldı.")
+        logger.info("Interaction modülü başarıyla başlatıldı.") # <<< Adlandırılmış logger kullanıldı
     except Exception as e:
-        logging.critical(f"Interaction modülü başlatılırken kritik hata oluştu: {e}", exc_info=True)
+        logger.critical(f"Interaction modülü başlatılırken kritik hata oluştu: {e}", exc_info=True) # <<< Adlandırılmış logger kullanıldı
         interaction_modules['core_interaction'] = None # Hata durumında objeyi None yap
 
 
@@ -254,28 +255,28 @@ def run_evo():
 
          if active_sensors and all_critical_objects_ok: # En az bir aktif sensör ve tüm kritik modül objeleri var mı?
             # Basitçe loglayalım:
-             logging.info("Tüm ana pipeline modül kategorileri başarıyla başlatıldı. Evo bilişsel döngüye hazır.")
+             logger.info("Tüm ana pipeline modül kategorileri başarıyla başlatıldı. Evo bilişsel döngüye hazır.") # <<< Adlandırılmış logger kullanıldı
              if not interaction_modules.get('core_interaction'):
-                  logging.warning("Interaction modülü başlatılamadı. Evo çıktı veremeyebilir.")
+                  logger.warning("Interaction modülü başlatılamadı. Evo çıktı veremeyebilir.") # <<< Adlandırılmış logger kullanıldı
 
          else:
               # Bu durum should not happen if can_run_main_loop is True with current logic,
               # unless some non-critical module init fails silently (which we handle with logging).
-              logging.warning("Bazı temel ana pipeline modül kategorileri başlatılamadı veya eksik. Evo bilişsel döngüsü sınırlı çalışabilir.")
+              logger.warning("Bazı temel ana pipeline modül kategorileri başlatılamadı veya eksik. Evo bilişsel döngüsü sınırlı çalışabilir.") # <<< Adlandırılmış logger kullanıldı
               # Hangi kategorilerin eksik olduğunu loglayabiliriz:
               # missing_categories = [cat_name for cat_name, cat_dict in [('Sensors', sensors), ('Processors', processors), ('Representers', representers), ('Memories', memories), ('Cognition', cognition_modules), ('MotorControl', motor_control_modules)] if not cat_dict or any(v is None for v in cat_dict.values())]
               # if missing_categories:
-              #      logging.warning(f"Eksik veya None olan temel modül objeleri: {', '.join(missing_categories)}")
+              #      logger.warning(f"Eksik veya None olan temel modül objeleri: {', '.join(missing_categories)}")
 
 
     else:
-         logging.critical("Modül başlatma hataları nedeniyle Evo'nın bilişsel döngüsü başlatılamadı.")
+         logger.critical("Modül başlatma hataları nedeniyle Evo'nın bilişsel döngüsü başlatılamadı.") # <<< Adlandırılmış logger kullanıldı
 
 
     # --- Ana Bilişsel Döngü ---
     # Sadece can_run_main_loop True ise döngüye gir
     if can_run_main_loop:
-        logging.info("Evo'nın bilişsel döngüsü başlatıldı...")
+        logger.info("Evo'nın bilişsel döngüsü başlatıldı...") # <<< Adlandırılmış logger kullanıldı
         loop_interval = config.get('cognitive_loop_interval', 0.1) # Döngü hızı
         num_memories_to_retrieve = config.get('memory', {}).get('num_retrieved_memories', 5) # Her döngüde kaç hafıza çağırılacak
 
@@ -293,9 +294,9 @@ def run_evo():
 
                 # DEBUG Log: Yakalanan Ham Görsel Veri
                 if raw_inputs.get('visual') is not None:
-                     logging.debug(f"RUN_EVO: Raw Visual Input yakalandı. Shape: {raw_inputs['visual'].shape}, Dtype: {raw_inputs['visual'].dtype}")
+                     logger.debug(f"RUN_EVO: Raw Visual Input yakalandı. Shape: {raw_inputs['visual'].shape}, Dtype: {raw_inputs['visual'].dtype}") # <<< Adlandırılmış logger kullanıldı
                 else:
-                     logging.debug("RUN_EVO: Raw Visual Input None.")
+                     logger.debug("RUN_EVO: Raw Visual Input None.") # <<< Adlandırılmış logger kullanıldı
 
 
                 if sensors.get('audio'):
@@ -304,12 +305,12 @@ def run_evo():
 
                 # DEBUG Log: Yakalanan Ham Ses Verisi
                 if raw_inputs.get('audio') is not None:
-                     logging.debug(f"RUN_EVO: Raw Audio Input yakalandı. Shape: {raw_inputs['audio'].shape}, Dtype: {raw_inputs['audio'].dtype}")
+                     logger.debug(f"RUN_EVO: Raw Audio Input yakalandı. Shape: {raw_inputs['audio'].shape}, Dtype: {raw_inputs['audio'].dtype}") # <<< Adlandırılmış logger kullanıldı
                 else:
-                     logging.debug("RUN_EVO: Raw Audio Input None.")
+                     logger.debug("RUN_EVO: Raw Audio Input None.") # <<< Adlandırılmış logger kullanıldı
 
 
-                # logging.debug("Duyusal veri yakalama tamamlandı.")
+                # logger.debug("Duyusal veri yakalama tamamlandı.")
 
 
                 # --- Yakalanan Veriyi İşle (Faz 1 Başlangıcı) ---
@@ -319,29 +320,29 @@ def run_evo():
                      processed_inputs['visual'] = processors['vision'].process(raw_inputs['visual'])
                      # Process metotları kendi içlerinde loglama yapıyor.
                      # if processed_inputs.get('visual') is not None: # Bu kontrol process içinde yapılıyor
-                     #      logging.debug(f"Görsel input işlendi ve islendi. Output Shape: {processed_inputs['visual'].shape}, Dtype: {processed_inputs['visual'].dtype}")
+                     #      logger.debug(f"Görsel input işlendi ve islendi. Output Shape: {processed_inputs['visual'].shape}, Dtype: {processed_inputs['visual'].dtype}")
 
 
                 if processors.get('audio') and raw_inputs.get('audio') is not None:
                      processed_inputs['audio'] = processors['audio'].process(raw_inputs['audio'])
                      # Process metotları kendi içlerinde loglama yapıyor.
                      # if processed_inputs.get('audio') is not None: # Bu kontrol process içinde yapılıyor
-                     #      logging.debug(f"Sesli input işlendi ve islendi. Output Energy: {processed_inputs['audio']:.4f}") # Log enerji değeri
+                     #      logger.debug(f"Sesli input işlendi ve islendi. Output Energy: {processed_inputs['audio']:.4f}") # Log enerji değeri
 
                 # DEBUG Log: İşlenmiş Görsel Veri
                 if processed_inputs.get('visual') is not None:
-                     logging.debug(f"RUN_EVO: Processed Visual Output. Shape: {processed_inputs['visual'].shape}, Dtype: {processed_inputs['visual'].dtype}")
+                     logger.debug(f"RUN_EVO: Processed Visual Output. Shape: {processed_inputs['visual'].shape}, Dtype: {processed_inputs['visual'].dtype}") # <<< Adlandırılmış logger kullanıldı
                 else:
-                     logging.debug("RUN_EVO: Processed Visual Output None.")
+                     logger.debug("RUN_EVO: Processed Visual Output None.") # <<< Adlandırılmış logger kullanıldı
 
                 # DEBUG Log: İşlenmiş Ses Verisi
                 if processed_inputs.get('audio') is not None:
-                     logging.debug(f"RUN_EVO: Processed Audio Output (Energy). Value: {processed_inputs['audio']:.4f}")
+                     logger.debug(f"RUN_EVO: Processed Audio Output (Energy). Value: {processed_inputs['audio']:.4f}") # <<< Adlandırılmış logger kullanıldı
                 else:
-                     logging.debug("RUN_EVO: Processed Audio Output None.")
+                     logger.debug("RUN_EVO: Processed Audio Output None.") # <<< Adlandırılmış logger kullanıldı
 
 
-                # logging.debug("İşlenmiş veri işleme tamamlandı.")
+                # logger.debug("İşlenmiş veri işleme tamamlandı.")
 
 
                 # --- İşlenmiş Veriden Temsil Öğren (Faz 1 Devamı) ---
@@ -351,10 +352,10 @@ def run_evo():
                      learned_representation = representers['main_learner'].learn(processed_inputs)
                      # learned_representation'ın None olup olmadığı RepresentationLearner içinde loglanıyor.
                      if learned_representation is not None:
-                         logging.debug(f"RUN_EVO: Learned Representation. Shape: {learned_representation.shape}, Dtype: {learned_representation.dtype}")
+                         logger.debug(f"RUN_EVO: Learned Representation. Shape: {learned_representation.shape}, Dtype: {learned_representation.dtype}") # <<< Adlandırılmış logger kullanıldı
 
 
-                # else: logging.debug("RUN_EVO: Representation Learner mevcut değil veya processed_inputs boş. Temsil öğrenilemedi.")
+                # else: logger.debug("RUN_EVO: Representation Learner mevcut değil veya processed_inputs boş. Temsil öğrenilemedi.")
 
 
                 # --- Temsili Hafızaya Kaydet ve/veya Hafızadan Bilgi Al (Faz 2) ---
@@ -369,14 +370,14 @@ def run_evo():
                          num_results=num_memories_to_retrieve
                      )
                      if relevant_memory_entries:
-                          logging.debug(f"RUN_EVO: Hafızadan {len(relevant_memory_entries)} ilgili girdi geri çağrıldı (placeholder).")
+                          logger.debug(f"RUN_EVO: Hafızadan {len(relevant_memory_entries)} ilgili girdi geri çağrıldı (placeholder).") # <<< Adlandırılmış logger kullanıldı
                           # Geri çağrılan girdilerin içeriğini loglamak DEBUG seviyesinde çok fazla çıktı üretebilir,
                           # sadece sayısını veya basit özetini loglamak daha iyi.
-                          # Örneğin: logging.debug(f"RUN_EVO: Hafızadan ilgili girdi temsil şekli: {relevant_memory_entries[0]['representation'].shape}...")
+                          # Örneğin: logger.debug(f"RUN_EVO: Hafızadan ilgili girdi temsil şekli: {relevant_memory_entries[0]['representation'].shape}...")
 
-                     # else: logging.debug("RUN_EVO: Hafızadan ilgili girdi çağrılamadı.")
+                     # else: logger.debug("RUN_EVO: Hafızadan ilgili girdi çağrılamadı.")
                 # else:
-                #     # logging.debug("RUN_EVO: Memory modülü veya öğrenilmiş temsil mevcut değil. Hafıza işlemi atlandı.")
+                #     # logger.debug("RUN_EVO: Memory modülü veya öğrenilmiş temsil mevcut değil. Hafıza işlemi atlandı.")
                 #     pass # Debug logu çok sık gelebilir, gerek yok.
 
 
@@ -389,11 +390,11 @@ def run_evo():
                          relevant_memory_entries # Liste boş olabilir
                      )
                      if decision is not None:
-                          logging.debug(f"RUN_EVO: Bilişsel karar alındı (placeholder): {decision}")
-                     # else: logging.debug("RUN_EVO: Bilişsel karar üretilemedi veya None döndü.")
+                          logger.debug(f"RUN_EVO: Bilişsel karar alındı (placeholder): {decision}") # <<< Adlandırılmış logger kullanıldı
+                     # else: logger.debug("RUN_EVO: Bilişsel karar üretilemedi veya None döndü.")
 
                 # else:
-                #      # logging.debug("RUN_EVO: Cognition modülü veya işlenecek girdi (temsil/bellek) mevcut değil.")
+                #      # logger.debug("RUN_EVO: Cognition modülü veya işlenecek girdi (temsil/bellek) mevcut değil.")
                 #      pass # Debug logu çok sık gelebilir.
 
                 # --- Karara göre bir Tepki Üret (Faz 3 Devamı) ---
@@ -402,10 +403,10 @@ def run_evo():
                 if motor_control_modules.get('core_motor_control') and decision is not None:
                      response_output = motor_control_modules['core_motor_control'].generate_response(decision)
                      # if response_output is not None: # Bu kontrol generate_response içinde yapılıyor
-                     #      logging.debug(f"RUN_EVO: Motor kontrol tepki üretti (placeholder). Output: '{response_output}'")
+                     #      logger.debug(f"RUN_EVO: Motor kontrol tepki üretti (placeholder). Output: '{response_output}'")
 
                 # else:
-                #     # logging.debug("RUN_EVO: Motor Control modülü veya karar mevcut değil.")
+                #     # logger.debug("RUN_EVO: Motor Control modülü veya karar mevcut değil.")
                 #     pass # Debug logu çok sık gelebilir.
 
                 # --- Tepkiyi Dışarı Aktar (Faz 3 Tamamlanması) ---
@@ -413,9 +414,10 @@ def run_evo():
                 if interaction_modules.get('core_interaction') and response_output is not None:
                    # InteractionAPI'nin send_output metodu artık INFO loglamayı kendi içinde yapıyor.
                    # DEBUG loglama send_output içinde OutputChannel'a gönderilmeden yapılıyor.
+                   # Burada sadece send_output çağrısı yeterli
                    interaction_modules['core_interaction'].send_output(response_output)
                 # else:
-                #     # logging.debug("RUN_EVO: Interaction modülü veya tepki mevcut değil. Çıktı gönderilemedi.")
+                #     # logger.debug("RUN_EVO: Interaction modülü veya tepki mevcut değil. Çıktı gönderilemedi.")
                 #     pass # Debug logu çok sık gelebilir.
 
 
@@ -428,66 +430,66 @@ def run_evo():
                 else:
                     # Döngü intervalinden uzun süren durumlar için uyarı (DEBUG seviyesinde)
                     # INFO seviyesine çekilirse her seferinde loglanır ki bu istenmeyebilir
-                    logging.debug(f"RUN_EVO: Bilişsel döngü {loop_interval} saniyeden daha uzun sürdü ({elapsed_time:.4f}s). İşlem yükü yüksek olabilir.")
+                    logger.debug(f"RUN_EVO: Bilişsel döngü {loop_interval} saniyeden daha uzun sürdü ({elapsed_time:.4f}s). İşlem yükü yüksek olabilir.") # <<< Adlandırılmış logger kullanıldı
 
 
                 # Gelecekte döngüyü sonlandıracak bir mekanizma eklenecek (örn. kullanıcı sinyali, içsel durum)
                 # if cognition_modules.get('core_cognition') and cognition_modules['core_cognition'].should_stop(): break # Örnek: Evo uykuya dalarsa
 
         except KeyboardInterrupt:
-            logging.warning("Ctrl+C algılandı. Evo durduruluyor...")
+            logger.warning("Ctrl+C algılandı. Evo durduruluyor...") # <<< Adlandırılmış logger kullanıldı
         except Exception as e: # Catch any other exception during the main loop
-            logging.critical(f"Evo'nın ana döngüsünde beklenmedik kritik hata: {e}", exc_info=True)
+            logger.critical(f"Evo'nın ana döngüsünde beklenmedik kritik hata: {e}", exc_info=True) # <<< Adlandırılmış logger kullanıldı
 
         finally:
             # --- Kaynakları Temizleme ---
-            logging.info("Evo kaynakları temizleniyor...")
+            logger.info("Evo kaynakları temizleniyor...") # <<< Adlandırılmış logger kullanıldı
             # Check if objects exist in the dictionaries before stopping or cleanup
             if sensors.get('vision'):
-                logging.info("VisionSensor kapatılıyor...")
+                logger.info("VisionSensor kapatılıyor...") # <<< Adlandırılmış logger kullanıldı
                 sensors['vision'].stop_stream()
             if sensors.get('audio'):
-                logging.info("AudioSensor kapatılıyor...")
+                logger.info("AudioSensor kapatılıyor...") # <<< Adlandırılmış logger kullanıldı
                 sensors['audio'].stop_stream()
 
         # Processor'lar genellikle kapatma gerektirmez ama emin olmak için kontrol edilebilir veya cleanup metodu eklenebilir
         # if processors.get('vision') and hasattr(processors['vision'], 'cleanup'):
-        #      logging.info("VisionProcessor temizleniyor...")
+        #      logger.info("VisionProcessor temizleniyor...")
         #      processors['vision'].cleanup()
         # if processors.get('audio') and hasattr(processors['audio'], 'cleanup'):
-        #      logging.info("AudioProcessor temizleniyor...")
+        #      logger.info("AudioProcessor temizleniyor...")
         #      processors['audio'].cleanup()
 
         # Representation Learner da genellikle kapatma gerektirmez
         # if representers.get('main_learner') and hasattr(representers['main_learner'], 'cleanup'):
-        #      logging.info("RepresentationLearner temizleniyor...")
+        #      logger.info("RepresentationLearner temizleniyor...")
         #      representers['main_learner'].cleanup()
 
         # Memory modülü eğer kalıcı depolama kullanıyorsa cleanup gerektirebilir.
         # if memories.get('core_memory') and hasattr(memories['core_memory'], 'cleanup'):
-        #     logging.info("Memory modülü temizleniyor...")
+        #     logger.info("Memory modülü temizleniyor...")
         #     memories['core_memory'].cleanup()
 
         # Cognition modülü genellikle kapatma gerektirmez
         # if cognition_modules.get('core_cognition') and hasattr(cognition_modules['core_cognition'], 'cleanup'):
-        #      logging.info("Cognition modülü temizleniyor...")
+        #      logger.info("Cognition modülü temizleniyor...")
         #      cognition_modules['core_cognition'].cleanup()
 
         # Motor Control modülü genellikle kapatma gerektirmez
         # if motor_control_modules.get('core_motor_control') and hasattr(motor_control_modules['core_motor_control'], 'cleanup'):
-        #      logging.info("Motor Control modülü temizleniyor...")
+        #      logger.info("Motor Control modülü temizleniyor...")
         #      motor_control_modules['core_motor_control'].cleanup()
 
         # Interaction modülü eğer bir thread veya servis başlattıysa stop metodu gerektirir.
         if interaction_modules.get('core_interaction') and hasattr(interaction_modules['core_interaction'], 'stop'):
-             logging.info("InteractionAPI kapatılıyor...")
+             logger.info("InteractionAPI kapatılıyor...") # <<< Adlandırılmış logger kullanıldı
              interaction_modules['core_interaction'].stop()
         # elif interaction_modules.get('core_interaction') and hasattr(interaction_modules['core_interaction'], 'cleanup'):
-        #      logging.info("InteractionAPI temizleniyor...")
+        #      logger.info("InteractionAPI temizleniyor...")
         #      interaction_modules['core_interaction'].cleanup()
 
 
-        logging.info("Evo durduruldu.")
+        logger.info("Evo durduruldu.") # <<< Adlandırılmış logger kullanıldı
 
 
 # Ana çalıştırma noktası
