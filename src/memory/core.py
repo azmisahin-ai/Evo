@@ -29,7 +29,8 @@ class Memory:
     Bu temsilleri ve/veya ilgili bilgileri farklı bellek türlerine (core/working,
     episodik, semantik) yönlendirir ve yönetir.
     İstek üzerine ilgili anıları veya bilgileri farklı bellek türlerinden geri çağırır.
-    Şimdilik temel list tabanlı depolama (core/working memory) implementasyonu içerir.
+    Şimdilik temel list tabanlı depolama (core/working memory) ve vektör benzerliği
+    ile geri çağırma implementasyonu içerir.
     Hata durumlarında işlemleri loglar ve programın çökmesini engeller.
     """
     def __init__(self, config):
@@ -115,16 +116,18 @@ class Memory:
                                        Beklenen tip: dict veya None.
         """
         # Hata yönetimi: Saklanacak representation None mu? check_input_not_none kullan.
-        if not check_input_not_none(representation, input_name="representation", logger_instance=logger):
+        if not check_input_not_none(representation, input_name="representation for Memory.store", logger_instance=logger):
+             logger.debug("Memory.store: Representation input None. Saklama atlandi.")
              return # None ise saklama atla.
 
         # Hata yönetimi: Representation'ın numpy array ve sayısal dtype olup olmadığını kontrol et.
         # expected_ndim=1 çünkü representation genellikle 1D vektördür.
-        if not check_numpy_input(representation, expected_dtype=np.number, expected_ndim=1, input_name="representation", logger_instance=logger):
+        if not check_numpy_input(representation, expected_dtype=np.number, expected_ndim=1, input_name="representation for Memory.store", logger_instance=logger):
+             logger.error("Memory.store: Representation input numpy array değil veya yanlış dtype/boyut. Saklama atlandi.") # check_numpy_input kendi içinde loglar.
              return # Geçersiz tip, dtype veya boyut ise saklama atla.
 
         # Hata yönetimi: Metadata None veya dict mi? check_input_type kullan.
-        if metadata is not None and not check_input_type(metadata, dict, input_name="metadata", logger_instance=logger):
+        if metadata is not None and not check_input_type(metadata, dict, input_name="metadata for Memory.store", logger_instance=logger):
              # Metadata None değil ama dict de değilse uyarı logla ve metadata'yı None yap.
              logger.warning("Memory.store: Metadata beklenmeyen tipte, yoksayılıyor.")
              metadata = None
@@ -146,16 +149,16 @@ class Memory:
             # Core bellek depolama listesine yeni öğeyi ekle (listenin sonuna).
             self.core_memory_storage.append(memory_entry)
             # DEBUG logu: Saklama işleminin başarıyla yapıldığı ve güncel boyut bilgisi.
-            # logger.debug(f"Memory.store: Temsil başarıyla core belleğe saklandı. Güncel boyutu: {len(self.core_memory_storage)}")
+            logger.debug(f"Memory.store: Temsil başarıyla core belleğe saklandı. Güncel boyutu: {len(self.core_memory_storage)}")
 
 
-            # Maksimum core bellek boyutu aşıldıysa en eski öğeyi sil (FIFO).
+            # Maksimum core bellek boyutu aşıldysa en eski öğeyi sil (FIFO).
             if len(self.core_memory_storage) > self.max_memory_size:
                 # max_memory_size 0 veya negatif ise bu kontrol gereksiz olabilir ama >= 0 varsayıyoruz.
                 # Listenin başındaki (en eski) öğeyi çıkar.
                 removed_entry = self.core_memory_storage.pop(0)
                 # DEBUG logu: Silinen anı hakkında bilgi.
-                # logger.debug(f"Memory.store: Maksimum core bellek boyutu aşıldı ({self.max_memory_size}). En eski anı silindi (timestamp: {removed_entry['timestamp']:.2f}).")
+                logger.debug(f"Memory.store: Maksimum core bellek boyutu aşıldı ({self.max_memory_size}). En eski anı silindi (timestamp: {removed_entry['timestamp']:.2f}).")
 
             # TODO: Gelecekte: Eğer alt bellek modülleri başlatıldıysa, ilgili verileri onlara da kaydet.
             # if self.episodic_memory:
@@ -174,19 +177,16 @@ class Memory:
         """
         Bellekten ilgili anıları geri çağırır.
 
-        Gelen sorgu (query_representation) ve parametrelere (num_results vb.)
-        bakarak hangi bellek türlerinden (core/working, episodik, semantik)
-        arama yapılacağına karar verir, ilgili alt modülleri çağırır ve sonuçları birleştirir.
-        Şimdilik placeholder mantığı: query_representation parametresini kullanmaz.
-        Bunun yerine temel (core) bellekteki anıların bir alt kümesini (belirtilen sayıda rastgele anı)
-        veya belleğin tamamını (num_results çok büyükse veya None ise) döndürür.
-        Gelecekte 'query_representation' kullanılarak farklı bellek türlerinden arama yapılacak.
+        Gelen sorgu (query_representation) ile temel (core) bellekteki anıları
+        (representation vektörleri üzerinden) vektör benzerliği hesaplayarak
+        en ilgili olanları geri çağırır.
+        query_representation None veya geçersiz ise rastgele anı çağırma (eski placeholder)
+        mantığına geri döner.
         Hata durumunda veya bellek boşsa boş liste döndürür.
 
         Args:
             query_representation (numpy.ndarray or None): Sorgu için kullanılan temsil vektörü.
-                                                         Gelecekte anılarla benzerliğini ölçmek için kullanılacak.
-                                                         Şimdilik kullanılmıyor, None veya numpy array olabilir.
+                                                         Genellikle RepresentationLearner'dan gelir.
                                                          Beklenen format: shape (D,), dtype sayısal, veya None.
             num_results (int, optional): Geri çağrılacak maksimum anı sayısı.
                                          Varsayılan self.num_retrieved_memories.
@@ -202,41 +202,65 @@ class Memory:
             num_results = self.num_retrieved_memories
 
         # Hata yönetimi: num_results'ın geçerli bir integer (>= 0) olup olmadığını kontrol et.
-        # check_input_type kullan.
-        if not check_input_type(num_results, int, input_name="num_results", logger_instance=logger) or num_results < 0:
-             # Geçersiz değer ise uyarı logu ver.
+        if not check_input_type(num_results, int, input_name="num_results for Memory.retrieve", logger_instance=logger) or num_results < 0:
              logger.warning(f"Memory.retrieve: Geçersiz num_results değeri veya tipi ({num_results}). Varsayılan ({self.num_retrieved_memories}) veya 5 kullanılacak.")
-             # Geçersiz değer ise varsayılanı (kendi değişkeninden) veya mutlak bir varsayılanı (5) kullan.
              num_results = self.num_retrieved_memories if isinstance(self.num_retrieved_memories, int) and self.num_retrieved_memories >= 0 else 5
-
-        # Hata yönetimi: query_representation tipi kontrolü (Gelecekte kullanılacağı zaman).
-        # Şimdilik None olabilir veya numpy array olabilir.
-        # if query_representation is not None and not check_numpy_input(query_representation, expected_dtype=np.number, expected_ndim=1, input_name="query_representation", logger_instance=logger):
-        #      logger.warning(f"Memory.retrieve: Sorgu representation tipi beklenmiyor ({type(query_representation)}). numpy.ndarray veya None bekleniyordu. Sorgu dikkate alinmayacak.")
-        #      # Hata vermeden devam et ama logla.
-
-
-        # TODO: Gelecekte: Gelen query_representation ve diğer parametrelere bakarak hangi bellek türlerinden (core, episodic, semantic) arama yapılacağına karar ver.
-        # Örneğin, query temsiline en benzer anıları core bellekten getir, belirli bir zamandaki olayları episodik bellekten getir,
-        # belirli bir kavramla ilgili bilgiyi semantik bellekten getir.
-        # Şu an sadece temel (core) bellekte arama yapıyoruz.
+        actual_num_results = min(num_results, len(self.core_memory_storage)) # Listenin boyutunu aşmasın
 
         retrieved_list = [] # Geri çağrılan anıları/bilgileri tutacak liste.
 
+        # Sorgu representation'ın geçerli (None değil, numpy array, 1D, sayısal) olup olmadığını kontrol et.
+        valid_query = query_representation is not None and check_numpy_input(query_representation, expected_dtype=np.number, expected_ndim=1, input_name="query_representation for Memory.retrieve", logger_instance=logger)
+
+
+        if not self.core_memory_storage or actual_num_results <= 0:
+            # Bellek boşsa veya istenen sonuç sayısı 0 veya negatifse, boş liste döndür.
+            logger.debug("Memory.retrieve: Core memory empty or effective num_results non-positive. Returning empty list.")
+            return []
+
         try:
-            # Placeholder Geri Çağırma Mantığı (Core Bellekten Rastgele Seçim):
-            # Bellekteki anıların bir alt kümesini veya tamamını rastgele seçerek döndür.
-            # Eğer core bellek boşsa veya istenen sonuç sayısı 0 veya negatifse, boş liste döndür.
-            if not self.core_memory_storage or num_results <= 0:
-                # logger.debug("Memory.retrieve: Core bellek boş veya istenen sonuç sayısı 0 veya negatif. Geri çağrılamadı.")
-                return [] # Bellek boşsa veya sonuç sayısı 0/negatifse boş liste döndür.
+            if valid_query:
+                # --- Vektör Benzerliği ile Geri Çağırma Mantığı ---
+                logger.debug(f"Memory.retrieve: Valid query representation provided (Shape: {query_representation.shape}). Performing similarity search.")
+                similarities = []
+                query_norm = np.linalg.norm(query_representation)
+
+                # Sorgu vektörü sıfır ise benzerlik hesaplanamaz.
+                if query_norm < 1e-8: # Sıfıra yakınlığı kontrol et
+                     logger.warning("Memory.retrieve: Query representation has near-zero norm. Cannot calculate cosine similarity meaningfully. Returning empty list.")
+                     return [] # Veya bu durumda rastgele çağırmaya dönebiliriz policy'e göre. Şimdilik boş dönelim.
+
+                # Bellekteki her anı ile sorgu arasındaki benzerliği hesapla.
+                for memory_entry in self.core_memory_storage:
+                    # Anıdaki representation'ı al ve geçerliliğini kontrol et.
+                    stored_representation = memory_entry.get('representation') # .get ile güvenli erişim
+                    # Stored representation'ın geçerli bir sayısal 1D numpy array olduğunu doğrula.
+                    if stored_representation is not None and isinstance(stored_representation, np.ndarray) and np.issubdtype(stored_representation.dtype, np.number) and stored_representation.ndim == 1:
+                        stored_norm = np.linalg.norm(stored_representation)
+                        if stored_norm > 1e-8: # Stored vektör sıfır ise bölme hatası olmaması için kontrol et.
+                            # Kosinüs benzerliği hesapla: (dot product) / (norm1 * norm2)
+                            similarity = np.dot(query_representation, stored_representation) / (query_norm * stored_norm)
+                            similarities.append((similarity, memory_entry))
+                        # else: logger.debug("Memory.retrieve: Stored representation has near-zero norm, skipping similarity calculation for this entry.")
+                    # else: logger.debug("Memory.retrieve: Stored entry does not contain a valid numeric 1D numpy array representation, skipping.")
 
 
-            # random.sample fonksiyonu, bir listeden belirtilen sayıda eşsiz öğe seçer.
-            # Seçilecek anı sayısı (actual_num_results), istenen sayı (num_results) ile core bellekteki toplam anı sayısının minimumu olmalıdır.
-            actual_num_results = min(num_results, len(self.core_memory_storage))
-            if actual_num_results > 0: # Seçilecek en az bir anı varsa random.sample çağır.
-                 retrieved_list = random.sample(self.core_memory_storage, actual_num_results)
+                # Benzerliklere göre azalan sırada sırala.
+                similarities.sort(key=lambda item: item[0], reverse=True)
+
+                # En yüksek benzerliğe sahip 'actual_num_results' kadar anıyı al.
+                retrieved_list = [item[1] for item in similarities[:actual_num_results]]
+
+                logger.debug(f"Memory.retrieve: Found {len(similarities)} memories with valid representations for similarity check. Retrieved top {len(retrieved_list)} by similarity.")
+
+            else:
+                # --- Placeholder Rastgele Geri Çağırma Mantığı (Query geçersizse) ---
+                # Eğer sorgu representation None veya geçersiz ise, eski rastgele çağırma mantığına geri dön.
+                logger.debug("Memory.retrieve: Query representation is None or invalid. Falling back to random retrieval.")
+                if actual_num_results > 0: # Hala çağrılacak anı varsa rastgele seç.
+                    retrieved_list = random.sample(self.core_memory_storage, actual_num_results)
+                logger.debug(f"Memory.retrieve: Retrieved {len(retrieved_list)} memories randomly.")
+
 
             # TODO: Gelecekte: Eğer alt bellek modülleri başlatıldıysa, onlardan da ilgili sonuçları al ve retrieved_list ile birleştir.
             # if self.episodic_memory:
@@ -249,18 +273,13 @@ class Memory:
             # TODO: Gelecekte: Farklı bellek türlerinden gelen sonuçları önceliklendir veya sırala.
 
 
-            # DEBUG logu: Geri çağrılan anı sayısı (tüm bellek türlerinden gelenler).
-            # logger.debug(f"Memory.retrieve: Hafızadan toplam {len(retrieved_list)} girdi geri çağrıldı (placeholder).")
-            # Bu log run_evo.py'de de var, çift loglamayı önlemek için birini yorum satırı yapabiliriz.
-
-
         except Exception as e:
             # Geri çağırma işlemi sırasında beklenmedik bir hata oluşursa logla.
-            # random.sample gibi fonksiyonlarda veya gelecekteki daha karmaşık arama algoritmalarında hata olabilir.
             logger.error(f"Memory.retrieve: Bellekten geri çağırma sırasında beklenmedik hata: {e}", exc_info=True)
-            return [] # Hata durumında boş liste döndürerek main loop'un devam etmesini sağla.
+            return [] # Hata durumunda boş liste döndürerek main loop'un devam etmesini sağla.
 
         # Başarılı durumda geri çağrılan anı listesini döndür.
+        # logger.debug(f"Memory.retrieve: Geri çağrılan anı listesi boyutu: {len(retrieved_list)}") # run_evo.py'de loglanıyor
         return retrieved_list
 
     def cleanup(self):
@@ -270,7 +289,7 @@ class Memory:
         Temel (core) bellek listesini temizler ve alt bellek modüllerinin
         (EpisodicMemory, SemanticMemory) cleanup metotlarını (varsa) çağırır.
         Gelecekte kalıcı bellek depolamaya kaydetme (save) mantığı buraya gelebilir.
-        module_loader.py bu metodu program sonlanırken çağırır (varsa).
+        module_loader.py bu metotu program sonlanırken çağrır (varsa).
         """
         logger.info("Memory modülü objesi siliniyor...")
 
@@ -285,9 +304,11 @@ class Memory:
         # Alt bellek modüllerinin cleanup metotlarını çağır (varsa).
         # cleanup_safely yardımcı fonksiyonunu kullanabiliriz.
         if self.episodic_memory:
-             cleanup_safely(self,self.episodic_memory.cleanup, logger_instance=logger, error_message="Memory: EpisodicMemory temizlenirken hata")
+             # cleanup_safely ilk argüman olarak self'i almamalı, sadece fonksiyonu almalı.
+             cleanup_safely(self.episodic_memory.cleanup, logger_instance=logger, error_message="Memory: EpisodicMemory temizlenirken hata")
         if self.semantic_memory:
-             cleanup_safely(self,self.semantic_memory.cleanup, logger_instance=logger, error_message="Memory: SemanticMemory temizlenirken hata")
+             # cleanup_safely ilk argüman olarak self'i almamalı, sadece fonksiyonu almalı.
+             cleanup_safely(self.semantic_memory.cleanup, logger_instance=logger, error_message="Memory: SemanticMemory temizlenirken hata")
 
 
         logger.info("Memory modülü objesi silindi.")

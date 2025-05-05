@@ -5,8 +5,7 @@
 # Genel Ayarlar
 cognitive_loop_interval: 0.1 # Bilişsel döngünün ne sıklıkta çalışacağı (saniye)
 
-# Modül Ayarları
-
+# Sense modülleri ayarları
 vision:
   camera_index: 0 # Varsayılan kamera indeksi
   dummy_width: 640 # Simüle kare genişliği (gerçek kamera yoksa)
@@ -23,43 +22,51 @@ processors:
   vision:
     output_width: 64
     output_height: 64
-    canny_low_threshold: 50 # Yeni eklendi veya güncellendi
-    canny_high_threshold: 150 # Yeni eklendi veya güncellendi
+    canny_low_threshold: 50 # Canny kenar tespiti düşük eşiği
+    canny_high_threshold: 150 # Canny kenar tespiti yüksek eşiği
   audio:
     # output_dim: AudioProcessor'ın döndüreceği özellik sayısı (Enerji, Spectral Centroid).
-    output_dim: 2 # BU DEĞERİN 2 OLARAK GÜNCELLENMESİ GEREKLİDİR (Dökümantasyon amaçlı).
+    # Implementation şu an 2 özellik döndürüyor.
+    output_dim: 2
     # audio_rate AudioSensor'dan gelebilir, ama burada da belirtilebilir.
     # audio_rate: 44100 # İsteğe bağlı olarak burada belirtilebilir
 
+# Representation Learner ayarları
 representation:
   # input_dim: Encoder'ın beklediği toplam girdi boyutu.
-  # (VisionProcessor output_width * output_height for grayscale) + (VisionProcessor output_width * output_height for edges) + (AudioProcessor output_dim)
-  # Varsayılan Processor çıktıları: Vision (64x64 grayscale + 64x64 edges) + Audio (2 features)
-  # 64*64 + 64*64 + 2 = 4096 + 4096 + 2 = 8194
-  input_dim: 8194 # BU DEĞERİN 8194 OLARAK GÜNCELLENMESİ KRİTİKTİR.
+  # (VisionProcessor grayscale 64*64) + (VisionProcessor edges 64*64) + (AudioProcessor output_dim 2)
+  # 4096 + 4096 + 2 = 8194
+  input_dim: 8194
   representation_dim: 128 # Temsil vektörünün boyutu
 
-memory: # src/memory/core.py için ayarlar
-  max_memory_size: 1000 # Saklanacak maksimum temsil sayısı (geçici hafıza)
-  num_retrieved_memories: 5 # Her döngüde kaç hafıza girdisi geri çağrılacak (placeholder için)
-  # Gelecekte kalıcı depolama ayarları buraya gelebilir (örn: file_path: data/memory.json)
+# Memory modülleri ayarları
+memory:
+  max_memory_size: 1000 # Saklanacak maksimum temsil sayısı (core/working memory)
+  num_retrieved_memories: 5 # Retrieve metodunda varsayılan olarak geri çağrılacak anı sayısı
+  # Gelecekte kalıcı depolama ayarları buraya gelebilir (örn: file_path: data/memory.pkl)
+  # retrieval_method: similarity # Gelecekte farklı method seçimi olabilir.
+  memory_file_path: data/core_memory.pkl # Belleğin kaydedileceği/yükleneceği dosya yolu (Yeni Eklenecek)
 
-cognition: # src/cognition/* için ayarlar
+
+# Cognition modülleri ayarları
+cognition:
   # Örneğin, karar eşikleri veya model yolları buraya gelebilir
   # decision_threshold: 0.7
 
-motor_control: # src/motor_control/* için ayarlar
+# Motor Control modülleri ayarları
+motor_control:
   # Örneğin, çıktı tipi (metin, ses vb.) veya sentezleyici ayarları
   # default_output_type: text
 
-interaction: # src/interaction/* için ayarlar
+# Interaction modülleri ayarları
+interaction:
   enabled_channels: ['console'] # Aktif çıktı kanalları listesi. 'console', 'web_api' vb.
   channel_configs: # Kanal bazlı özel ayarlar
     web_api:
       port: 5000
       # host: 127.0.0.1 # Gelecekte
 
-# Loglama Ayarları <<< Bu bölüm aktif hale getirildi
+# Loglama Ayarları
 logging:
   level: DEBUG # Varsayılan loglama seviyesi (DEBUG, INFO, WARNING, ERROR, CRITICAL)
   # handlers: # Gelecekte farklı çıktı hedefleri tanımlanabilir
