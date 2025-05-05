@@ -25,6 +25,7 @@ from src.interaction.api import InteractionAPI # api.py dosyasındaki Interactio
 def load_config():
     """Basit placeholder konfigürasyon yükleyici."""
     # TODO: config/main_config.yaml dosyasından gerçek konfigürasyonu yükle
+    # TODO: YAML okuma kütüphanesi (PyYAML) requirements.txt'e ve kuruluma eklenmeli
     return {
         'vision': {
             'camera_index': 0, # Varsayılan kamera indeksi
@@ -43,8 +44,13 @@ def load_config():
          'processing_audio': { # Audio Processor için konfigürasyon
              # Örneğin, MFCC sayısı gibi ayarlar buraya gelebilir
              # output_features: ['energy', 'mfcc'] # Gelecekte
+             'output_dim': 1 # Şu anki enerji çıktısı için boyut
          },
          'representation': { # Representation Learner için konfigürasyon
+             # input_dim, processing çıktılarının boyutuna göre dinamik belirlenmeli veya burada hesaplanmalı.
+             # Şimdilik config'de belirtelim ve VisionProcessor çıktı boyutu ile AudioProcessor çıktı boyutuna göre manuel ayarlayalım.
+             # Eğer Processing Vision 64x64 gri dönerse: 64*64=4096. Audio 1 enerji dönerse: 1. input_dim = 4096 + 1 = 4097
+             'input_dim': 4096 + 1, # Vision (64*64) + Audio (1)
              'representation_dim': 128 # Öğrenilecek temsil boyutu
          },
          'memory': { # Memory modülü için konfigürasyon
@@ -68,7 +74,7 @@ def load_config():
 
 def run_evo():
     """
-    Evo'nun çekirdek bilişsel döngüsünü ve arayüzlerini başlatır.
+    Evo'nın çekirdek bilişsel döngüsünü ve arayüzlerini başlatır.
     Bu fonksiyon çağrıldığında Evo "canlanır".
     """
     # Logging ayarları (dosya başında veya ayrı bir utility fonksiyonda olabilir)
@@ -90,7 +96,7 @@ def run_evo():
     memories = {}
     cognition_modules = {}
     motor_control_modules = {}
-    interaction_modules = {} # Interaction modülleri için yeni kategori
+    interaction_modules = {}
 
 
     # Başlatma başarılı olduysa main loop'u çalıştırmak için flag
@@ -227,11 +233,16 @@ def run_evo():
     # Interaction modülü kritik başlatma hatası vermediyse buraya gelinir.
     if can_run_main_loop:
          # Sadece ana pipeline modüllerinin (Sense, Process, Represent, Memory, Cognition, MotorControl)
-         # kategori sözlüklerinin boş olmaması ve içlerindeki objelerin None olmaması kontrol edilebilir.
+         # kategori sözlüklerinin None olmaması ve içlerindeki objelerin None olmaması kontrol edilebilir.
          # Interaction modülü None olsa bile ana döngü çalışabilir (sadece çıktı veremez).
          pipeline_modules_ok = sensors and processors and representers and memories and cognition_modules and motor_control_modules
-         if pipeline_modules_ok:
-            # Kategorilerdeki objelerin None olup olmadığını da kontrol et (eğer kritik hata yerine None yapıyorsak)
+         # Check if all required *objects* within these categories are not None (based on our init logic)
+         all_pipeline_objects_ok = all(sensors.values()) and all(processors.values()) and \
+                                   all(representers.values()) and all(memories.values()) and \
+                                   all(cognition_modules.values()) and all(motor_control_modules.values())
+
+
+         if pipeline_modules_ok and all_pipeline_objects_ok:
             # Basitçe loglayalım:
              logging.info("Tüm ana pipeline modül kategorileri başarıyla başlatıldı. Evo bilişsel döngüye hazır.")
              if not interaction_modules.get('core_interaction'):
@@ -241,6 +252,10 @@ def run_evo():
               # Bu durum should not happen if can_run_main_loop is True with current logic,
               # unless some non-critical module init fails silently (which we handle with logging).
               logging.warning("Bazı temel ana pipeline modül kategorileri başlatılamadı veya eksik. Evo bilişsel döngüsü sınırlı çalışabilir.")
+              # Hangi kategorilerin eksik olduğunu loglayabiliriz:
+              # missing_categories = [cat_name for cat_name, cat_dict in [('Sensors', sensors), ('Processors', processors), ('Representers', representers), ('Memories', memories), ('Cognition', cognition_modules), ('MotorControl', motor_control_modules)] if not cat_dict or any(v is None for v in cat_dict.values())]
+              # if missing_categories:
+              #      logging.warning(f"Eksik veya None olan temel modül objeleri: {', '.join(missing_categories)}")
 
 
     else:
