@@ -16,7 +16,9 @@ from src.memory.core import Memory # core.py dosyasındaki Memory sınıfı
 from src.cognition.core import CognitionCore # core.py dosyasındaki CognitionCore sınıfı
 # Motor Control modülünü import et
 from src.motor_control.core import MotorControlCore # core.py dosyasındaki MotorControlCore sınıfı
-# Diğer modüller (interaction) geldikçe buraya eklenecek
+# Interaction modülünü import et
+from src.interaction.api import InteractionAPI # api.py dosyasındaki InteractionAPI sınıfı
+
 
 # Konfigürasyon yükleme (şimdilik basit bir placeholder)
 # Gelecekte config/main_config.yaml dosyasından okunacak
@@ -56,12 +58,17 @@ def load_config():
          'motor_control': { # Motor Control modülü için konfigürasyon
              # Örneğin, çıktı tipi (metin, ses vb.) veya sentezleyici ayarları
          },
+         'interaction': { # Interaction modülü için konfigürasyon
+             # Örneğin, API portu veya çıktı kanalları (konsol, dosya, ağ)
+             # 'api_port': 5000
+             # 'output_channel': 'console' # Şimdilik sadece console desteklenecek
+         },
         'cognitive_loop_interval': 0.1 # Bilişsel döngünün ne sıklıkla çalışacağı (saniye)
     }
 
 def run_evo():
     """
-    Evo'nın çekirdek bilişsel döngüsünü ve arayüzlerini başlatır.
+    Evo'nun çekirdek bilişsel döngüsünü ve arayüzlerini başlatır.
     Bu fonksiyon çağrıldığında Evo "canlanır".
     """
     # Logging ayarları (dosya başında veya ayrı bir utility fonksiyonda olabilir)
@@ -82,8 +89,8 @@ def run_evo():
     representers = {}
     memories = {}
     cognition_modules = {}
-    motor_control_modules = {} # Motor Control modülleri için yeni kategori
-    other_modules = {} # Interaction vb. buraya gelecek
+    motor_control_modules = {}
+    interaction_modules = {} # Interaction modülleri için yeni kategori
 
 
     # Başlatma başarılı olduysa main loop'u çalıştırmak için flag
@@ -198,39 +205,52 @@ def run_evo():
     else:
          logging.warning("Önceki modüller başlatılamadığı için Motor Control modülü atlandı.")
 
-
-    # TODO: Diğer modülleri burada başlat (Faz 3 ve sonrası).
-    # Interaction API gibi modüller main loop'u engellememeli, bireysel hata yönetimi yapın.
-    # try:
-    #     logging.info("Interaction modülü başlatılıyor...")
-    #     other_modules['interaction'] = InteractionAPI(config.get('interaction', {}))
-    #     other_modules['interaction'].start() # Threaded olabilir
-    #     logging.info("Interaction modülü başarıyla başlatıldı.")
-    # except Exception as e:
-    #     logging.critical(f"Interaction modülü başlatılırken kritik hata oluştu: {e}", exc_info=True)
-    #     other_modules['interaction'] = None # Hata durumunda objeyi None yap
+    # Faz 3 Devami: Interaction Modülü Başlat
+    logging.info("Faz 3: Interaction modülü başlatılıyor...")
+    # Interaction modülü Motor Control'e bağımlı. Eğer Motor Control yoksa başlatmanın anlamı yok.
+    # Ancak Interaction API'si dış dünya ile bağlantı kurduğu için, bu modülün başlatılması
+    # main loop'un çalışmasını engellememeli (eğer kritik bir hata değilse, sadece API'nin çalışmadığı anlamına gelir).
+    # O yüzden bu modülün başlatılması can_run_main_loop'u False yapmamalı.
+    # Bireysel try-except kullanıyoruz.
+    try:
+        interaction_modules['core_interaction'] = InteractionAPI(config.get('interaction', {}))
+        # Eğer API bir thread içinde çalışacaksa burada start() çağrılmalı
+        # if hasattr(interaction_modules['core_interaction'], 'start'):
+        #      interaction_modules['core_interaction'].start()
+        logging.info("Interaction modülü başarıyla başlatıldı.")
+    except Exception as e:
+        logging.critical(f"Interaction modülü başlatılırken kritik hata oluştu: {e}", exc_info=True)
+        interaction_modules['core_interaction'] = None # Hata durumunda objeyi None yap
 
 
     # Tüm temel modül kategorileri başlatıldı mı kontrolü (eğer can_run_main_loop True ise)
+    # Interaction modülü kritik başlatma hatası vermediyse buraya gelinir.
     if can_run_main_loop:
-         if sensors and processors and representers and memories and cognition_modules and motor_control_modules:
+         # Sadece ana pipeline modüllerinin (Sense, Process, Represent, Memory, Cognition, MotorControl)
+         # kategori sözlüklerinin boş olmaması ve içlerindeki objelerin None olmaması kontrol edilebilir.
+         # Interaction modülü None olsa bile ana döngü çalışabilir (sadece çıktı veremez).
+         pipeline_modules_ok = sensors and processors and representers and memories and cognition_modules and motor_control_modules
+         if pipeline_modules_ok:
             # Kategorilerdeki objelerin None olup olmadığını da kontrol et (eğer kritik hata yerine None yapıyorsak)
             # Basitçe loglayalım:
-             logging.info("Tüm temel modül kategorileri başarıyla başlatıldı. Evo bilişsel döngüye hazır.")
+             logging.info("Tüm ana pipeline modül kategorileri başarıyla başlatıldı. Evo bilişsel döngüye hazır.")
+             if not interaction_modules.get('core_interaction'):
+                  logging.warning("Interaction modülü başlatılamadı. Evo çıktı veremeyebilir.")
+
          else:
               # Bu durum should not happen if can_run_main_loop is True with current logic,
               # unless some non-critical module init fails silently (which we handle with logging).
-              logging.warning("Temel modüllerin bazıları başlatılamadı veya eksik. Evo bilişsel döngüsü sınırlı çalışabilir.")
+              logging.warning("Bazı temel ana pipeline modül kategorileri başlatılamadı veya eksik. Evo bilişsel döngüsü sınırlı çalışabilir.")
 
 
     else:
-         logging.critical("Modül başlatma hataları nedeniyle Evo'nun bilişsel döngüsü başlatılamadı.")
+         logging.critical("Modül başlatma hataları nedeniyle Evo'nın bilişsel döngüsü başlatılamadı.")
 
 
     # --- Ana Bilişsel Döngü ---
     # Sadece can_run_main_loop True ise döngüye gir
     if can_run_main_loop:
-        logging.info("Evo'nun bilişsel döngüsü başlatıldı...")
+        logging.info("Evo'nın bilişsel döngüsü başlatıldı...")
         loop_interval = config.get('cognitive_loop_interval', 0.1) # Döngü hızı
         num_memories_to_retrieve = config.get('memory', {}).get('num_retrieved_memories', 5) # Her döngüde kaç hafıza çağırılacak
 
@@ -336,11 +356,13 @@ def run_evo():
                 #     # logging.debug("Motor Control modülü veya karar mevcut değil.")
                 #     pass # Debug logu çok sık gelebilir.
 
-
-                # TODO: Tepkiyi interaction API üzerinden dışarı aktar (Faz 3 Devamı)
-                # if other_modules.get('interaction') and response_output is not None:
-                #    other_modules['interaction'].send_output(response_output)
-                #    logging.debug("Tepki dışarı aktarıldı.")
+                # --- Tepkiyi Dışarı Aktar (Faz 3 Tamamlanması) ---
+                # Sadece interaction objesi None değilse ve üretilmiş bir tepki varsa
+                if interaction_modules.get('core_interaction') and response_output is not None:
+                   interaction_modules['core_interaction'].send_output(response_output)
+                # else:
+                #     # logging.debug("Interaction modülü veya tepki mevcut değil. Çıktı gönderilemedi.")
+                #     pass # Debug logu çok sık gelebilir.
 
 
                 # --- Döngü Gecikmesi ---
@@ -374,46 +396,44 @@ def run_evo():
                 logging.info("AudioSensor kapatılıyor...")
                 sensors['audio'].stop_stream()
 
-            # Processor'lar genellikle kapatma gerektirmez ama emin olmak için kontrol edilebilir veya cleanup metodu eklenebilir
-            # if processors.get('vision') and hasattr(processors['vision'], 'cleanup'):
-            #      logging.info("VisionProcessor temizleniyor...")
-            #      processors['vision'].cleanup()
-            # if processors.get('audio') and hasattr(processors['audio'], 'cleanup'):
-            #      logging.info("AudioProcessor temizleniyor...")
-            #      processors['audio'].cleanup()
+        # Processor'lar genellikle kapatma gerektirmez ama emin olmak için kontrol edilebilir veya cleanup metodu eklenebilir
+        # if processors.get('vision') and hasattr(processors['vision'], 'cleanup'):
+        #      logging.info("VisionProcessor temizleniyor...")
+        #      processors['vision'].cleanup()
+        # if processors.get('audio') and hasattr(processors['audio'], 'cleanup'):
+        #      logging.info("AudioProcessor temizleniyor...")
+        #      processors['audio'].cleanup()
 
-            # Representation Learner da genellikle kapatma gerektirmez
-            # if representers.get('main_learner') and hasattr(representers['main_learner'], 'cleanup'):
-            #      logging.info("RepresentationLearner temizleniyor...")
-            #      representers['main_learner'].cleanup()
+        # Representation Learner da genellikle kapatma gerektirmez
+        # if representers.get('main_learner') and hasattr(representers['main_learner'], 'cleanup'):
+        #      logging.info("RepresentationLearner temizleniyor...")
+        #      representers['main_learner'].cleanup()
 
-            # Memory modülü eğer kalıcı depolama kullanıyorsa cleanup gerektirebilir.
-            # if memories.get('core_memory') and hasattr(memories['core_memory'], 'cleanup'):
-            #     logging.info("Memory modülü temizleniyor...")
-            #     memories['core_memory'].cleanup()
+        # Memory modülü eğer kalıcı depolama kullanıyorsa cleanup gerektirebilir.
+        # if memories.get('core_memory') and hasattr(memories['core_memory'], 'cleanup'):
+        #     logging.info("Memory modülü temizleniyor...")
+        #     memories['core_memory'].cleanup()
 
-            # Cognition modülü genellikle kapatma gerektirmez
-            # if cognition_modules.get('core_cognition') and hasattr(cognition_modules['core_cognition'], 'cleanup'):
-            #      logging.info("Cognition modülü temizleniyor...")
-            #      cognition_modules['core_cognition'].cleanup()
+        # Cognition modülü genellikle kapatma gerektirmez
+        # if cognition_modules.get('core_cognition') and hasattr(cognition_modules['core_cognition'], 'cleanup'):
+        #      logging.info("Cognition modülü temizleniyor...")
+        #      cognition_modules['core_cognition'].cleanup()
 
-            # Motor Control modülü genellikle kapatma gerektirmez
-            # if motor_control_modules.get('core_motor_control') and hasattr(motor_control_modules['core_motor_control'], 'cleanup'):
-            #      logging.info("Motor Control modülü temizleniyor...")
-            #      motor_control_modules['core_motor_control'].cleanup()
+        # Motor Control modülü genellikle kapatma gerektirmez
+        # if motor_control_modules.get('core_motor_control') and hasattr(motor_control_modules['core_motor_control'], 'cleanup'):
+        #      logging.info("Motor Control modülü temizleniyor...")
+        #      motor_control_modules['core_motor_control'].cleanup()
 
-
-            # TODO: Diğer başlatılan modüllerin kapatılmasını sağla (API gibi thread'ler)
-            # for module_name, module_obj in other_modules.items():
-            #      if hasattr(module_obj, 'stop'): # Eğer stop metodu varsa (threaded servisler için)
-            #           logging.info(f"{module_name} kapatılıyor...")
-            #           module_obj.stop()
-            #      elif hasattr(module_obj, 'cleanup'): # Eğer cleanup metodu varsa (kaynak temizliği için)
-            #            logging.info(f"{module_name} temizleniyor...")
-            #            module_obj.cleanup()
+        # Interaction modülü eğer bir thread veya servis başlattıysa stop metodu gerektirir.
+        if interaction_modules.get('core_interaction') and hasattr(interaction_modules['core_interaction'], 'stop'):
+             logging.info("InteractionAPI kapatılıyor...")
+             interaction_modules['core_interaction'].stop()
+        # elif interaction_modules.get('core_interaction') and hasattr(interaction_modules['core_interaction'], 'cleanup'):
+        #      logging.info("InteractionAPI temizleniyor...")
+        #      interaction_modules['core_interaction'].cleanup()
 
 
-            logging.info("Evo durduruldu.")
+        logging.info("Evo durduruldu.")
 
 
 # Ana çalıştırma noktası
