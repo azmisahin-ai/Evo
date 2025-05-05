@@ -21,6 +21,7 @@ Aşağıdaki fazlar, Evo'nun doğumundan (temel algı) bilgelik ve ustalığa (k
     *   [x] Dış dünya ile temel etkileşim (Interaction) placeholder/iskeletinin oluşturulması (Input alma placeholder'ı, Output gönderme metodu, temel çıktı kanalları - ConsoleOutputChannel, WebAPIOutputChannel placeholder'ı).
     *   [x] Temel hata yönetimi ve logging iyileştirmelerinin başlangıcı (`run_evo.py` içindeki try-except blokları ve logging çağrıları).
 
+    *   [x] Merkezi ve sağlam bir loglama altyapısı kurmak.
     *   [ ] **TODO:** DEBUG loglarının neden görünmediği konusunu araştırmak ve çözmek.
     *   [ ] **TODO:** Yapılandırma yönetimini ayrı bir modül haline getirmek ve `.yaml` dosyasından okumayı implement etmek (`config.py`, `PyYAML` entegrasyonu).
     *   [ ] **TODO:** Temel hata yönetimi/istisna işleme yapısını olgunlaştırmak ve modüller arası yaygınlaştırmak.
