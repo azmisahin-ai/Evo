@@ -32,12 +32,12 @@ Aşağıdaki fazlar, Evo'nın doğumundan (temel algı) bilgelik ve ustalığa (
     *   [ ] **TODO:** Faz 0 ile ilgili genel kod kalitesi ve refactoring.
         *   [x] Modül başlatma ve temizleme mantığı `run_evo.py` dosyasından `src/core/module_loader.py` modülüne taşınarak kod tekrarı azaltıldı.
         *   [x] Loglama altyapısını yapılandırma dosyası (`main_config.yaml`) üzerinden kontrol edilebilir hale getirme (log seviyesi, çıktı hedefleri vb.).
-        *   [ ] Docstrings ve Yorumlar eklendi/güncellendi.
+        *   [x] Docstrings ve Yorumlar eklendi/güncellendi.
             *   [x] run_evo.py dosyasına docstring ve yorumlar eklendi/güncellendi.
-            *   [ ] src/core yardımcı modüllerine (logging_utils, config_utils, module_loader) docstring ve yorumlar eklenecek.
-            *   [ ] src/senses modüllerine (vision, audio) docstring ve yorumlar eklenecek.
-            *   [ ] src/processing modüllerine (vision, audio) docstring ve yorumlar eklenecek.
-            *   [ ] Diğer Faz 0 kapsamındaki modüllere (memory/core, cognition/core, motor_control/core, interaction/api, interaction/output_channels) docstring ve yorumlar eklenecek.
+            *   [x] src/core yardımcı modüllerine (logging_utils, config_utils, module_loader) docstring ve yorumlar eklendi.
+            *   [x] src/senses modüllerine (vision, audio) docstring ve yorumlar eklendi.
+            *   [x] src/processing modüllerine (vision, audio) docstring ve yorumlar eklendi.
+            *   [x] Diğer Faz 0 kapsamındaki modüllere (memory/core, cognition/core, motor_control/core, interaction/api, interaction/output_channels) docstring ve yorumlar eklendi.
         *   [ ] ... Diğer refactoring adımları ...
 
 
@@ -74,7 +74,7 @@ Aşağıdaki fazlar, Evo'nın doğumundan (temel algı) bilgelik ve ustalığa (
         *   [ ] Faz 2 modülünün (Memory) entegrasyonunun ve store/retrieve işlevlerinin test edilmesi.
 
     *   [ ] **TODO:** Bellek yönetimi mekanizmalarının eklenmesi (eski anıları silme, önceliklendirme, sıkıştırma).
-    *   [ ] **TODO:** Duyu akışı içindeki tekrar eden veya dikkat çekici desenleri/temsilleri fark etme ve bunları bellek sisteminde işleme mekanizmalarının eklenmesi.
+    *   [ ] **TODO:** Duyu akışındaki tekrar eden veya dikkat çekici desenleri/temsilleri fark etme ve bunları bellek sisteminde işleme mekanizmalarının eklenmesi.
 
 *   **Faz 3: İlkel Anlama ve Tepkiler (İlk Anlama ve İfade)**
     *   [x] Cognition modülünün oluşturulması (`src/cognition/core.py` - Placeholder/Temel Sınıf, `understanding.py`, `decision.py` - placeholder dosyalar).
