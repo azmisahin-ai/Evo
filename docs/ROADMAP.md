@@ -54,7 +54,7 @@ Aşağıdaki fazlar, Evo'nın doğumundan (temel algı) bilgelik ve ustalığa (
                 *   [x] Representation (src/representation) modülü gözden geçirilecek.
                 *   [x] MotorControl (src/motor_control) modülü gözden geçirilecek.
                 *   [x] Interaction (src/interaction) modülü gözden geçirilecek.
-            *   [ ] Tekrar eden kod kalıplarını (örn: benzer try-except yapıları dışındaki) yardımcı fonksiyonlara 
+            *   [x] Tekrar eden kod kalıplarını (örn: benzer try-except yapıları dışındaki) yardımcı fonksiyonlara 
         *   [ ] Unit testler için temel iskeletin kurulması.
 
 
