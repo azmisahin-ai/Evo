@@ -63,7 +63,7 @@ Aşağıdaki dizin yapısı ve modül açıklamaları, Evo'nun "vücudu" ve "bey
 │   │
 │   └── run_evo.py            # PROJENİN ANA BAŞLATMA NOKTASI (Evo'nun "Canlanma" Scripti)
 │                               # Cognitive Loop ve Interaction API'yi başlatır.
-│
+├── tests/                    # Testler Dizini (Tests Directory)
 ├── /mobile_app               # Mobil Uygulama Kaynak Kodları (Evo ile "İletişim Kurduğumuz Arayüz")
 │   └── README.md             # Mobil Uygulama Açıklaması, Kurulum, Backend API Bağlantısı
 │   └── ... (Flutter/Diğer Mobil Kodları)
