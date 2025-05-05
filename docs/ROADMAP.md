@@ -64,12 +64,12 @@ Aşağıdaki fazlar, Evo'nın doğumundan (temel algı) bilgelik ve ustalığa (
     *   [x] Bu modüllerin temel döngüye entegrasyonu (`run_evo.py` içinde çağrılıyorlar).
 
     *   **Faz 1 Gerçek Implementasyon Görevleri (Mevcut Odak Noktamız - Görsel & İşitsel):**
-        *   [x] Ham **görsel** veriden temel, düşük seviyeli özellikler (renk, basit kenarlar, hareket - gelecekte) çıkarma algoritmalarının `src/processing/vision.py` içine implementasyonu.
-        *   [ ] Ham **işitsel** veriden temel, düşük seviyeli özellikler (enerji, frekans, MFCC - gelecekte) çıkarma algoritmalarının `src/processing/audio.py` içine implementasyonu.
-        *   [ ] İşlenmiş **görsel ve işitsel** özelliklerden öğrenilmiş, düşük boyutlu, modality bazlı içsel temsiller (latent vektörler) oluşturma (örn: Basit bir Autoencoder veya VAE prensibi) implementasyonu (`src/representation/models.py`).
-        *   [ ] `RepresentationLearner.learn_representation` metodunun bu öğrenme/dönüştürme sürecini içerecek şekilde implementasyonu.
-        *   [ ] RepresentationLearner çıktısının (latent vektörler) Memory ve Cognition için kullanılabilir formatta olmasının sağlanması.
-        *   [ ] Faz 1 modüllerinin (Sense, Process, Represent) entegrasyonunun ve çıktı formatlarının detaylı test edilmesi.
+        *   [x] Ham **görsel** veriden temel, düşük seviyeli özellikler (renk, basit kenarlar, hareket - gelecekte) çıkarma algoritmalarının src/processing/vision.py içine implementasyonu.
+        *   [x] Ham **işitsel** veriden temel, düşük seviyeli özellikler (enerji, frekans, MFCC - gelecekte) çıkarma algoritmalarının src/processing/audio.py içine implementasyonu.
+        *   [x] İşlenmiş **görsel ve işitsel** özelliklerden öğrenilmiş, düşük boyutlu, modality bazlı içsel temsiller (latent vektörler) oluşturma (örn: Basit bir Autoencoder veya VAE prensibi) implementasyonu (src/representation/models.py).
+        *   [x] RepresentationLearner.learn metodunun bu öğrenme/dönüştürme sürecini içerecek şekilde implementasyonu.
+        *   [x] RepresentationLearner çıktısının (latent vektörler) Memory ve Cognition için kullanılabilir formatta olmasının sağlanması. (Çıktı 128 boyutlu numpy array, bu modüllerin placeholderları bunu bekliyor)
+        *   [x] Faz 1 modüllerinin (Sense, Process, Represent) entegrasyonunun ve çıktı formatlarının detaylı test edilmesi. (Son log çıktısı tüm bu akışın başarılı olduğunu gösterdi).
 
     *   [ ] **TODO:** Gelecekte metin gibi diğer duyu modaliteleri için Process ve Representation desteği eklenmesi (Faz 5 ile ilişkili olabilir).
     *   [ ] **TODO:** Farklı temsil katmanları veya yöntemleri (örn: anlamsal temsil, sembolik temsil) için RepresentationLearner'ın genişletilmesi.
