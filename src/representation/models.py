@@ -49,6 +49,10 @@ class RepresentationLearner:
              logging.error("RepresentationLearner: Modül tam başlatılmamış. Öğrenme atlandı.")
              return None
 
+        if processed_inputs is None or not isinstance(processed_inputs, dict):
+             logging.debug("RepresentationLearner: İşlenecek işlenmiş girdi sözlüğü yok veya geçersiz format.") # DEBUG logu
+             return None
+
         visual_data = processed_inputs.get('visual')
         audio_data = processed_inputs.get('audio')
 
@@ -69,11 +73,11 @@ class RepresentationLearner:
              logging.warning(f"RepresentationLearner: Görsel veri beklenmeyen formatta (NumPy array bekleniyordu, geldi: {type(visual_data)}). Düzleştirme atlandı.")
 
 
-        # İşlenmiş işitsel veriyi (float) bir NumPy array'e dönüştür
+        # İşlenmiş işitsel veriyi (float) bir NumPy array'e dönüştür veya düzleştir
         audio_vec = None
         if audio_data is not None and isinstance(audio_data, (float, np.float32, np.float64)):
              audio_vec = np.array([audio_data], dtype=np.float32) # Tek elemanlı vektör yap
-             logging.debug(f"RepresentationLearner: Ses verisi vektör yapıldı. Shape: {audio_vec.shape}") # DEBUG logu
+             logging.debug(f"RepresentationLearner: Ses verisi float'tan vektör yapıldı. Shape: {audio_vec.shape}") # DEBUG logu
         elif audio_data is not None and isinstance(audio_data, np.ndarray):
              # Eğer audio_data zaten array ise, onu da düzleştir
              audio_vec = audio_data.flatten()
@@ -85,33 +89,46 @@ class RepresentationLearner:
 
         # Görsel ve işitsel vektörleri birleştir
         combined_input = None
-        if visual_flat is not None and audio_vec is not None:
-             # İkisini birleştir (concatenate)
+        input_components = [] # Birleştirilecek geçerli bileşenler
+
+        if visual_flat is not None:
+             input_components.append(visual_flat)
+
+        if audio_vec is not None:
+             input_components.append(audio_vec)
+
+        if not input_components:
+            logging.debug("RepresentationLearner: Model için geçerli girdi bileşeni yok.") # DEBUG logu
+            return None # Ne görsel ne ses verisi uygun formatta
+
+
+        if len(input_components) > 1:
+             # Birden fazla bileşen varsa birleştir
              try:
-                  combined_input = np.concatenate((visual_flat, audio_vec))
+                  combined_input = np.concatenate(input_components)
                   logging.debug(f"RepresentationLearner: Görsel ve ses verisi birleştirildi. Shape: {combined_input.shape}") # DEBUG logu
              except ValueError as e:
-                  logging.error(f"RepresentationLearner: Görsel ve ses verisi birleştirilirken boyut hatası: {e}. Görsel Shape: {visual_flat.shape}, Ses Shape: {audio_vec.shape}", exc_info=True)
+                  # Bu hata genellikle birleştirilecek array'lerin boyutları uyuşmadığında olur (sadece birleştirilen eksen hariç)
+                  logging.error(f"RepresentationLearner: Girdi bileşenleri birleştirilirken boyut hatası: {e}. Bileşen Shapes: {[c.shape for c in input_components]}", exc_info=True)
                   return None # Birleştirme hatası
-
-
-        elif visual_flat is not None: # Sadece görsel varsa
-             combined_input = visual_flat
-             logging.debug(f"RepresentationLearner: Sadece görsel veri kullanılıyor. Shape: {combined_input.shape}") # DEBUG logu
-
-        elif audio_vec is not None: # Sadece ses varsa
-             combined_input = audio_vec
-             logging.debug(f"RepresentationLearner: Sadece ses verisi kullanılıyor. Shape: {combined_input.shape}") # DEBUG logu
+        else:
+             # Sadece bir bileşen varsa, o zaten birleştirilmiş girdidir
+             combined_input = input_components[0]
+             logging.debug(f"RepresentationLearner: Sadece bir girdi bileşeni var. Shape: {combined_input.shape}") # DEBUG logu
 
 
         if combined_input is None or combined_input.size == 0:
-             logging.debug("RepresentationLearner: Model için geçerli girdi oluşturulamadı.") # DEBUG logu
+             logging.debug("RepresentationLearner: Model için geçerli girdi oluşturulamadı (birleştirme sonrası boş veya None).") # DEBUG logu
              return None
 
         # Girdi boyutunun beklenen input_dim ile aynı olduğundan emin ol
         if combined_input.shape[-1] != self.input_dim:
             logging.error(f"RepresentationLearner: Birleştirilmiş girdi boyutu beklenen input_dim ({self.input_dim}) ile uyuşmuyor ({combined_input.shape[-1]}).")
             # Bu durumda model çalışmaz, None döndür.
+            # Eğer bu hata Codespace'de veya donanımsız ortamda simüle veri ile geliyorsa,
+            # dummy veri üretim boyutlarımız RepresentationLearner'ın beklediği input_dim ile tutarlı değil demektir.
+            # Veya sadece görsel/ses geldiğinde RepresentationLearner'ın farklı input_dim'leri yönetmesi gerekiyor.
+            # Şimdilik katı kural: input_dim tam eşleşmeli.
             return None
 
 
@@ -131,12 +148,13 @@ class RepresentationLearner:
             if learned_representation is not None:
                  # Öğrenilmiş temsilin boyutunu kontrol et
                  if learned_representation.shape[-1] != self.representation_dim:
+                      # Bu hata normalde Dense katmanı tarafından yakalanmalı, ama emin olalım.
                       logging.error(f"RepresentationLearner: Öğrenilmiş temsil boyutu beklenen representation_dim ({self.representation_dim}) ile uyuşmuyor ({learned_representation.shape[-1]}).")
                       # Hata durumunda None döndür
                       return None
 
                  logging.debug(f"RepresentationLearner: Temsil başarıyla öğrenildi. Output Shape: {learned_representation.shape}, Dtype: {learned_representation.dtype}") # DEBUG logu
-            # else: logging.debug("RepresentationLearner: Model çikti üretmedi (None döndürdü).") # DEBUG logu
+            else: logging.debug("RepresentationLearner: Model çikti üretmedi (None döndürdü).") # DEBUG logu
 
 
             return learned_representation # Öğrenilmiş temsil vektörü (NumPy array veya None) döndür
@@ -171,7 +189,7 @@ if __name__ == '__main__':
         # VisionProcessor çıktısı: gri tonlama 64x64 NumPy array (dtype uint8)
         dummy_processed_visual = np.random.randint(0, 255, size=(64, 64), dtype=np.uint8)
         # AudioProcessor çıktısı: enerji float değeri (dtype float32/64)
-        dummy_processed_audio = np.random.rand(1)[0].astype(np.float32) # Rastgele enerji değeri
+        dummy_processed_audio = np.random.rand(1)[0].astype(np.float32) # Rastgele energy değeri
 
 
         # Hem görsel hem ses girdisi ile dene
@@ -188,7 +206,10 @@ if __name__ == '__main__':
 
         # Sadece görsel girdi ile dene (AudioProcessor None döndürdüyse)
         print("\nSadece görsel girdi ile RepresentationLearner testi:")
-        # Bu durumda birleştirilmiş girdi boyutu 4096 olacak, ancak model 4097 bekliyor. Hata beklenebilir.
+        # RepresentationLearner artık tek bir bileşen geldiğinde de çalışmalı.
+        # Ancak, 'input_dim' config'i hala birleşik boyutu bekliyor (4097).
+        # Bu, tek modalite geldiğinde boyut uyuşmazlığına neden olacak ve learn metodu None dönecek.
+        # RepresentationLearner'ın farklı modalite kombinasyonlarını yönetmesi daha karmaşık bir konu, şimdilik bu davranışı bekliyoruz.
         processed_inputs_visual = {'visual': dummy_processed_visual, 'audio': None} # Audio None gönder
         representation_visual = learner.learn(processed_inputs_visual)
         if representation_visual is not None:

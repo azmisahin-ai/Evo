@@ -35,7 +35,7 @@ class VisionProcessor:
             # --- Gerçek Görsel İşleme Mantığı (Faz 1) ---
 
             # 1. Gri tonlamaya çevir
-            # OpenCV renk formatı BGR'dir. Eğer girdi RGB ise cv2.COLOR_RGB2GRAY kullanın.
+            # OpenCV renk formatı BGR'dır. Eğer girdi RGB ise cv2.COLOR_RGB2GRAY kullanın.
             if len(visual_data.shape) == 3 and visual_data.shape[2] == 3:
                 gray_image = cv2.cvtColor(visual_data, cv2.COLOR_BGR2GRAY)
                 logging.debug("VisionProcessor: Görsel veri gri tonlamaya çevrildi.") # DEBUG logu
