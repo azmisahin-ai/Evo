@@ -32,6 +32,7 @@ Aşağıdaki fazlar, Evo'nın doğumundan (temel algı) bilgelik ve ustalığa (
     *   [ ] **TODO:** Faz 0 ile ilgili genel kod kalitesi ve refactoring.
         *   [x] Modül başlatma ve temizleme mantığı `run_evo.py` dosyasından `src/core/module_loader.py` modülüne taşınarak kod tekrarı azaltıldı.
         *   [x] Loglama altyapısını yapılandırma dosyası (`main_config.yaml`) üzerinden kontrol edilebilir hale getirme (log seviyesi, çıktı hedefleri vb.).
+        *   [ ] Docstrings ve Yorumlar eklendi/güncellendi.
         *   [ ] ... Diğer refactoring adımları ...
 
 
@@ -128,7 +129,7 @@ Aşağıdaki fazlar, Evo'nın doğumundan (temel algı) bilgelik ve ustalığa (
 
 *   [x] Temel dokümantasyon yapısının oluşturulması.
 *   [ ] Proje dokümantasyonunun güncel tutulması (yapılan her adımı dokümanlara yansıtma).
-*   [x] `requirements.txt` dosyasının oluşturulması ve temel bağımlılıkların listelenmesi.
+*   [x] `requirements.txt` dosyasının oluşturulması ve temel bağımlılıklerin listelenmesi.
     *   [ ] **TODO:** requirements.txt dosyasını proje geliştikçe güncel tutmak.
 *   [ ] Unit testlerin yazılması ve çalıştırılması.
 *   [ ] Entegrasyon testlerinin yazılması ve çalıştırılması.
