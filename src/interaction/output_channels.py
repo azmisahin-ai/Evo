@@ -10,7 +10,7 @@ import logging # Loglama için.
 # import flask # WebAPI sunucusu için gerekebilir (Gelecek).
 
 # Yardımcı fonksiyonları import et
-from src.core.utils import check_input_type, get_config_value # <<< check_input_type import edildi
+from src.core.utils import check_input_type, get_config_value # <<< check_input_type, get_config_value import edildi
 
 
 # Bu modül için bir logger oluştur
@@ -31,16 +31,16 @@ class OutputChannel:
         OutputChannel'ın temelini başlatır.
 
         Her kanalın bir adı ve yapılandırması olur. Kendi logger'ını oluşturur.
+        Config girdisinin tipini kontrol eder.
 
         Args:
             name (str): Kanalın adı (örn: 'console', 'web_api'). Beklenen tip: string.
             config (dict): Bu kanala özel yapılandırma ayarları. Beklenen tip: sözlük.
         """
-        # Hata yönetimi: Name string mi? Config dict mi?
-        # Name genellikle sabit string olduğu için init sırasında hata vermesi sorun değil.
-        # if not check_input_type(name, str, input_name="channel name", logger_instance=logger):
-        #     # Kritik bir hata olabilir, init'te hata vermek daha iyi.
-        #     raise TypeError(f"OutputChannel: Kanal adı string olmalı, {type(name)} verildi.")
+        # Hata yönetimi: Name string mi? Genellikle init sırasında hata vermesi beklenir.
+        # check_input_type(name, str, input_name="channel name", logger_instance=logger) # raise TypeError daha uygun olabilir
+
+        # Hata yönetimi: Config dict mi? check_input_type kullan.
         if not check_input_type(config, dict, input_name=f"{name} channel config", logger_instance=logger):
              # Config dict değilse uyarı logla ve boş dict kullan.
              logger.warning(f"OutputChannel '{name}': Konfigurasyon beklenmeyen tipte. Sözlük bekleniyordu. Boş sözlük {{}} kullanılıyor.")
@@ -66,8 +66,11 @@ class OutputChannel:
         Args:
             output_data (any): Motor Control'den gelen gönderilecek çıktı verisi.
                                Formatı kanala bağlıdır (string, sayı, dict, numpy array vb.).
+
+        Raises:
+            NotImplementedError: Alt sınıflar bu metodu implement etmezse.
         """
-        # Bu metot alt sınıflarda implement edildiği için burada girdi kontrolü yapmak anlamlı değil.
+        # Bu metot alt sınıflarda implement edildiği için burada genel girdi kontrolü yapmak anlamlı değil.
         # Alt sınıfların send metotları kendi girdilerini (output_data) kontrol etmeli.
         raise NotImplementedError("Alt sınıflar 'send' metodunu implement etmelidir.")
 
@@ -76,7 +79,7 @@ class OutputChannel:
         Kanal tarafından kullanılan kaynakları temizler.
 
         Bu metot temel sınıfta placeholder olarak tanımlanmıştır. Özel kaynak (dosya,
-        ağ bağlantısı, thread vb.) kullanan alt sınıflar bu metodu override ederek
+        ağ bağlantısı, thread vb.) kullanan alt sınıflar bu metotu override ederek
         kendi temizleme mantıklarını implement etmelidir.
         module_loader.py ve InteractionAPI.stop() bu metotu program sonlanırken çağırır (varsa).
         """
@@ -143,7 +146,7 @@ class ConsoleOutputChannel(OutputChannel):
         except Exception as e:
              # Konsola yazdırma sırasında beklenmedik bir hata oluşursa (nadiren olur).
              logger.error(f"OutputChannel '{self.name}': Konsola yazdırma hatasi: {e}", exc_info=True)
-             # Hata durumunda yapacak çok bir şey yok, hatayı loglamak yeterlidir.
+             # Hata durumında yapacak çok bir şey yok, hatayı loglamak yeterlidir.
 
 
     def cleanup(self):
@@ -261,7 +264,7 @@ class WebAPIOutputChannel(OutputChannel):
 
         API sunucusunu durdurma (eğer burada başlatıldıysa) veya açık bağlantıları kapatma
         mantığı buraya gelebilir.
-        module_loader.py ve InteractionAPI.stop() bu metodu program sonlanırken çağırır (varsa).
+        module_loader.py ve InteractionAPI.stop() bu metotu program sonlanırken çağırır (varsa).
         """
         # Bilgilendirme logu.
         self.logger.info(f"WebAPIOutputChannel '{self.name}' temizleniyor.")
