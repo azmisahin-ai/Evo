@@ -5,7 +5,7 @@ import time
 # Temel modülleri import edeceğiz
 from src.senses.vision import VisionSensor
 from src.senses.audio import AudioSensor
-# Processing modüllerini import et
+# Processing modülleri import et
 from src.processing.vision import VisionProcessor
 from src.processing.audio import AudioProcessor
 # Representation modüllerini import et
@@ -236,18 +236,16 @@ def run_evo():
          # Sadece ana pipeline modüllerinin (Sense, Process, Represent, Memory, Cognition, MotorControl)
          # kategori sözlüklerinin None olmaması ve içlerindeki objelerin None olmaması kontrol edilebilir.
          # Interaction modülü None olsa bile ana döngü çalışabilir (sadece çıktı veremez).
-         pipeline_modules_ok = sensors and processors and representers and memories and cognition_modules and motor_control_modules
-         # Check if all required *objects* within these categories are not None (based on our init logic)
-         # Sensör objeleri None olmayabilir ama is_available False olabilir, o yüzden all(sensors.values()) tek başına yeterli değil.
-         # Ama diğer kritik modüllerin (Process, Represent, Memory, Cognition, MotorControl) None olmaması gerekiyor.
+         # Sensors kategorisindeki objeler None olmaz ama is_available False olabilir.
+         # Diğer kritik modüllerin (Process, Represent, Memory, Cognition, MotorControl) None olmaması gerekiyor.
          all_critical_objects_ok = all(processors.values()) and \
                                    all(representers.values()) and \
                                    all(memories.values()) and \
                                    all(cognition_modules.values()) and \
                                    all(motor_control_modules.values())
 
-
-         if active_sensors and all_critical_objects_ok: # En az bir aktif sensör ve tüm kritik modül objeleri var mı?
+         # En az bir aktif sensör VE tüm kritik işlem/beyin modülleri başarılı mı?
+         if active_sensors and all_critical_objects_ok:
             # Basitçe loglayalım:
              logging.info("Tüm ana pipeline modül kategorileri başarıyla başlatıldı. Evo bilişsel döngüye hazır.")
              if not interaction_modules.get('core_interaction'):
@@ -256,6 +254,7 @@ def run_evo():
          else:
               # Bu durum should not happen if can_run_main_loop is True with current logic,
               # unless some non-critical module init fails silently (which we handle with logging).
+              # Eğer buraya gelindiyse, ya hiç aktif sensör yok ya da kritik objelerden biri None.
               logging.warning("Bazı temel ana pipeline modül kategorileri başlatılamadı veya eksik. Evo bilişsel döngüsü sınırlı çalışabilir.")
               # Hangi kategorilerin eksik olduğunu loglayabiliriz:
               # missing_categories = [cat_name for cat_name, cat_dict in [('Sensors', sensors), ('Processors', processors), ('Representers', representers), ('Memories', memories), ('Cognition', cognition_modules), ('MotorControl', motor_control_modules)] if not cat_dict or any(v is None for v in cat_dict.values())]
@@ -320,8 +319,9 @@ def run_evo():
                 if representers.get('main_learner') and processed_inputs:
                      learned_representation = representers['main_learner'].learn(processed_inputs)
                      # learned_representation'ın None olup olmadığı RepresentationLearner içinde loglanıyor.
+                     # learned_representation RepresentationLearner'dan non-None gelirse buradaki DEBUG logu tetiklenir.
                      if learned_representation is not None:
-                         logging.debug(f"Representation öğrenildi. Shape: {learned_representation.shape}, Dtype: {learned_representation.dtype}")
+                         logging.debug(f"Ana Döngü: Representation öğrenildi. Shape: {learned_representation.shape}, Dtype: {learned_representation.dtype}")
 
 
                 # --- Temsili Hafızaya Kaydet ve/veya Hafızadan Bilgi Al (Faz 2) ---
@@ -336,7 +336,7 @@ def run_evo():
                          num_results=num_memories_to_retrieve
                      )
                      if relevant_memory_entries:
-                          logging.debug(f"Hafızadan {len(relevant_memory_entries)} ilgili girdi geri çağrıldı (placeholder).")
+                          logging.debug(f"Ana Döngü: Hafızadan {len(relevant_memory_entries)} ilgili girdi geri çağrıldı (placeholder).")
                           # Geri çağrılan girdilerin içeriğini loglamak DEBUG seviyesinde çok fazla çıktı üretebilir,
                           # sadece sayısını veya basit özetini loglamak daha iyi.
                           # Örneğin: logging.debug(f"Hafızadan ilgili girdi temsil şekli: {relevant_memory_entries[0]['representation'].shape}...")
@@ -356,7 +356,7 @@ def run_evo():
                          relevant_memory_entries # Liste boş olabilir
                      )
                      if decision is not None:
-                          logging.debug(f"Bilişsel karar alındı (placeholder): {decision}")
+                          logging.debug(f"Ana Döngü: Bilişsel karar alındı (placeholder): {decision}")
                      # else: logging.debug("Bilişsel karar üretilemedi veya None döndü.")
 
                 # else:
@@ -369,7 +369,7 @@ def run_evo():
                 if motor_control_modules.get('core_motor_control') and decision is not None:
                      response_output = motor_control_modules['core_motor_control'].generate_response(decision)
                      if response_output is not None:
-                          logging.debug(f"Motor kontrol tepki üretti (placeholder). Output: '{response_output}'")
+                          logging.debug(f"Ana Döngü: Motor kontrol tepki üretti (placeholder). Output: '{response_output}'")
                      # else: logging.debug("Motor control tepki üretemedi veya None döndü.")
 
                 # else:
