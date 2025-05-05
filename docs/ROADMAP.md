@@ -50,6 +50,8 @@ Aşağıdaki fazlar, Evo'nın doğumundan (temel algı) bilgelik ve ustalığa (
             *   [x] Diğer modüllerde (Sense, Representation, Memory, Cognition, MotorControl, Interaction) girdi kontrolleri için src/core/utils.py yardımcı fonksiyonları kullanılması.
             *   [x] Module_loader.py içinde tekrar eden modül başlatma ve temizleme kalıpları yardımcı fonksiyonlara taşıldı.
             *   [ ] İsimlendirme ve dosya/sınıf sorumluluklarında genel tutarlılık iyileştirmeleri.
+                *   [x] Cognition modülünde (src/cognition) isimlendirme ve sorumluluk ayrımı gözden geçirildi (placeholder sınıflar eklenerek niyet belirtildi).
+                *   [x] Bellek modülünde (src/memory) isimlendirme ve sorumluluk ayrımı gözden geçirildi (placeholder alt modüller eklenerek niyet belirtildi).
             *   [ ] Magic numbers/strings yerine sabitler veya config kullanımı.
         *   [ ] Unit testler için temel iskeletin kurulması.
         *   [ ] ... Diğer refactoring adımları ...
