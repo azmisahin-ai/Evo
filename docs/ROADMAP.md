@@ -27,8 +27,6 @@ Aşağıdaki fazlar, Evo'nın doğumundan (temel algı) bilgelik ve ustalığa (
         *   [x] Processing modülleri (`src/processing/vision.py`, `src/processing/audio.py`) için temel hata yakalama ve loglama mekanizmaları eklendi.
         *   [x] Representation, Memory, Cognition, MotorControl, Interaction modülleri için temel hata yakalama ve loglama mekanizmaları eklendi.
         *   [x] Hata durumlarında sistemin davranışı için daha genel prensipler tanımlandı (örn: non-kritik hatalarda devam et, kritik hatalarda durdur).
-
-
     *   [ ] **TODO:** Faz 0 ile ilgili genel kod kalitesi ve refactoring.
         *   [x] Modül başlatma ve temizleme mantığı `run_evo.py` dosyasından `src/core/module_loader.py` modülüne taşınarak kod tekrarı azaltıldı.
         *   [x] Loglama altyapısını yapılandırma dosyası (`main_config.yaml`) üzerinden control edilebilir hale getirme (log seviyesi, çıktı hedefleri vb.).
@@ -50,8 +48,13 @@ Aşağıdaki fazlar, Evo'nın doğumundan (temel algı) bilgelik ve ustalığa (
             *   [x] Diğer modüllerde (Sense, Representation, Memory, Cognition, MotorControl, Interaction) girdi kontrolleri için src/core/utils.py yardımcı fonksiyonları kullanılması.
             *   [x] Module_loader.py içinde tekrar eden modül başlatma ve temizleme kalıpları yardımcı fonksiyonlara taşıldı.
             *   [ ] İsimlendirme ve dosya/sınıf sorumluluklarında genel tutarlılık iyileştirmeleri.
-                *   [x] Cognition modülünde (src/cognition) isimlendirme ve sorumluluk ayrımı gözden geçirildi (placeholder sınıflar eklenerek niyet belirtildi).
-                *   [x] Bellek modülünde (src/memory) isimlendirme ve sorumluluk ayrımı gözden geçirildi (placeholder alt modüller eklenerek niyet belirtildi).
+                *   [x] Cognition modülü (src/cognition) gözden geçirildi (yapısal niyet belirlendi).
+                *   [x] Bellek modülü (src/memory) gözden geçirildi (yapısal niyet belirlendi).
+                *   [x] Sense (src/senses) ve Processing (src/processing) modülleri gözden geçirildi.
+                *   [ ] Representation (src/representation) modülü gözden geçirilecek.
+                *   [ ] MotorControl (src/motor_control) modülü gözden geçirilecek.
+                *   [ ] Interaction (src/interaction) modülü gözden geçirilecek.
+            *   [ ] Tekrar eden kod kalıplarını (örn: benzer try-except yapıları dışındaki) yardımcı fonksiyonlara taşıma.                
             *   [ ] Magic numbers/strings yerine sabitler veya config kullanımı.
         *   [ ] Unit testler için temel iskeletin kurulması.
         *   [ ] ... Diğer refactoring adımları ...
