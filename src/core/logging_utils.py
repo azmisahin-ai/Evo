@@ -1,56 +1,70 @@
 # src/core/logging_utils.py
+#
+# Evo projesi için merkezi loglama yardımcı fonksiyonlarını içerir.
+# Loglama sistemini yapılandırma dosyasına göre ayarlar.
+
 import logging
 import sys # Konsol çıktısı için StreamHandler'a gerekli olabilir
-import logging.config # Dictionary tabanlı config için kullanabiliriz (şimdilik değil)
+import logging.config # Dictionary tabanlı config için kullanılabilir (şimdilik değil)
 
 # Bu modül için bir logger oluştur
 logger = logging.getLogger(__name__)
 
 def setup_logging(config=None):
     """
-    Configures the logging system for the Evo project based on provided config.
+    Evo projesinin loglama sistemini sağlanan yapılandırmaya göre ayarlar.
 
-    Sets up console logging with a specific format.
-    Sets the overall logging level for the root logger based on config or defaults.
-    Ensures 'src' package logger is set appropriately (inherits from root).
+    Mevcut handler'ları temizler, root logger seviyesini yapılandırmaya göre ayarlar,
+    bir konsol handler'ı ekler ve log formatını belirler.
 
     Args:
         config (dict, optional): Yapılandırma ayarları sözlüğü (genellikle main_config.yaml'den).
-                                 Logging ayarları 'logging' anahtarı altında beklenir.
-                                 Varsayılan olarak None.
+                                 Loglama ayarları 'logging' anahtarı altında beklenir.
+                                 'level' anahtarı loglama seviyesini (string olarak) belirtir.
+                                 Varsayılan olarak None. Config yoksa veya geçersizse
+                                 varsayılan INFO seviyesi kullanılır.
     """
-    # Mevcut logger ayarlarını temizle (run_evo'nun yeniden başlatılmasında çift loglama olmaması için)
-    # Bu yöntem basicConfig kullanıldığında veya handler'lar manuel eklendiğinde işe yarar.
+    # Mevcut logger ayarlarını temizle
+    # Bu, run_evo'nun yeniden başlatılmasında veya farklı config'lerle test yaparken
+    # aynı handler'ların tekrar tekrar eklenmesini önler.
     root_logger = logging.getLogger()
     if root_logger.handlers:
+        # Var olan handler'ları kaldır
         for handler in root_logger.handlers:
             root_logger.removeHandler(handler)
-    # handler'lar root logger'dan kaldırıldığında, formatter'ları da kaldırılabilir,
-    # ama bu genellikle handler objesine bağlıdır. Yeni formatter tanımlamak daha güvenli.
+        # Root logger seviyesini de varsayılana sıfırlayabiliriz (isteğe bağlı)
+        # root_logger.setLevel(logging.NOTSET)
+
 
     # --- Logging Level Ayarları ---
     default_level = logging.INFO # Varsayılan seviye INFO
     configured_level = default_level # Konfigurasyondan okunacak seviye
 
+    # Konfigurasyonda loglama seviyesi belirtilmiş mi kontrol et
     if config and 'logging' in config and 'level' in config['logging']:
-        level_name = config['logging']['level'].upper() # Config'teki string'i büyük harfe çevir
+        level_name = str(config['logging']['level']).upper() # Config'teki değeri string yap ve büyük harfe çevir
         try:
-            # String log seviyesini (örn: "DEBUG") logging modülünün int karşılığına çevir
-            configured_level = logging.getLevelName(level_name)
-            # getLevelName string döndürürse (geçersiz isim), default kullanılır
-            if isinstance(configured_level, str):
+            # String log seviyesini (örn: "DEBUG", "INFO") logging modülünün int karşılığına çevir.
+            # logging.getLevelName() geçerli isimler için int, geçersizler için string döndürür.
+            level_value = logging.getLevelName(level_name)
+            if isinstance(level_value, int):
+                 configured_level = level_value # Geçerli seviye bulundu, kullan
+            else:
+                 # logging.getLevelName string döndürdüyse isim geçersiz demektir.
                  logger.warning(f"Logging: Konfigurasyonda geçersiz log seviyesi adı: '{level_name}'. Varsayılan seviye ({logging.getLevelName(default_level)}) kullanılıyor.")
                  configured_level = default_level # Geçersiz isimse varsayılanı kullan
 
         except Exception as e:
+            # getLevelName veya config okuma sırasında hata
             logger.warning(f"Logging: Konfigurasyondaki log seviyesi okunurken hata: {e}. Varsayılan seviye ({logging.getLevelName(default_level)}) kullanılıyor.", exc_info=True)
             configured_level = default_level
 
 
     # Root logger seviyesini ayarla
-    # Bu, log mesajlarının hangi minimum seviyeden itibaren root logger'a ulaşacağını belirler.
-    # src modüllerinin DEBUG loglarını görmek için root logger'ın seviyesi en az DEBUG olmalı.
-    # configure_level config'ten DEBUG gelirse, root DEBUG olur. INFO gelirse, root INFO olur.
+    # Bu, herhangi bir logger'dan yayılan (propagate eden) log mesajlarının
+    # root logger'a ulaştığında hangi minimum seviyeden itibaren işleneceğini belirler.
+    # Eğer alt logger seviyesi DEBUG ise ve root logger seviyesi INFO ise, DEBUG logları root'a ulaşır ama filtrelemeden geçemez.
+    # Bu yüzden genellikle root logger seviyesi, gösterilmek istenen en düşük seviyeye ayarlanır.
     root_logger.setLevel(configured_level)
     logger.info(f"Logging: Root logger seviyesi ayarlandı: {logging.getLevelName(root_logger.level)}")
 
@@ -60,46 +74,53 @@ def setup_logging(config=None):
     # Gelecekte config'teki 'handlers' listesini okuyarak farklı handler'lar (dosya, vb.) eklenebilir.
 
     # Konsol handler'ı oluştur
-    # StreamHandler default olarak sys.stderr'i kullanır, sys.stdout kullanmak tercih edilebilir.
+    # StreamHandler default olarak sys.stderr'i kullanır, sys.stdout kullanmak tercih edilebilir
+    # özellikle konsol çıktılarını dosyalara yönlendirmek veya yakalamak istendiğinde.
     console_handler = logging.StreamHandler(sys.stdout)
 
-    # Formatter oluştur (Modül adını içerecek şekilde)
+    # Formatter oluştur (Zaman, logger adı, seviye ve mesajı içerecek şekilde)
+    # %(name)s: Loglayan logger'ın adı (örn: 'src.run_evo', 'src.senses.vision')
+    # %(asctime)s: Loglama zamanı
+    # %(levelname)s: Loglama seviyesi (DEBUG, INFO vb.)
+    # %(message)s: Log mesajının içeriği
     formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 
     # Handler'a formatter'ı set et
     console_handler.setFormatter(formatter)
 
-    # Handler seviyesini ayarla (İsteğe bağlı, handler kendi seviyesinin altındaki logları işlemez)
-    # Genellikle handler seviyesi, root logger seviyesinden daha yüksek veya eşittir.
-    # Konsol handler'ının her şeyi göstermesi için seviyesini root logger seviyesiyle aynı yapalım.
+    # Handler seviyesini ayarla
+    # Handler seviyesi, o handler'ın hangi minimum seviyedeki logları işleyeceğini belirler.
+    # Genellikle handler seviyesi, root logger seviyesiyle aynı veya daha düşüktür (daha fazla logu işlemesi için).
+    # Eğer handler seviyesi root'tan yüksekse, root'tan gelen düşük seviyeli logları filtreler.
+    # Eğer handler seviyesi root'tan düşükse, root tarafından zaten filtrelenmiş logları tekrar filtreler (etkisizdir).
+    # Basitlik için, handler seviyesini root logger seviyesiyle aynı yapalım.
     console_handler.setLevel(configured_level) # Handler seviyesi root seviyesiyle aynı
 
     # Root logger'a handler'ı ekle
+    # Root logger'a eklenen handler'lar, tüm alt logger'lardan yayılan (propagate eden) logları işler.
     root_logger.addHandler(console_handler)
 
-    # --- Specifc Logger Levels ---
-    # 'src' paketi logger seviyesini ayarla (isteğe bağlı ama netlik için iyi)
-    # Eğer root_logger seviyesi DEBUG ise, src otomatik olarak DEBUG'i miras alır.
-    # Ancak config'te genel seviye INFO iken src DEBUG loglarını görmek istersek,
-    # burada src logger seviyesini DEBUG'e çekmeli ve handler seviyesini DEBUG'e indirmeliyiz.
-    # Mevcut yapılandırmada root seviyesi config'e göre ayarlandığı için
-    # src logger seviyesini manuel ayarlamaya gerek yok, root'tan miras alacaktır.
-    # Yorum satırı olarak bırakalım veya kaldıralım:
-    # logging.getLogger('src').setLevel(logging.DEBUG) # Genellikle gerekli değil eğer root DEBUG ise
+    # --- Özel Logger Seviyeleri (İsteğe Bağlı) ---
+    # Belirli logger'ların seviyelerini genel root seviyesinden farklı yapmak istersek buraya ekleyebiliriz.
+    # Örneğin, 'src.senses' logger'ından sadece WARNING ve üstünü görmek istersek:
+    # logging.getLogger('src.senses').setLevel(logging.WARNING)
+    # Ancak mevcut yapıda, tüm src modüllerinin DEBUG loglarını görmek istediğimiz için
+    # root logger'ı DEBUG'e ayarladık ve bu alt loggerlar root'tan miras alacaktır.
+    # Bu yüzden bu kısım şimdilik gerekli değil.
 
-    # setup_logging fonksiyonunun kendi logları (bu fonksiyondan gelen) artık görünür olacaktır.
-    #logger.info("Logging system configured successfully based on config.")
-    #logger.debug("This is a debug message from logging_utils (should only appear if level is DEBUG).")
+    # Loglama sisteminin başarıyla yapılandırıldığına dair bilgi logu (bu fonksiyonun kendi logger'ını kullanır)
+    # Bu log, setup tamamlandıktan sonra çıkar ve yapılandırılmış seviyeye göre gösterilir.
+    # logger.info("Loglama sistemi başarıyla yapılandırıldı.")
+    # DEBUG seviyesinde ekstra bir test logu
+    # logger.debug("Bu, logging_utils'tan gelen bir DEBUG mesajıdır (sadece log seviyesi DEBUG veya altıysa görünür).")
 
 
-# Örnek: Log seviyesi ismini int seviyeye çevirme yardımcı (logging.getLevelName zaten bunu yapıyor)
-# def _get_logging_level(level_name):
-#     """String log seviyesi adını logging modülünün seviyesine çevirir."""
-#     level_map = {
-#         'DEBUG': logging.DEBUG,
-#         'INFO': logging.INFO,
-#         'WARNING': logging.WARNING,
-#         'ERROR': logging.ERROR,
-#         'CRITICAL': logging.CRITICAL,
-#     }
-#     return level_map.get(level_name.upper(), logging.INFO) # Varsayılan INFO
+# Örnek: Dictionary tabanlı loglama yapılandırması için placeholder (Gelecek TODO)
+# def setup_logging_from_dict(config_dict):
+#     """
+#     Dictionary tabanlı loglama yapılandırmasını uygular.
+#     config_dict, Python logging.config.dictConfig'in beklediği formatta olmalıdır.
+#     """
+#     # Mevcut logger'ları temizleme adımı burada da düşünülmeli.
+#     # logging.config.dictConfig(config_dict)
+#     pass
