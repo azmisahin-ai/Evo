@@ -175,7 +175,7 @@ class AudioProcessor:
             return None # Hata durumunda None döndür.
 
         # Başarılı durumda işlenmiş özellik vektörünü döndür.
-        logger.debug(f"AudioProcessor.process: Ses verisi başarıyla işlendi. Output Shape: {processed_features_vector.shape}, Dtype: {processed_features_vector.dtype}. Değerler (Enerji, Centroid): {processed_features_vector}")
+        logger.debug(f"AudioProcessor.process: Output Shape: {processed_features_vector.shape}, Dtype: {processed_features_vector.dtype}. Değerler (Enerji, Centroid): {processed_features_vector}")
         return processed_features_vector
 
     def cleanup(self):

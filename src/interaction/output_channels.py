@@ -138,7 +138,7 @@ class ConsoleOutputChannel(OutputChannel):
 
         try:
             # İşlenmiş çıktıyı (string) konsola yazdır.
-            print(f"Evo Çıktısı: {output_to_print}") # Konsol çıktısını özelleştir.
+            self.logger.info(f"Evo Çıktısı '{output_to_print}'")
 
             # DEBUG logu: Çıktının başarıyla konsola yazdırıldığı bilgisi.
             self.logger.debug(f"OutputChannel '{self.name}': Çıktı konsola yazdırıldı.")

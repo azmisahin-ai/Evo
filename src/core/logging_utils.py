@@ -12,6 +12,21 @@ import sys # Konsol çıktısı için StreamHandler'a gerekli olabilir
 # 'src.core.logging_utils' adında bir logger döndürür.
 logger = logging.getLogger(__name__)
 
+class AnsiColorFormatter(logging.Formatter):
+    COLOR_MAP = {
+        'DEBUG': '\033[36m',     # Cyan
+        'INFO': '\033[32m',      # Green
+        'WARNING': '\033[33m',   # Yellow
+        'ERROR': '\033[31m',     # Red
+        'CRITICAL': '\033[1;31m' # Bold Red
+    }
+    RESET = '\033[0m'
+
+    def format(self, record):
+        color = self.COLOR_MAP.get(record.levelname, self.RESET)
+        record.levelname = f"{color}{record.levelname:<8}{self.RESET}"
+        return super().format(record)
+
 def setup_logging(config=None):
     """
     Evo projesinin loglama sistemini sağlanan yapılandırmaya göre ayarlar.
@@ -91,7 +106,11 @@ def setup_logging(config=None):
     # %(name)s: Loglayan logger'ın adı (örneğin, 'src.run_evo', 'src.senses.vision', 'src.core.logging_utils')
     # %(levelname)s: Loglama seviyesi (DEBUG, INFO, WARNING, ERROR, CRITICAL)
     # %(message)s: Log mesajının içeriği
-    formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+    # formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+    formatter = AnsiColorFormatter(
+        fmt="%(asctime)s | %(levelname)s | %(name)-40s | %(message)s",
+        datefmt="%Y-%m-%d %H:%M:%S"
+    )
 
     # Handler'a formatter'ı set et
     console_handler.setFormatter(formatter)
