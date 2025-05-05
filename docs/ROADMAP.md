@@ -20,12 +20,17 @@ Aşağıdaki fazlar, Evo'nun doğumundan (temel algı) bilgelik ve ustalığa (k
     *   [x] Modüller arası temel bilgi akışının (Sense -> Process -> Represent -> Memory -> Cognition -> Motor -> Interact) placeholder/iskelet metotlarla kurulması ve `run_evo.py` içinde işletilmesi.
     *   [x] Dış dünya ile temel etkileşim (Interaction) placeholder/iskeletinin oluşturulması (Input alma placeholder'ı, Output gönderme metodu, temel çıktı kanalları - ConsoleOutputChannel, WebAPIOutputChannel placeholder'ı).
     *   [x] Temel hata yönetimi ve logging iyileştirmelerinin başlangıcı (`run_evo.py` içindeki try-except blokları ve logging çağrıları).
-
-    *   [x] Merkezi ve sağlam bir loglama altyapısı kurmak.
     *   [x] DEBUG loglarının neden görünmediği konusunu araştırmak ve çözmek.
-    *   [x] Yapılandırma yönetimini ayrı bir modül haline getirmek ve `.yaml` dosyasından okumayı implement etmek (`src/core/config_utils.py`, `PyYAML` entegrasyonu). 
+    *   [x] Yapılandırma yönetimini ayrı bir modül haline getirmek ve `.yaml` dosyasından okumayı implement etmek (`config.py`, `PyYAML` entegrasyonu).
+
+
     *   [ ] **TODO:** Temel hata yönetimi/istisna işleme yapısını olgunlaştırmak ve modüller arası yaygınlaştırmak.
+        *   [x] Duyusal sensörler (`src/senses/vision.py`, `src/senses/audio.py`) için temel hata yakalama ve loglama mekanizmaları eklendi.
+        *   [ ] Processing modülleri (`src/processing/vision.py`, `src/processing/audio.py`) için temel hata yakalama ve loglama mekanizmaları eklenecek.
+        *   [ ] Representation, Memory, Cognition, MotorControl, Interaction modülleri için temel hata yakalama ve loglama mekanizmaları eklenecek.
+        *   [ ] Hata durumlarında sistemin davranışı için daha genel prensipler tanımlanacak (örn: non-kritik hatalarda devam et, kritik hatalarda durdur).
     *   [ ] **TODO:** Faz 0 ile ilgili genel kod kalitesi ve refactoring.
+
 
 *   **Faz 1: Temel İşleme ve Temsil (Duyusal Veriden Özellik Çıkarma)**
     *   [x] Ham duyu akışını işleyecek Processing modüllerinin oluşturulması (`src/processing/audio.py`, `src/processing/vision.py` - şimdilik passthrough/Placeholder).
@@ -88,7 +93,7 @@ Aşağıdaki fazlar, Evo'nun doğumundan (temel algı) bilgelik ve ustalığa (k
     *   [ ] Hedef: Daha fazla kavramı kendi kendine (denetimsiz öğrenme ile) keşfetmeye başlama. Denetimli öğrenme ile öğretilen etiket setini genişletme. İçsel temsillerden daha kontrollü dışsal ifadeler üretme (ses sentezi, basit görsel çıktılar).
     *   [x] Odak Modülleri için temel dosyalar/placeholder'lar mevcut (`src/cognition/learning.py`, `src/motor_control/expression.py`).
 
-*   **Faz 5: Çapraz Duyusal Bağlantılar ve Temel İletişim (Duyuların Birleşimi ve Anlamlı Etkileşim)**
+*   **Faz 5: Çapraz Duyusal Bağlantılar ve Temel İletişim (Duyuların Birleşimi ve An anlamlı Etkileşim)**
     *   [x] Interaction modülüne Console ve WebAPI çıktı kanallarının eklenmesi (Temel entegrasyon, WebAPIOutputChannel placeholder durumda).
     *   [ ] **TODO:** WebAPIOutputChannel implementasyonunu tamamlama ve dış arayüz ile çift yönlü (girdi alımını da içerecek şekilde) temel iletişimi sağlama.
     *   [ ] Hedef: Farklı modalitelere ait içsel temsilleri (görsel ve işitsel) birleştirmeye veya birinden diğerine dönüştürmeye başlama ("Bu ses bu görüntüyle ilişkili"). Belirli duyu girdilerine (örn. kullanıcı sesi/yüzü) spesifik ve anlamlı ilk ifadelerle (örn. basit bir metin onayı, ses sinyali) yanıt verme. Temel "anlama-yanıtla" döngüsünün güçlenmesi.
@@ -119,7 +124,7 @@ Aşağıdaki fazlar, Evo'nun doğumundan (temel algı) bilgelik ve ustalığa (k
 **Genel Proje Görevleri**
 
 *   [x] Temel dokümantasyon yapısının oluşturulması.
-*   [ ] Proje dokümantasyonunun güncel tutulması (yapılan her adımı dokümanlara yansıtma).
+*   [ ] Proje dokümantasyonunun güncel tutulması (yapılan her adımı dokümanlara yansıtm a).
 *   [x] `requirements.txt` dosyasının oluşturulması ve temel bağımlılıkların listelenmesi.
     *   [ ] **TODO:** requirements.txt dosyasını proje geliştikçe güncel tutmak.
 *   [ ] Unit testlerin yazılması ve çalıştırılması.
