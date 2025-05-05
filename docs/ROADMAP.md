@@ -40,11 +40,11 @@ Aşağıdaki fazlar, Evo'nın doğumundan (temel algı) bilgelik ve ustalığa (
             *   [x] Diğer Faz 0 kapsamındaki modüllere (memory/core, cognition/core, motor_control/core, interaction/api, interaction/output_channels) docstring ve yorumlar eklendi.
         *   [ ] Girdi kontrolü yardımcı fonksiyonlarının (`src/core/utils.py`) uygun metotlara uygulanması.
             *   [x] Processing modüllerinde (vision, audio) girdi kontrolleri için src/core/utils.py yardımcı fonksiyonları kullanıldı.
-            *   [ ] Representation modülünde (models.py - learn metodu) girdi kontrolleri için src/core/utils.py yardımcı fonksiyonları kullanılması.
-            *   [ ] Memory modülünde (core.py - store, retrieve metotları) girdi kontrolleri için src/core/utils.py yardımcı fonksiyonları kullanılması.
-            *   [ ] Cognition modülünde (core.py - decide metodu) girdi kontrolleri için src/core/utils.py yardımcı fonksiyonları kullanılması.
-            *   [ ] MotorControl modülünde (core.py - generate_response metodu) girdi kontrolleri için src/core/utils.py yardımcı fonksiyonları kullanılması.
-            *   [ ] Interaction modülünde (api.py - send_output metodu, output_channels.py - send metotları) girdi kontrolleri için src/core/utils.py yardımcı fonksiyonları kullanılması.
+            *   [x] Representation modülünde (models.py - learn metodu) girdi kontrolleri için src/core/utils.py yardımcı fonksiyonları kullanılması.
+            *   [x] Memory modülünde (core.py - store, retrieve metotları) girdi kontrolleri için src/core/utils.py yardımcı fonksiyonları kullanılması.
+            *   [x] Cognition modülünde (core.py - decide metodu) girdi kontrolleri için src/core/utils.py yardımcı fonksiyonları kullanılması.
+            *   [x] MotorControl modülünde (core.py - generate_response metodu) girdi kontrolleri için src/core/utils.py yardımcı fonksiyonları kullanılması.
+            *   [x] Interaction modülünde (api.py - send_output metodu, output_channels.py - send metotları) girdi kontrolleri için src/core/utils.py yardımcı fonksiyonları kullanılması.
         *   [ ] Tekrar eden kod kalıplarını (örn: benzer try-except yapıları dışındaki) yardımcı fonksiyonlara taşıma.
         *   [ ] İsimlendirme ve dosya/sınıf sorumluluklarında genel tutarlılık iyileştirmeleri.
         *   [ ] Magic numbers/strings yerine sabitler veya config kullanımı.
@@ -106,8 +106,6 @@ Aşağıdaki fazlar, Evo'nın doğumundan (temel algı) bilgelik ve ustalığa (
     *   [ ] **TODO:** İçsel durumdan (örn. yeni bir desen fark ettiğinde, bellekten bir şey çağırdığında) basit dışsal tepkiler (rastgele ses çıkarma, ilkel görsel veya basit bir sinyal/metin) üretme mantığı.
 
 ---
-
-*   **Faz 4 - Faz 10:** (Bu fazlar mevcut commit geçmişinde spesifik implementasyon adımları olarak henüz görünmüyor. Mevcut `ROADMAP.md`'deki yüksek seviye hedefleri olarak kalıyorlar ve Faz 1, 2, 3'teki temel implementasyonlar tamamlandıkça detaylandırılacaklar.)
 
 *   **Faz 4: Kavramsal Genişleme ve İfade Gelişimi (Dünyayı Keşfetme ve İletişim Çabaları)**
     *   [ ] Hedef: Daha fazla kavramı kendi kendine (denetimsiz öğrenme ile) keşfetmeye başlama. Denetimli öğrenme ile öğretilen etiket setini genişletme. İçsel temsillerden daha kontrollü dışsal ifadeler üretme (ses sentezi, basit görsel çıktılar).

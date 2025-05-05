@@ -10,7 +10,7 @@ import logging # Loglama için.
 # import flask # WebAPI sunucusu için gerekebilir (Gelecek).
 
 # Yardımcı fonksiyonları import et
-from src.core.utils import check_input_type # <<< check_input_type import edildi
+from src.core.utils import check_input_type, get_config_value # <<< check_input_type import edildi
 
 
 # Bu modül için bir logger oluştur
