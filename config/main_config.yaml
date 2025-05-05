@@ -3,7 +3,7 @@
 # Modül ayarları, genel parametreler ve diğer yapılandırmalar burada tanımlanır.
 
 # Genel Ayarlar
-cognitive_loop_interval: 0.1 # Bilişsel döngünün ne sıklıkla çalışacağı (saniye)
+cognitive_loop_interval: 0.1 # Bilişsel döngünün ne sıklıkta çalışacağı (saniye)
 
 # Modül Ayarları
 
@@ -53,13 +53,12 @@ interaction: # src/interaction/* için ayarlar
       port: 5000
       # host: 127.0.0.1 # Gelecekte
 
-# Logging Ayarları (Gelecekte buraya taşınabilir)
-# logging:
-#   level: DEBUG
-#   format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-#   handlers:
-#     - type: console
-#       stream: stdout
-#     - type: file
-#       filename: evo.log
-#       level: INFO # Dosyaya sadece INFO ve üstü yazılsın
+# Loglama Ayarları <<< Bu bölüm aktif hale getirildi
+logging:
+  level: DEBUG # Varsayılan loglama seviyesi (DEBUG, INFO, WARNING, ERROR, CRITICAL)
+  # handlers: # Gelecekte farklı çıktı hedefleri tanımlanabilir
+  #   - type: console
+  #     level: DEBUG
+  #   - type: file
+  #     filename: evo.log
+  #     level: INFO

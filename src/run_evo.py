@@ -6,45 +6,46 @@ import numpy as np
 # import sys # Programı sonlandırmak gerekirse import edilebilir
 
 # Loglama ve Konfigürasyon yardımcı fonksiyonlarını import et
-from src.core.logging_utils import setup_logging
-from src.core.config_utils import load_config_from_yaml
+from src.core.logging_utils import setup_logging # Mevcut import
+from src.core.config_utils import load_config_from_yaml # Mevcut import
 # Modül başlatma yardımcı fonksiyonlarını import et
-from src.core.module_loader import initialize_modules, cleanup_modules # <<< Yeni import
+from src.core.module_loader import initialize_modules, cleanup_modules # Mevcut import
 
 
 # load_config fonksiyonu kaldırıldı - load_config_from_yaml kullanılacak.
-# def load_config(): ... # <<< BU FONKSİYON SİLİNDİ
+# def load_config(): ... # BU FONKSİYON SİLİNDİ
 
 def run_evo():
     """
     Evo'nın çekirdek bilişsel döngüsünü ve arayüzlerini başlatır.
     Bu fonksiyon çağrıldığında Evo "canlanır".
     """
-    # 1. Loglama sistemini merkezi utility ile yapılandır (Her zaman ilk adım olmalı)
-    setup_logging(level=logging.DEBUG) # DEBUG loglarını görmek için DEBUG seviyesiyle başlat
+    # 1. Konfigürasyonu Yükle (Loglama setup'ından önce yüklenmeli ki loglama config'i kullanılabilsin)
+    config_path = "config/main_config.yaml" # Yapılandırma dosyasının yolu
+    config = load_config_from_yaml(config_path) # <<< Önce config'i yükle
+
+    # 2. Loglama sistemini merkezi utility ile yapılandır (Yüklenen config'i gönder)
+    # Eğer config yüklenemezse, setup_logging None alacak ve varsayılan seviyeyi kullanacak.
+    setup_logging(config=config) # <<< setup_logging'e config gönderildi
 
     # Bu dosyanın kendi logger'ını oluştur (setup_logging'den sonra)
     # __name__ 'src.run_evo' olacak
     logger = logging.getLogger(__name__)
 
-    logger.info("Evo canlanıyor...")
-
-    # 2. Konfigürasyonu Yükle
-    config_path = "config/main_config.yaml" # Yapılandırma dosyasının yolu
-    config = load_config_from_yaml(config_path)
-
-    if not config: # Eğer config yüklenemezse (dosya yok veya hata var)
+    if not config: # Eğer config hala boşsa (load_config_from_yaml hata vermişse) programı sonlandır.
         logger.critical(f"Evo, yapılandırma yüklenemediği için başlatılamıyor. Lütfen {config_path} dosyasını kontrol edin.")
-        # Burada programı sonlandırmak mantıklı olabilir
+        # Kaynak temizleme (bu noktada başlatılacak kaynak yok ama cleanup_modules boş çağrılabilir)
+        # cleanup_modules({}) # Opsiyonel: eğer cleanup_modules None veya boş dict alabiliyorsa
         # sys.exit(1) # Eğer sys import ediliyorsa
         return # run_evo fonksiyonundan çık
 
-
+    logger.info("Evo canlanıyor...")
     logger.info(f"Konfigürasyon yüklendi: {config_path}")
+
 
     # 3. Modülleri Başlat
     # initialize_modules fonksiyonu başlatılan objeleri ve ana döngünün çalışıp çalışamayacağını döndürür
-    module_objects, can_run_main_loop = initialize_modules(config) # <<< Modül başlatma buraya taşındı
+    module_objects, can_run_main_loop = initialize_modules(config)
 
     # Başlatma sırasında kritik bir hata olduysa programı sonlandır (initialize_modules bayrağına göre)
     if not can_run_main_loop:
@@ -56,7 +57,7 @@ def run_evo():
 
 
     # Modül objelerine kolay erişim için değişkenler atayalım (opsiyonel ama kodu sadeleştirebilir)
-    # Dictionary'lerden None kontrolü yaparak güvenli erişim sağlamalıyız.
+    # Dictionary'lerden .get() ile None kontrolü yaparak güvenli erişim sağlamalıyız.
     sensors = module_objects.get('sensors', {})
     processors = module_objects.get('processors', {})
     representers = module_objects.get('representers', {})
@@ -68,21 +69,15 @@ def run_evo():
 
     # --- Ana Bilişsel Döngü ---
     # Sadece can_run_main_loop True ise döngüye gir
-    if can_run_main_loop: # Bu kontrol zaten yukarıda yapılıyor, ama döngüye giriş şartı olarak tekrar kontrol etmek netlik sağlar.
+    if can_run_main_loop:
         logger.info("Evo'nın bilişsel döngüsü başlatıldı...")
         # Konfigürasyondan değerleri alırken .get() kullanmak veya değerin varlığını kontrol etmek önemlidir.
         # config_utils.load_config_from_yaml hata durumunda {} döndürdüğü için .get() kullanımı daha güvenlidir.
-        loop_interval = config.get('cognitive_loop_interval', 0.1) # Config'ten alındı
-        # Memory config'i yoksa veya num_retrieved_memories yoksa varsayılan 5 kullanılır
-        num_memories_to_retrieve = config.get('memory', {}).get('num_retrieved_memories', 5) # Config'ten alındı
+        loop_interval = config.get('cognitive_loop_interval', 0.1)
+        num_memories_to_retrieve = config.get('memory', {}).get('num_retrieved_memories', 5)
 
 
         try:
-            # Döngüden önce gerekli objelerin (Processing, Represent, Memory, Cognition, MotorControl)
-            # hala None olmadığından emin olalım. initialize_modules bayrağı bunu zaten sağlıyor olmalı,
-            # ama eğer döngü içinde dinamik olarak modüllerin None olma durumu olursa burada da kontrol gerekebilir.
-            # Şimdilik initialize_modules'ın garantisine güvenelim.
-
             while True: # Main loop runs as long as no unhandled error or KeyboardInterrupt
                 start_time = time.time()
 
@@ -127,7 +122,11 @@ def run_evo():
                 if processed_inputs.get('audio') is not None:
                      # Output (Energy) sadece sayısal bir değer olduğu için .get() ile erişelim
                      audio_energy = processed_inputs['audio']
-                     logger.debug(f"RUN_EVO: Processed Audio Output (Energy). Value: {audio_energy:.4f}")
+                     # Ensure audio_energy is not None before formatting
+                     if audio_energy is not None:
+                         logger.debug(f"RUN_EVO: Processed Audio Output (Energy). Value: {audio_energy:.4f}")
+                     else:
+                         logger.debug("RUN_EVO: Processed Audio Output (Energy) is None.")
                 else:
                      logger.debug("RUN_EVO: Processed Audio Output None.")
 
@@ -220,7 +219,7 @@ def run_evo():
         finally:
             # --- Kaynakları Temizleme ---
             # Temizleme işlemini yeni yardımcı fonksiyona devret
-            cleanup_modules(module_objects) # <<< Temizleme buraya taşındı
+            cleanup_modules(module_objects)
 
 
     # Eğer initialize_modules sırasında kritik hata olduysa buraya gelinir,
