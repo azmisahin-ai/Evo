@@ -2,10 +2,12 @@
 
 import logging
 import time
+import numpy as np # Shape kontrolü için
+
 # Temel modülleri import edeceğiz
 from src.senses.vision import VisionSensor
 from src.senses.audio import AudioSensor
-# Processing modüllerini import et
+# Processing modülleri import et
 from src.processing.vision import VisionProcessor
 from src.processing.audio import AudioProcessor
 # Representation modüllerini import et
@@ -83,6 +85,9 @@ def run_evo():
     logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
     # src içindeki detaylı logları göstermek için seviyeyi DEBUG yap
     logging.getLogger('src').setLevel(logging.DEBUG)
+    # Root logger'ın da seviyesini kontrol edebiliriz (genellikle basicConfig bunu ayarlar)
+    # logging.getLogger().setLevel(logging.DEBUG)
+
 
     logging.info("Evo canlanıyor...")
 
@@ -286,10 +291,23 @@ def run_evo():
                     raw_inputs['visual'] = sensors['vision'].capture_frame()
                 # else: raw_inputs['visual'] = None # Sensor objesi hiç oluşturulamadıysa girdi None
 
+                # DEBUG Log: Yakalanan Ham Görsel Veri
+                if raw_inputs.get('visual') is not None:
+                     logging.debug(f"RUN_EVO: Raw Visual Input yakalandı. Shape: {raw_inputs['visual'].shape}, Dtype: {raw_inputs['visual'].dtype}")
+                else:
+                     logging.debug("RUN_EVO: Raw Visual Input None.")
+
 
                 if sensors.get('audio'):
                     raw_inputs['audio'] = sensors['audio'].capture_chunk()
                 # else: raw_inputs['audio'] = None # Sensor objesi hiç oluşturulamadıysa girdi None
+
+                # DEBUG Log: Yakalanan Ham Ses Verisi
+                if raw_inputs.get('audio') is not None:
+                     logging.debug(f"RUN_EVO: Raw Audio Input yakalandı. Shape: {raw_inputs['audio'].shape}, Dtype: {raw_inputs['audio'].dtype}")
+                else:
+                     logging.debug("RUN_EVO: Raw Audio Input None.")
+
 
                 # logging.debug("Duyusal veri yakalama tamamlandı.")
 
@@ -310,6 +328,18 @@ def run_evo():
                      # if processed_inputs.get('audio') is not None: # Bu kontrol process içinde yapılıyor
                      #      logging.debug(f"Sesli input işlendi ve islendi. Output Energy: {processed_inputs['audio']:.4f}") # Log enerji değeri
 
+                # DEBUG Log: İşlenmiş Görsel Veri
+                if processed_inputs.get('visual') is not None:
+                     logging.debug(f"RUN_EVO: Processed Visual Output. Shape: {processed_inputs['visual'].shape}, Dtype: {processed_inputs['visual'].dtype}")
+                else:
+                     logging.debug("RUN_EVO: Processed Visual Output None.")
+
+                # DEBUG Log: İşlenmiş Ses Verisi
+                if processed_inputs.get('audio') is not None:
+                     logging.debug(f"RUN_EVO: Processed Audio Output (Energy). Value: {processed_inputs['audio']:.4f}")
+                else:
+                     logging.debug("RUN_EVO: Processed Audio Output None.")
+
 
                 # logging.debug("İşlenmiş veri işleme tamamlandı.")
 
@@ -320,8 +350,11 @@ def run_evo():
                 if representers.get('main_learner') and processed_inputs:
                      learned_representation = representers['main_learner'].learn(processed_inputs)
                      # learned_representation'ın None olup olmadığı RepresentationLearner içinde loglanıyor.
-                     # if learned_representation is not None: # Bu kontrol learn içinde yapılıyor
-                     #     logging.debug(f"Representation öğrenildi. Shape: {learned_representation.shape}, Dtype: {learned_representation.dtype}")
+                     if learned_representation is not None:
+                         logging.debug(f"RUN_EVO: Learned Representation. Shape: {learned_representation.shape}, Dtype: {learned_representation.dtype}")
+
+
+                # else: logging.debug("RUN_EVO: Representation Learner mevcut değil veya processed_inputs boş. Temsil öğrenilemedi.")
 
 
                 # --- Temsili Hafızaya Kaydet ve/veya Hafızadan Bilgi Al (Faz 2) ---
@@ -335,11 +368,15 @@ def run_evo():
                          learned_representation, # Sorgu temsili (şimdilik placeholder retrieve'de kullanılmıyor ama yapı bu)
                          num_results=num_memories_to_retrieve
                      )
-                     # if relevant_memory_entries: # Bu kontrol retrieve içinde yapılıyor
-                     #      logging.debug(f"Hafızadan {len(relevant_memory_entries)} ilgili girdi geri çağrıldı (placeholder).")
+                     if relevant_memory_entries:
+                          logging.debug(f"RUN_EVO: Hafızadan {len(relevant_memory_entries)} ilgili girdi geri çağrıldı (placeholder).")
+                          # Geri çağrılan girdilerin içeriğini loglamak DEBUG seviyesinde çok fazla çıktı üretebilir,
+                          # sadece sayısını veya basit özetini loglamak daha iyi.
+                          # Örneğin: logging.debug(f"RUN_EVO: Hafızadan ilgili girdi temsil şekli: {relevant_memory_entries[0]['representation'].shape}...")
 
+                     # else: logging.debug("RUN_EVO: Hafızadan ilgili girdi çağrılamadı.")
                 # else:
-                #     # logging.debug("Memory modülü veya öğrenilmiş temsil mevcut değil. Hafıza işlemi atlandı.")
+                #     # logging.debug("RUN_EVO: Memory modülü veya öğrenilmiş temsil mevcut değil. Hafıza işlemi atlandı.")
                 #     pass # Debug logu çok sık gelebilir, gerek yok.
 
 
@@ -351,11 +388,12 @@ def run_evo():
                          learned_representation, # Temsil None olabilir
                          relevant_memory_entries # Liste boş olabilir
                      )
-                     # if decision is not None: # Bu kontrol decide içinde yapılıyor
-                     #      logging.debug(f"Bilişsel karar alındı (placeholder): {decision}")
+                     if decision is not None:
+                          logging.debug(f"RUN_EVO: Bilişsel karar alındı (placeholder): {decision}")
+                     # else: logging.debug("RUN_EVO: Bilişsel karar üretilemedi veya None döndü.")
 
                 # else:
-                #      # logging.debug("Cognition modülü veya işlenecek girdi (temsil/bellek) mevcut değil.")
+                #      # logging.debug("RUN_EVO: Cognition modülü veya işlenecek girdi (temsil/bellek) mevcut değil.")
                 #      pass # Debug logu çok sık gelebilir.
 
                 # --- Karara göre bir Tepki Üret (Faz 3 Devamı) ---
@@ -364,19 +402,20 @@ def run_evo():
                 if motor_control_modules.get('core_motor_control') and decision is not None:
                      response_output = motor_control_modules['core_motor_control'].generate_response(decision)
                      # if response_output is not None: # Bu kontrol generate_response içinde yapılıyor
-                     #      logging.debug(f"Motor kontrol tepki üretti (placeholder). Output: '{response_output}'")
+                     #      logging.debug(f"RUN_EVO: Motor kontrol tepki üretti (placeholder). Output: '{response_output}'")
 
                 # else:
-                #     # logging.debug("Motor Control modülü veya karar mevcut değil.")
+                #     # logging.debug("RUN_EVO: Motor Control modülü veya karar mevcut değil.")
                 #     pass # Debug logu çok sık gelebilir.
 
                 # --- Tepkiyi Dışarı Aktar (Faz 3 Tamamlanması) ---
                 # Sadece interaction objesi None değilse ve üretilmiş bir tepki varsa
                 if interaction_modules.get('core_interaction') and response_output is not None:
                    # InteractionAPI'nin send_output metodu artık INFO loglamayı kendi içinde yapıyor.
+                   # DEBUG loglama send_output içinde OutputChannel'a gönderilmeden yapılıyor.
                    interaction_modules['core_interaction'].send_output(response_output)
                 # else:
-                #     # logging.debug("Interaction modülü veya tepki mevcut değil. Çıktı gönderilemedi.")
+                #     # logging.debug("RUN_EVO: Interaction modülü veya tepki mevcut değil. Çıktı gönderilemedi.")
                 #     pass # Debug logu çok sık gelebilir.
 
 
@@ -389,7 +428,7 @@ def run_evo():
                 else:
                     # Döngü intervalinden uzun süren durumlar için uyarı (DEBUG seviyesinde)
                     # INFO seviyesine çekilirse her seferinde loglanır ki bu istenmeyebilir
-                    logging.debug(f"Bilişsel döngü {loop_interval} saniyeden daha uzun sürdü ({elapsed_time:.4f}s). İşlem yükü yüksek olabilir.")
+                    logging.debug(f"RUN_EVO: Bilişsel döngü {loop_interval} saniyeden daha uzun sürdü ({elapsed_time:.4f}s). İşlem yükü yüksek olabilir.")
 
 
                 # Gelecekte döngüyü sonlandıracak bir mekanizma eklenecek (örn. kullanıcı sinyali, içsel durum)
