@@ -10,7 +10,9 @@ from src.processing.vision import VisionProcessor
 from src.processing.audio import AudioProcessor
 # Representation modüllerini import et
 from src.representation.models import RepresentationLearner
-# Diğer modüller (memory, cognition, motor_control, interaction) geldikçe buraya eklenecek
+# Memory modülünü import et
+from src.memory.core import Memory # core.py dosyasındaki Memory sınıfı
+# Diğer modüller (cognition, motor_control, interaction) geldikçe buraya eklenecek
 
 # Konfigürasyon yükleme (şimdilik basit bir placeholder)
 # Gelecekte config/main_config.yaml dosyasından okunacak
@@ -39,6 +41,10 @@ def load_config():
          'representation': { # Representation Learner için konfigürasyon
              'representation_dim': 128 # Öğrenilecek temsil boyutu
          },
+         'memory': { # Memory modülü için konfigürasyon
+             'max_memory_size': 1000 # Saklanacak maksimum temsil sayısı (geçici hafıza)
+             # Gelecekte kalıcı depolama ayarları buraya gelebilir
+         },
         'cognitive_loop_interval': 0.1 # Bilişsel döngünün ne sıklıkla çalışacağı (saniye)
     }
 
@@ -62,8 +68,9 @@ def run_evo():
     # Modül objelerini depolamak için sözlükler
     sensors = {}
     processors = {}
-    representers = {} # Representation modülleri için yeni kategori
-    other_modules = {} # Memory, cognition, interaction vb. buraya gelecek
+    representers = {}
+    memories = {} # Memory modülleri için yeni kategori
+    other_modules = {} # Cognition, motor_control, interaction vb. buraya gelecek
 
     # Başlatma başarılı olduysa main loop'u çalıştırmak için flag
     can_run_main_loop = True
@@ -76,9 +83,9 @@ def run_evo():
     try:
         logging.info("VisionSensor başlatılıyor...")
         sensors['vision'] = VisionSensor(config.get('vision', {}))
-        if not getattr(sensors['vision'], 'is_camera_available', False):
+        if not (sensors['vision'] and getattr(sensors['vision'], 'is_camera_available', False)):
              logging.warning("VisionSensor tam başlatılamadı veya kamera açılamadı.")
-             # Simüle edilmiş girdi kullanılacak, obje None değil.
+             # Simüle edilmiş girdi kullanılacaksa objenin is_camera_available False olacak. Objeyi None yapma!
     except Exception as e:
         logging.critical(f"VisionSensor başlatılırken kritik hata oluştu: {e}", exc_info=True)
         sensors['vision'] = None # Kritik hata durumunda objeyi None yap
@@ -87,12 +94,22 @@ def run_evo():
     try:
         logging.info("AudioSensor başlatılıyor...")
         sensors['audio'] = AudioSensor(config.get('audio', {}))
-        if not getattr(sensors['audio'], 'is_audio_available', False):
+        if not (sensors['audio'] and getattr(sensors['audio'], 'is_audio_available', False)):
              logging.warning("AudioSensor tam başlatılamadı veya ses akışı aktif değil.")
-             # Simüle edilmiş girdi kullanılacak, obje None değil.
+             # Simüle edilmiş girdi kullanılacaksa objenin is_audio_available False olacak. Objeyi None yapma!
     except Exception as e:
         logging.critical(f"AudioSensor başlatılırken kritik hata oluştu: {e}", exc_info=True)
         sensors['audio'] = None # Kritik hata durumunda objeyi None yap
+
+
+    # Başlatma durumunu kontrol et ve logla (Sözlükteki objelerin None olup olmadığına ve internal flag'lere bakarak)
+    # Sadece None olmayan ve internal flag'i True olan sensörleri say
+    active_sensors = [name for name, sensor in sensors.items()
+                      if sensor and (getattr(sensor, 'is_camera_available', False) or getattr(sensor, 'is_audio_available', False))]
+    if active_sensors:
+        logging.info(f"Duyusal Sensörler başlatıldı ({', '.join(active_sensors)} aktif).")
+    else:
+        logging.warning("Hiçbir duyusal sensör aktif değil. Evo girdi alamayacak.")
 
 
     # Faz 1 Başlangıcı: Processing Modülleri Başlat
@@ -120,30 +137,49 @@ def run_evo():
             logging.critical(f"Representation modülü başlatılırken kritik hata oluştu: {e}", exc_info=True)
             can_run_main_loop = False # Representation kritik hata verirse main loop'u engelle.
     else:
+         # Bu durum loglanmalı, çünkü can_run_main_loop zaten False yapıldı.
          logging.warning("Processing modülleri başlatılamadığı için Representation modülleri atlandı.")
+
+
+    # Faz 2 Başlangıcı: Memory Modülü Başlat
+    logging.info("Faz 2: Memory modülü başlatılıyor...")
+    # Memory modülü representation'a bağımlı. Eğer representation yoksa başlatmanın anlamı yok.
+    if can_run_main_loop: # Eğer processing ve representation başlatma hatası olmadıysa
+        try:
+            memories['core_memory'] = Memory(config.get('memory', {}))
+            logging.info("Memory modülü başarıyla başlatıldı.")
+        except Exception as e:
+            logging.critical(f"Memory modülü başlatılırken kritik hata oluştu: {e}", exc_info=True)
+            # Memory kritik hata verirse ana döngüyü engellemeyebilir (projeye bağlı),
+            # ama başlangıçta engellemek daha güvenli.
+            can_run_main_loop = False
+    else:
+         logging.warning("Önceki modüller başlatılamadığı için Memory modülü atlandı.")
 
 
     # TODO: Diğer modülleri burada başlat (Faz 2 ve sonrası).
     # Bunların başlatılması main loop'u engellememeli (kritik değillerse),
     # bu yüzden bireysel try-except kullanın ve kritik hata durumunda objeyi None yapın.
     # try:
-    #     logging.info("Memory modülü başlatılıyor...")
-    #     other_modules['memory'] = MemoryModule(config.get('memory', {}))
-    #     logging.info("Memory modülü başarıyla başlatıldı.")
+    #     logging.info("Cognition modülü başlatılıyor...")
+    #     other_modules['cognition'] = CognitionModule(config.get('cognition', {}))
+    #     logging.info("Cognition modülü başarıyla başlatıldı.")
     # except Exception as e:
-    #     logging.critical(f"Memory modülü başlatılırken kritik hata oluştu: {e}", exc_info=True)
-    #     other_modules['memory'] = None # Kritik hata durumunda objeyi None yap
-    #     can_run_main_loop = False # Kritik modül başlatılamazsa main loop'u çalıştırma
+    #     logging.critical(f"Cognition modülü başlatılırken kritik hata oluştu: {e}", exc_info=True)
+    #     other_modules['cognition'] = None # Kritik hata durumunda objeyi None yap
+    #     # Cognition kritikse main loop'u engelle: can_run_main_loop = False
 
 
     if can_run_main_loop:
-         # Başlatma sırasında en az bir sensör, tüm işlemci ve tüm representation modülleri başarılıysa
-         if active_sensors and processors and representers: # Temel modüllerin varlığını kontrol et
-             logging.info("Temel modüller başarıyla başlatıldı. Evo bilişsel döngüye hazır.")
+         # Ana döngüye gireceksek, en az bir sensör, tüm işlemci, tüm representation ve tüm memory modülleri başarılı mı?
+         # Modül kategorilerinin boş olmaması gerekiyor.
+         if active_sensors and processors and representers and memories:
+             logging.info("Tüm temel modüller başarıyla başlatıldı. Evo bilişsel döngüye hazır.")
          else:
               logging.warning("Temel modüllerin bazıları başlatılamadı. Evo bilişsel döngüsü sınırlı çalışabilir veya durdurulabilir.")
-              # Daha katı bir kural eklenebilir: Eğer temel modüller (sensores, processors, representers) tam değilse can_run_main_loop = False yap.
+              # Daha katı bir kural eklenebilir: Eğer temel modül kategorilerinden herhangi biri (sensors, processors, etc.) tam değilse can_run_main_loop = False yap.
               # Şimdilik loglayıp devam edelim.
+
     else:
          logging.critical("Modül başlatma hataları nedeniyle Evo'nun bilişsel döngüsü başlatılamadı.")
 
@@ -179,17 +215,12 @@ def run_evo():
                 # Sadece işlemci objesi None değilse ve girdi None değilse process metodunu çağır
                 if processors.get('vision') and raw_inputs.get('visual') is not None:
                      processed_inputs['visual'] = processors['vision'].process(raw_inputs['visual'])
-                     if processed_inputs['visual'] is not None:
-                          logging.debug(f"Görsel input işlendi. Output Shape: {processed_inputs['visual'].shape}, Dtype: {processed_inputs['visual'].dtype}")
-                     # else: logging.debug("Görsel input işlenemedi veya None döndü.")
+                     # Process metotları kendi içlerinde loglama yapıyor.
 
 
                 if processors.get('audio') and raw_inputs.get('audio') is not None:
                      processed_inputs['audio'] = processors['audio'].process(raw_inputs['audio'])
-                     if processed_inputs['audio'] is not None:
-                          logging.debug(f"Sesli input işlendi. Output Energy: {processed_inputs['audio']:.4f}") # Log enerji değeri
-                     # else: logging.debug("Sesli input işlenemedi veya None döndü.")
-
+                     # Process metotları kendi içlerinde loglama yapıyor.
 
                 # logging.debug("İşlenmiş veri işleme tamamlandı.")
 
@@ -202,12 +233,16 @@ def run_evo():
                      # learned_representation'ın None olup olmadığı RepresentationLearner içinde loglanıyor.
 
 
-                # TODO: Temsili hafızaya kaydet ve/veya hafızadan bilgi al (Faz 2)
-                # if other_modules.get('memory') and learned_representation is not None: # Representation None değilse
-                #      other_modules['memory'].store(learned_representation)
-                #      relevant_memory = other_modules['memory'].retrieve(learned_representation)
-                #      if relevant_memory:
-                #           logging.debug(f"Hafızadan ilgili bilgi alındı. Örnek: {relevant_memory[:min(len(relevant_memory), 10)]}...") # İlk 10 elemanı logla
+                # --- Temsili Hafızaya Kaydet ve/veya Hafızadan Bilgi Al (Faz 2 Başlangıcı) ---
+                # Sadece memory objesi None değilse ve öğrenilmiş temsil None değilse
+                relevant_memory = None # Başlangıçta ilgili bellek yok
+                if memories.get('core_memory') and learned_representation is not None:
+                     # Öğrenilen temsili hafızaya kaydet
+                     memories['core_memory'].store(learned_representation)
+                     # TODO: Buraya hafızadan ilgili bilgi çağırma mantığı eklenecek (Faz 2 devamı)
+                     # relevant_memory = memories['core_memory'].retrieve(learned_representation)
+                     # if relevant_memory:
+                     #      logging.debug(f"Hafızadan ilgili bilgi alındı. Örnek: {relevant_memory[:min(len(relevant_memory), 10)]}...") # İlk 10 elemanı logla
 
 
                 # TODO: Hafıza ve temsile göre bilişsel işlem yap (anlama, karar verme) (Faz 3+)
@@ -277,13 +312,18 @@ def run_evo():
         #      logging.info("RepresentationLearner temizleniyor...")
         #      representers['main_learner'].cleanup()
 
+        # Memory modülü eğer kalıcı depolama kullanıyorsa cleanup gerektirebilir.
+        # if memories.get('core_memory') and hasattr(memories['core_memory'], 'cleanup'):
+        #     logging.info("Memory modülü temizleniyor...")
+        #     memories['core_memory'].cleanup()
+
 
         # TODO: Diğer başlatılan modüllerin kapatılmasını sağla (API gibi thread'ler)
         # for module_name, module_obj in other_modules.items():
-        #      if hasattr(module_obj, 'stop'): # Eğer stop metodu varsa
+        #      if hasattr(module_obj, 'stop'): # Eğer stop metodu varsa (threaded servisler için)
         #           logging.info(f"{module_name} kapatılıyor...")
         #           module_obj.stop()
-        #      elif hasattr(module_obj, 'cleanup'): # Eğer cleanup metodu varsa
+        #      elif hasattr(module_obj, 'cleanup'): # Eğer cleanup metodu varsa (kaynak temizliği için)
         #            logging.info(f"{module_name} temizleniyor...")
         #            module_obj.cleanup()
 
