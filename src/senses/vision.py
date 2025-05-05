@@ -1,6 +1,6 @@
 # src/senses/vision.py
 #
-# Evo'nun görsel duyu organını temsil eder.
+# Evo'nın görsel duyu organını temsil eder.
 # Kamera akışından ham görüntü karelerini yakalar.
 # Kamera kullanılamadığında simüle edilmiş girdi sağlar.
 
@@ -9,13 +9,17 @@ import time # Gerekirse zamanlama veya simülasyon için. Şu an doğrudan kulla
 import numpy as np # Görüntü verisi (piksel matrisi) için.
 import logging # Loglama için.
 
+# Yardımcı fonksiyonları import et
+from src.core.utils import check_input_not_none # <<< Yeni import
+
+
 # Bu modül için bir logger oluştur
 # 'src.senses.vision' adında bir logger döndürür.
 logger = logging.getLogger(__name__)
 
 class VisionSensor:
     """
-    Evo'nun görsel duyu organı sınıfı.
+    Evo'nın görsel duyu organı sınıfı.
 
     Belirtilen kamera indeksinden sürekli görüntü akışı yakalamayı dener.
     Eğer kamera başlatılamazsa veya yakalama sırasında hata oluşursa,
@@ -34,9 +38,10 @@ class VisionSensor:
         """
         self.config = config
         # Yapılandırmadan ayarları al, yoksa varsayılanları kullan.
-        self.camera_index = config.get('camera_index', 0)
-        self.dummy_width = config.get('dummy_width', 640)
-        self.dummy_height = config.get('dummy_height', 480)
+        # utils.get_config_value kullanılabilir ama init sırasında doğrudan erişim de yaygın.
+        self.camera_index = self.config.get('camera_index', 0)
+        self.dummy_width = self.config.get('dummy_width', 640)
+        self.dummy_height = self.config.get('dummy_height', 480)
 
         self.cap = None # cv2.VideoCapture objesi. Kamera başarılı başlatılırsa atanır.
         self.is_camera_available = False # Gerçek kameranın şu an aktif olup olmadığını tutar. Başlangıçta False.
@@ -44,12 +49,18 @@ class VisionSensor:
         logger.info("VisionSensor başlatılıyor...")
         try:
             # OpenCV VideoCapture objesini oluşturarak kamerayı açmayı dene.
-            self.cap = cv2.VideoCapture(self.camera_index)
+            # camera_index'in geçerli int olduğundan emin olmak için utils.get_config_value kullanılabilir.
+            camera_index_to_use = self.config.get('camera_index', 0)
+            if not isinstance(camera_index_to_use, int):
+                 logger.warning(f"VisionSensor: Konfigurasyonda geçersiz kamera indeksi tipi: {type(camera_index_to_use)}. int bekleniyor. Varsayılan (0) kullanılıyor.")
+                 camera_index_to_use = 0 # Varsayılanı kullan
+
+            self.cap = cv2.VideoCapture(camera_index_to_use)
 
             # isOpened() metodu, VideoCapture objesinin video kaynağına başarılı bir şekilde bağlanıp bağlanmadığını kontrol eder.
-            if not self.cap.isOpened():
+            if not self.cap or not self.cap.isOpened(): # cap'in None olup olmadığını da kontrol et
                 # Kamera açılamazsa uyarı logu ver.
-                logger.warning(f"Kamera {self.camera_index} açılamadı. Simüle edilmiş görsel girdi kullanılacak.")
+                logger.warning(f"VisionSensor: Kamera {camera_index_to_use} açılamadı. Simüle edilmiş görsel girdi kullanılacak.")
                 self.is_camera_available = False # Kamera aktif değil bayrağını False yap.
                 self.cap = None # Başarısız olursa cap objesini None yap.
             else:
@@ -57,18 +68,19 @@ class VisionSensor:
                 # Kameradan gerçek kare boyutlarını almayı dene (opsiyonel ama bilgilendirici).
                 width = int(self.cap.get(cv2.CAP_PROP_FRAME_WIDTH))
                 height = int(self.cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
-                logger.info(f"Kamera {self.camera_index} başarıyla başlatıldı. Boyut: {width}x{height}")
+                logger.info(f"VisionSensor: Kamera {camera_index_to_use} başarıyla başlatıldı. Boyut: {width}x{height}")
                 self.is_camera_available = True # Kamera aktif bayrağını True yap.
 
         except Exception as e:
             # Kamera başlatma sırasında beklenmedik bir istisna oluşursa (örn: geçersiz index, donanım hatası).
+            # Bu hata init sırasında kritik değildir (simüle moda geçiyoruz).
             logger.error(f"VisionSensor başlatılırken hata oluştu: {e}", exc_info=True)
             self.is_camera_available = False # Hata durumunda kamera aktif değil.
             # Hata olsa bile self.cap objesi oluşmuş olabilir, serbest bırakmak gerekebilir.
             if self.cap:
                  try:
                       self.cap.release()
-                      logger.debug("VisionSensor: Başlatma hatası sonrası kamera kaynağı serbest bırakıldı.")
+                      # logger.debug("VisionSensor: Başlatma hatası sonrası kamera kaynağı serbest bırakıldı.") # Zaten hata logu var
                  except Exception:
                       pass # Serbest bırakma hatasını yoksay
             self.cap = None # Hata durumunda cap objesini None yap.
@@ -160,7 +172,7 @@ class VisionSensor:
         ancak kaynak temizliği genellikle stop_stream'de yapılır.
         module_loader.py bu metodu çağırır (varsa).
         """
-        logger.info("VisionSensor objesi temizleniyor...")
+        logger.info("VisionSensor objesi temizleniyor.")
         # Kaynak temizliği stop_stream metodunda yapıldığı için burada ekstra bir şey yapmaya gerek yok,
         # ancak stop_stream metodunun çağrıldığından emin olmalıyız (module_loader.py bunu yapıyor).
         # self.stop_stream() # cleanup içinde stop_stream çağırmak çift çağrıya neden olabilir,

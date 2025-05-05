@@ -31,19 +31,23 @@ Aşağıdaki fazlar, Evo'nın doğumundan (temel algı) bilgelik ve ustalığa (
 
     *   [ ] **TODO:** Faz 0 ile ilgili genel kod kalitesi ve refactoring.
         *   [x] Modül başlatma ve temizleme mantığı `run_evo.py` dosyasından `src/core/module_loader.py` modülüne taşınarak kod tekrarı azaltıldı.
-        *   [x] Loglama altyapısını yapılandırma dosyası (`main_config.yaml`) üzerinden kontrol edilebilir hale getirme (log seviyesi, çıktı hedefleri vb.).
+        *   [x] Loglama altyapısını yapılandırma dosyası (`main_config.yaml`) üzerinden control edilebilir hale getirme (log seviyesi, çıktı hedefleri vb.).
         *   [x] Docstrings ve Yorumlar eklendi/güncellendi.
             *   [x] run_evo.py dosyasına docstring ve yorumlar eklendi/güncellendi.
             *   [x] src/core yardımcı modüllerine (logging_utils, config_utils, module_loader) docstring ve yorumlar eklendi.
             *   [x] src/senses modüllerine (vision, audio) docstring ve yorumlar eklendi.
             *   [x] src/processing modüllerine (vision, audio) docstring ve yorumlar eklendi.
             *   [x] Diğer Faz 0 kapsamındaki modüllere (memory/core, cognition/core, motor_control/core, interaction/api, interaction/output_channels) docstring ve yorumlar eklendi.
-        *   [x] Genel kod tekrarı azaltma ve isimlendirme/tutarlılık iyileştirmeleri.
+        *   [ ] Girdi kontrolü yardımcı fonksiyonlarının (`src/core/utils.py`) uygun metotlara uygulanması.
             *   [x] Processing modüllerinde (vision, audio) girdi kontrolleri için src/core/utils.py yardımcı fonksiyonları kullanıldı.
-            *   [ ] Diğer modüllerde (Sense, Representation, Memory, Cognition, MotorControl, Interaction) girdi kontrolleri için src/core/utils.py yardımcı fonksiyonları kullanılması.
-            *   [ ] Tekrar eden kod kalıplarını (örn: benzer try-except yapıları) yardımcı fonksiyonlara taşıma.
-            *   [ ] İsimlendirme ve dosya/sınıf sorumluluklarında genel tutarlılık iyileştirmeleri.
-            *   [ ] Magic numbers/strings yerine sabitler veya config kullanımı.
+            *   [ ] Representation modülünde (models.py - learn metodu) girdi kontrolleri için src/core/utils.py yardımcı fonksiyonları kullanılması.
+            *   [ ] Memory modülünde (core.py - store, retrieve metotları) girdi kontrolleri için src/core/utils.py yardımcı fonksiyonları kullanılması.
+            *   [ ] Cognition modülünde (core.py - decide metodu) girdi kontrolleri için src/core/utils.py yardımcı fonksiyonları kullanılması.
+            *   [ ] MotorControl modülünde (core.py - generate_response metodu) girdi kontrolleri için src/core/utils.py yardımcı fonksiyonları kullanılması.
+            *   [ ] Interaction modülünde (api.py - send_output metodu, output_channels.py - send metotları) girdi kontrolleri için src/core/utils.py yardımcı fonksiyonları kullanılması.
+        *   [ ] Tekrar eden kod kalıplarını (örn: benzer try-except yapıları dışındaki) yardımcı fonksiyonlara taşıma.
+        *   [ ] İsimlendirme ve dosya/sınıf sorumluluklarında genel tutarlılık iyileştirmeleri.
+        *   [ ] Magic numbers/strings yerine sabitler veya config kullanımı.
         *   [ ] Unit testler için temel iskeletin kurulması.
         *   [ ] ... Diğer refactoring adımları ...
 

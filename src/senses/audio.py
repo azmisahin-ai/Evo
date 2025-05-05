@@ -1,6 +1,6 @@
 # src/senses/audio.py
 #
-# Evo'nun işitsel duyu organını temsil eder.
+# Evo'nın işitsel duyu organını temsil eder.
 # Mikrofon akışından ham ses parçalarını (chunk) yakalar.
 # Mikrofon kullanılamadığında simüle edilmiş girdi sağlar.
 
@@ -8,7 +8,13 @@ import pyaudio # PyAudio kütüphanesi, ses akışı yönetimi için. requiremen
 import numpy as np # Ses verisi (örnekler dizisi) için.
 import time # Simülasyon veya zamanlama için. Şu an doğrudan kullanılmıyor.
 import logging # Loglama için.
-import sys # Hata yönetimi veya stream handler için kullanılabilir. Şu an doğrudan kullanılmıyor.
+# import sys # Hata yönetimi veya stream handler için kullanılabilir. Şu an doğrudan kullanılmıyor.
+
+# Yardımcı fonksiyonları import et
+# Şu an capture_chunk girdiyi işlemek yerine ürettiği için check_input_not_none gerekli değil.
+# Ancak gelecekte başka metotlar girdi alırsa kullanılabilir.
+# from src.core.utils import check_input_not_none # <<< Gerekirse import edilebilir
+
 
 # Bu modül için bir logger oluştur
 # 'src.senses.audio' adında bir logger döndürür.
@@ -16,7 +22,7 @@ logger = logging.getLogger(__name__)
 
 class AudioSensor:
     """
-    Evo'nun işitsel duyu organı sınıfı.
+    Evo'nın işitsel duyu organı sınıfı.
 
     Mikrofon akışından belirli boyutlarda (chunk) ses verisi yakalamayı dener.
     Eğer mikrofon başlatılamazsa veya yakalama sırasında hata oluşursa,
@@ -39,13 +45,14 @@ class AudioSensor:
         """
         self.config = config
         # Yapılandırmadan ayarları al, yoksa varsayılanları kullan.
-        self.audio_rate = config.get('audio_rate', 44100)
-        self.audio_chunk_size = config.get('audio_chunk_size', 1024)
-        # PyAudio formatı (16-bit integer yaygın ve çoğu donanımla uyumludur).
-        self.audio_format = pyaudio.paInt16
-        self.audio_channels = 1 # Şimdilik Mono ses. Stereo için 2 yapılabilir.
-        # Kullanılacak input cihazı indeksi. Config'ten alınır. None ise PyAudio varsayılanı bulmaya çalışır.
-        self.audio_input_device_index = config.get('audio_input_device_index')
+        # utils.get_config_value kullanılabilir ama init sırasında doğrudan erişim de yaygın.
+        self.audio_rate = self.config.get('audio_rate', 44100)
+        self.audio_chunk_size = self.config.get('audio_chunk_size', 1024)
+        self.audio_format = pyaudio.paInt16 # 16-bit integer formatı yaygın ve basit
+        self.audio_channels = 1 # Mono ses
+        # Cihaz indeksi config'ten alınır. None ise PyAudio varsayılanı dener.
+        self.audio_input_device_index = self.config.get('audio_input_device_index')
+
 
         self.p = None # PyAudio objesi. PyAudio başlatılırsa atanır.
         self.stream = None # PyAudio Stream objesi. Ses akışı açılırsa atanır.
@@ -53,7 +60,7 @@ class AudioSensor:
 
         logger.info("AudioSensor başlatılıyor...")
         try:
-            # PyAudio objesini başlat. Bu, sistemdeki ses donanımlarıyla iletişim kurmayı sağlar.
+            # PyAudio objesini başlat.
             self.p = pyaudio.PyAudio()
 
             # Eğer config'te belirli bir cihaz indeksi belirtilmemişse, varsayılan input cihazını bulmaya çalış.
@@ -71,6 +78,11 @@ class AudioSensor:
                       # İndeks None kaldığı için PyAudio'nun open stream metodunun hata verme ihtimali yüksektir.
                       # Bu durum open stream try-except bloğunda yakalanacaktır.
 
+            # Config'ten alınan veya bulunan cihaz indeksinin geçerli bir int veya None olduğundan emin olmak için kontrol edilebilir.
+            # if self.audio_input_device_index is not None and not isinstance(self.audio_input_device_index, int):
+            #     logger.warning(f"AudioSensor: Konfigurasyonda geçersiz ses cihazı indeksi tipi: {type(self.audio_input_device_index)}. int veya None bekleniyor. None kullanılıyor.")
+            #     self.audio_input_device_index = None # Geçersizse None yap
+
 
             # Ses akışını başlatmak için PyAudio'nun open methodunu kullan.
             # format: ses örneği tipi (örn: 16-bit int)
@@ -83,7 +95,7 @@ class AudioSensor:
                                       channels=self.audio_channels,
                                       rate=self.audio_rate,
                                       input=True,
-                                      input_device_index=self.audio_input_device_index,
+                                      input_device_index=self.audio_input_device_index, # Config'ten alınan veya bulunan index kullanılır.
                                       frames_per_buffer=self.audio_chunk_size)
 
             # Akış başarıyla açıldıysa
@@ -93,6 +105,7 @@ class AudioSensor:
         except Exception as e:
             # PyAudio başlatma veya akış açma sırasında beklenmedik bir istisna oluşursa.
             # (örn: PortAudio hatası, cihaz bulunamadı, geçersiz parametreler vb.)
+            # Bu hata init sırasında kritik değildir (simüle moda geçiyoruz).
             logger.error(f"AudioSensor başlatılırken hata oluştu: {e}", exc_info=True)
             self.is_audio_available = False # Hata durumunda ses aktif değil.
             # Hata durumunda açılmış olabilecek kaynakları (stream, pyaudio objesi) temizlemeyi dene.
@@ -100,13 +113,13 @@ class AudioSensor:
                  try:
                       self.stream.stop_stream()
                       self.stream.close()
-                      logger.debug("AudioSensor: Başlatma hatası sonrası stream temizlendi.")
+                      # logger.debug("AudioSensor: Başlatma hatası sonrası stream temizlendi.") # Zaten hata logu var
                  except Exception:
                       pass # Temizleme hatasını yoksay
             if self.p:
                  try:
                       self.p.terminate()
-                      logger.debug("AudioSensor: Başlatma hatası sonrası PyAudio sonlandırıldı.")
+                      # logger.debug("AudioSensor: Başlatma hatası sonrası PyAudio sonlandırıldı.") # Zaten hata logu var
                  except Exception:
                       pass # Terminate hatasını yoksay
             self.stream = None # Objeleri None yap.
@@ -139,10 +152,13 @@ class AudioSensor:
                 # read() metodu blocking'tir (veri gelene kadar bekler).
                 # Eğer timeout olursa IOError yükseltir.
                 # Hata yönetimi bu IOError'ı yakalamalıdır.
+                # Timeout parametresi read metoduna eklenebilir (isteğe bağlı).
                 data = self.stream.read(self.audio_chunk_size)
 
                 # Okunan byte verisini numpy array'e dönüştür.
                 # np.frombuffer, byte'ları belirtilen dtype'a çevirir.
+                # len(data) byte sayısını verir. dtype int16 2 byte olduğu için
+                # chunk boyutu np.frombuffer(data, dtype=np.int16).shape[0] olacaktır.
                 audio_chunk = np.frombuffer(data, dtype=np.int16)
 
                 # logger.debug(f"AudioSensor: Gerçek chunk yakalandı. Shape: {audio_chunk.shape}, Dtype: {audio_chunk.dtype}")
@@ -150,7 +166,7 @@ class AudioSensor:
                 return audio_chunk
 
             except IOError as e:
-                 # PyAudio okuma sırasında oluşabilecek spesifik hatalar (örn: timeout, akış kesilmesi).
+                 # PyAudio okuma sırasında oluşabilecek spesifik hatalar (örn: timeout, akış kesilmesi, cihaz hatası).
                  logger.error(f"AudioSensor: Ses chunk okuma hatası (IOError): {e}", exc_info=True)
                  # Bu tür bir hata akışın durduğu anlamına gelebilir.
                  self.is_audio_available = False # Geçici olarak akışı aktif değil yap.
@@ -214,7 +230,7 @@ class AudioSensor:
         ancak kaynak temizliği genellikle stop_stream'de yapılır.
         module_loader.py bu metodu çağırır (varsa).
         """
-        logger.info("AudioSensor objesi temizleniyor...")
+        logger.info("AudioSensor objesi temizleniyor.")
         # Kaynak temizliği stop_stream metodunda yapıldığı için burada ekstra bir şey yapmaya gerek yok,
         # ancak stop_stream metodunun çağrıldığından emin olmalıyız (module_loader.py bunu yapıyor).
         # self.stop_stream() # cleanup içinde stop_stream çağırmak çift çağrıya neden olabilir.
