@@ -33,7 +33,9 @@ def get_config_value(config, key, default, expected_type=None, logger_instance=N
     # Beklenen tip kontrolü
     if expected_type is not None:
         # Eğer değer varsayılan değer *değilse* ve tipi uymuyorsa uyarı logla.
-        # Varsayılan değerin tipini kontrol etmek her zaman anlamlı olmayabilir.
+        # isinstance(value, expected_type) kontrolü, expected_type tuple ise
+        # değerin tuple içindeki tiplerden birine sahip olup olmadığını kontrol eder.
+        # Varsayılan değerin tipi kontrol edilmez.
         if value is not default and not isinstance(value, expected_type):
             log.warning(f"ConfigUtils: Yapılandırma anahtarı '{key}' için beklenmeyen tip: {type(value)}. {expected_type} bekleniyordu. Varsayılan değer ({default}) kullanılıyor.")
             return default # Tip uymuyorsa varsayılanı döndür
@@ -87,8 +89,8 @@ def check_numpy_input(input_data, expected_dtype=None, expected_ndim=None, input
 
     Args:
         input_data (any): Kontrol edilecek girdi verisi.
-        expected_dtype (numpy.dtype or type, optional): Beklenen dtype (örn: np.float32, np.uint8, np.number). None ise dtype kontrolü yapılmaz.
-        expected_ndim (int, optional): Beklenen boyut sayısı (ndim). None ise boyut kontrolü yapılmaz.
+        expected_dtype (numpy.dtype or type or tuple, optional): Beklenen dtype (örn: np.float32, np.uint8, np.number, (np.float32, np.float64)). None ise dtype kontrolü yapılmaz. Tuple verilirse tiplerden biri beklenir.
+        expected_ndim (int or tuple, optional): Beklenen boyut sayısı (ndim). None ise boyut kontrolü yapılmaz. Tuple verilirse boyut sayılarından biri beklenir (örn: (2, 3)).
         input_name (str, optional): Log mesajında kullanılacak girdi adı. Varsayılan 'input'.
         logger_instance (logging.Logger, optional): Loglama için kullanılacak logger objesi. Yoksa bu modülün logger'ı kullanılır.
 
@@ -97,24 +99,40 @@ def check_numpy_input(input_data, expected_dtype=None, expected_ndim=None, input
     """
     log = logger_instance if logger_instance is not None else logger
 
-    # Önce genel numpy array kontrolü
+    # 1. Genel numpy array kontrolü
     if not isinstance(input_data, np.ndarray):
         log.error(f"Beklenmeyen '{input_name}' tipi: {type(input_data)}. numpy.ndarray bekleniyordu.")
         return False
 
-    # Dtype kontrolü (belirtilmişse)
+    # 2. Dtype kontrolü (belirtilmişse)
     if expected_dtype is not None:
-         # np.issubdtype daha esnek, alt tipleri de yakalar (örn: np.issubdtype(np.int16, np.number) -> True)
-         # isinstance sadece tam tipi kontrol eder.
-         if not np.issubdtype(input_data.dtype, expected_dtype):
-              log.error(f"Beklenmeyen '{input_name}' dtype: {input_data.dtype}. {expected_dtype} (veya alt tipi) bekleniyordu.")
-              return False
+         # expected_dtype bir tuple ise içindeki tiplerden birine mi sahip?
+         # değilse tek bir expected_dtype ile issubdtype kontrolü yap.
+         dtype_match = False
+         if isinstance(expected_dtype, tuple):
+              for d in expected_dtype:
+                   if np.issubdtype(input_data.dtype, d):
+                        dtype_match = True
+                        break
+              if not dtype_match:
+                   log.error(f"Beklenmeyen '{input_name}' dtype: {input_data.dtype}. Beklenen tiplerden hiçbiriyle uyumlu değil: {expected_dtype}.")
+                   return False
+         else: # expected_dtype tek bir değer
+              if not np.issubdtype(input_data.dtype, expected_dtype):
+                   log.error(f"Beklenmeyen '{input_name}' dtype: {input_data.dtype}. {expected_dtype} (veya alt tipi) bekleniyordu.")
+                   return False
 
-    # Boyut (ndim) kontrolü (belirtilmişse)
+    # 3. Boyut (ndim) kontrolü (belirtilmişse)
     if expected_ndim is not None:
-        if input_data.ndim != expected_ndim:
-            log.error(f"Beklenmeyen '{input_name}' boyut sayısı (ndim): {input_data.ndim}. {expected_ndim} bekleniyordu.")
-            return False
+        # expected_ndim bir tuple ise, girdinin ndim'i tuple içindeki değerlerden birine mi eşit?
+        if isinstance(expected_ndim, tuple):
+            if input_data.ndim not in expected_ndim:
+                 log.error(f"Beklenmeyen '{input_name}' boyut sayısı (ndim): {input_data.ndim}. Beklenen boyut sayılarından hiçbiriyle eşleşmiyor: {expected_ndim}.")
+                 return False
+        else: # expected_ndim tek bir int değer
+            if input_data.ndim != expected_ndim:
+                log.error(f"Beklenmeyen '{input_name}' boyut sayısı (ndim): {input_data.ndim}. {expected_ndim} bekleniyordu.")
+                return False
 
     return True # Tüm kontroller başarılı
 
