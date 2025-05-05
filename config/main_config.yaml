@@ -18,20 +18,26 @@ audio:
   audio_chunk_size: 1024 # Her seferinde işlenecek ses örneği sayısı
   # audio_input_device_index: null # null varsayılan cihazı kullanır, belirli bir index verilebilir.
 
-processing_vision: # src/processing/vision.py için ayarlar
-  output_width: 64 # İşlenmiş görsel çıktının genişliği
-  output_height: 64 # İşlenmiş görsel çıktının yüksekliği
+# Processor modülleri ayarları
+processors:
+  vision:
+    output_width: 64
+    output_height: 64
+    canny_low_threshold: 50 # Yeni eklendi veya güncellendi
+    canny_high_threshold: 150 # Yeni eklendi veya güncellendi
+  audio:
+    # output_dim: AudioProcessor'ın döndüreceği özellik sayısı (Enerji, Spectral Centroid).
+    output_dim: 2 # BU DEĞERİN 2 OLARAK GÜNCELLENMESİ GEREKLİDİR (Dökümantasyon amaçlı).
+    # audio_rate AudioSensor'dan gelebilir, ama burada da belirtilebilir.
+    # audio_rate: 44100 # İsteğe bağlı olarak burada belirtilebilir
 
-processing_audio: # src/processing/audio.py için ayarlar
-  # Örneğin, MFCC sayısı gibi ayarlar buraya gelebilir
-  # output_features: ['energy', 'mfcc'] # Gelecekte
-  output_dim: 1 # Şu anki enerji çıktısı için boyut
-
-representation: # src/representation/models.py için ayarlar
-  # input_dim, processing çıktılarının boyutuna göre dinamik belirlenmeli veya config_utils içinde hesaplanmalı.
-  # Eğer Processing Vision 64x64 gri dönerse: 64*64=4096. Audio 1 enerji dönerse: 1. input_dim = 4096 + 1 = 4097
-  input_dim: 4097 # Öğrenilecek temsil modelinin girdi boyutu (vision + audio)
-  representation_dim: 128 # Öğrenilecek temsil boyutu
+representation:
+  # input_dim: Encoder'ın beklediği toplam girdi boyutu.
+  # (VisionProcessor output_width * output_height for grayscale) + (VisionProcessor output_width * output_height for edges) + (AudioProcessor output_dim)
+  # Varsayılan Processor çıktıları: Vision (64x64 grayscale + 64x64 edges) + Audio (2 features)
+  # 64*64 + 64*64 + 2 = 4096 + 4096 + 2 = 8194
+  input_dim: 8194 # BU DEĞERİN 8194 OLARAK GÜNCELLENMESİ KRİTİKTİR.
+  representation_dim: 128 # Temsil vektörünün boyutu
 
 memory: # src/memory/core.py için ayarlar
   max_memory_size: 1000 # Saklanacak maksimum temsil sayısı (geçici hafıza)
