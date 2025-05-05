@@ -136,6 +136,49 @@ def check_numpy_input(input_data, expected_dtype=None, expected_ndim=None, input
 
     return True # Tüm kontroller başarılı
 
+def run_safely(func, *args, logger_instance, error_message="İşlem sırasında beklenmedik hata", error_level=logging.ERROR, **kwargs):
+    """
+    Bir fonksiyonu try-except bloğu içinde güvenli bir şekilde çalıştırır.
+
+    Hata oluşursa yakalar, loglar ve None döndürür.
+
+    Args:
+        func (callable): Çalıştırılacak fonksiyon.
+        *args: Fonksiyona gönderilecek pozisyonel argümanlar.
+        logger_instance (logging.Logger): Loglama için kullanılacak logger objesi (Zorunlu).
+        error_message (str, optional): Hata oluştuğunda loglanacak mesajın başlangıcı.
+        error_level (int, optional): Hata logunun seviyesi (örn: logging.ERROR, logging.CRITICAL).
+        **kwargs: Fonksiyona gönderilecek anahtar kelime argümanları.
+
+    Returns:
+        any: Fonksiyonun başarıyla döndürdüğü değer veya hata durumunda None.
+    """
+    try:
+        return func(*args, **kwargs)
+    except Exception as e:
+        # Hata oluştuğunda belirtilen logger objesi ile logla
+        logger_instance.log(error_level, f"{error_message}: {e}", exc_info=True)
+        return None # Hata durumunda None döndür
+
+
+def cleanup_safely(cleanup_func, logger_instance, error_message="Temizleme sırasında hata", error_level=logging.ERROR):
+    """
+    Bir temizleme fonksiyonunu try-except bloğu içinde güvenli bir şekilde çalıştırır.
+
+    Hata oluşursa yakalar ve loglar. Temizleme fonksiyonları genellikle bir değer döndürmez.
+
+    Args:
+        cleanup_func (callable): Çalıştırılacak temizleme fonksiyonu.
+        logger_instance (logging.Logger): Loglama için kullanılacak logger objesi (Zorunlu).
+        error_message (str, optional): Hata oluştuğunda loglanacak mesajın başlangıcı.
+        error_level (int, optional): Hata logunun seviyesi.
+    """
+    try:
+        cleanup_func()
+    except Exception as e:
+        # Hata oluştuğunda belirtilen logger objesi ile logla
+        logger_instance.log(error_level, f"{error_message}: {e}", exc_info=True)
+
 # Gelecekte diğer yardımcı fonksiyonlar eklenebilir:
 # - Veri formatlama/dönüştürme (örn: normalizasyon, one-hot encoding)
 # - Ortak matematiksel işlemler

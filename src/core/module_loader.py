@@ -6,6 +6,9 @@
 
 import logging # Loglama için
 
+# Yardımcı fonksiyonları import et
+from src.core.utils import run_safely, cleanup_safely # <<< run_safely ve cleanup_safely import edildi
+
 # Başlatılacak tüm ana modül sınıflarını import et
 # TODO: Modül sınıflarının import edilmesi veya referanslarının yönetilmesi
 #       daha dinamik hale getirilebilir (örn: config'ten okuma, registry desenini kullanma).
@@ -28,10 +31,8 @@ logger = logging.getLogger(__name__)
 
 def _initialize_single_module(module_name, module_class, config, category_name, is_critical_category):
     """
-    Tek bir modülü başlatmayı dener ve sonucu döndürür.
-
-    Başlatma sırasında oluşabilecek hataları yönetir ve loglar.
-    Kritik kategorideki modüllerin başlatma hatası durumunu döndürür.
+    Tek bir modülü initialize etmeyi dener ve sonucu döndürür.
+    run_safely yardımcı fonksiyonunu kullanarak başlatma sırasında oluşabilecek hataları yönetir.
 
     Args:
         module_name (str): Modülün adı (örn: 'vision', 'core_memory').
@@ -52,43 +53,37 @@ def _initialize_single_module(module_name, module_class, config, category_name, 
 
     logger.info(f"Başlatılıyor: {module_class.__name__} ({module_name})...")
 
-    try:
-        # Modül sınıfının instance'ını oluştur (başlat)
-        # Modül başlatıcılarının (__init__ metotlarının) hata durumunda None döndürmesi veya exception atması beklenir.
-        instance = module_class(module_config)
+    # _initialize_single_module'deki try-except bloğunu run_safely ile değiştir.
+    # run_safely, exception yakalarsa None döner ve loglar.
+    # Başlatma sırasında hata oluştuğunda log seviyesi CRITICAL olmalı.
+    instance = run_safely(
+        module_class, # Çalıştırılacak fonksiyon (sınıf __init__ metodu çağrılır)
+        module_config, # Fonksiyonun (init) ilk argümanı
+        logger_instance=logger, # Loglama için bu modülün logger'ını gönder
+        error_message=f"Modül '{module_name}' ({module_class.__name__}) başlatılırken kritik hata oluştu", # Log mesajı
+        error_level=logging.CRITICAL # Log seviyesi
+    )
 
-        # Başlatma sırasında None döndürülmesi de bir hata göstergesidir.
-        if instance is None:
-            logger.error(f"Modül '{module_name}' ({module_class.__name__}) başlatma sırasında None döndürdü.")
-            # None döndürülmesi durumunda exception atılmadığı için hatayı manuel logladık.
-            # Eğer kritik kategoride ise bu bir kritik başlatma hatasıdır.
-            if is_critical_category:
-                critical_error_occurred = True
+    # run_safely None döndürdüyse (hata olduysa veya init None döndürdüyse) ve kategori kritikse
+    # run_safely exception durumunda None döner. Modül __init__ de None döndürebilir.
+    # Eğer instance None ise (hata oldu veya init None döndürdü) ve kategori kritikse, kritik hata oldu.
+    if instance is None and is_critical_category:
+         critical_error_occurred = True
+         # Hata run_safely içinde CRITICAL olarak loglandı.
+         # logger.critical(f"Kritik modül '{module_name}' başlatılamadığı için ana döngü engelleniyor.") # Zaten run_safely içinde loglandı.
 
-        # Eğer instance başarıyla oluşturulduysa (None değilse)
-        elif is_critical_category:
-            # Kritik bir modül başarıyla başlatıldı.
-            logger.info(f"Başarıyla başlatıldı: {module_class.__name__} ({module_name}).")
-            # Başarı durumunda critical_error_occurred False kalır.
-        else: # Non-kritik kategori
-            logger.info(f"Başarıyla başlatıldı: {module_class.__name__} ({module_name}).")
-            # Non-kritik modül başarıyla başlatıldı.
+    # Eğer instance başarıyla oluşturulduysa (None değilse)
+    elif instance is not None:
+        logger.info(f"Başarıyla başlatıldı: {module_class.__name__} ({module_name}).")
+        # Başarı durumunda critical_error_occurred False kalır.
 
-    except Exception as e:
-        # Başlatma sırasında beklenmedik bir istisna oluşursa
-        logger.critical(f"Modül '{module_name}' ({module_class.__name__}) başlatılırken kritik hata oluştu: {e}", exc_info=True)
-        instance = None # Hata durumunda objeyi None yap
-        # Eğer kritik kategoride ise bu bir kritik başlatma hatasıdır.
-        if is_critical_category:
-            critical_error_occurred = True
-        # Non-kritik kategoride exception olsa bile critical_error_occurred False kalır (initialize_modules logic).
 
     return instance, critical_error_occurred
 
 
 def _cleanup_single_module(module_name, module_instance, category_name):
     """
-    Tek bir modül objesinin kaynaklarını temizlemeyi dener.
+    Tek bir modül objesinin kaynaklarını cleanup_safely yardımcı fonksiyonu ile temizlemeyi dener.
 
     cleanup veya stop_stream metodunu (varsa) güvenli bir şekilde çağırır.
     Temizleme sırasında oluşabilecek hataları loglar.
@@ -100,25 +95,31 @@ def _cleanup_single_module(module_name, module_instance, category_name):
     """
     # Eğer obje None değilse
     if module_instance:
+        # Temizleme metotlarını çağırırken cleanup_safely kullan.
+        # Temizleme sırasında hata oluştuğunda log seviyesi ERROR olmalı.
+
         # Öncelikle genel cleanup metodunu dene
         if hasattr(module_instance, 'cleanup'):
             logger.info(f"Temizleniyor: {category_name.capitalize()} - {module_name} ({type(module_instance).__name__})...")
-            try:
-                module_instance.cleanup()
-                logger.info(f"Temizlendi: {category_name.capitalize()} - {module_name}.")
-            except Exception as e:
-                 # Temizleme sırasında hata oluşursa logla.
-                 logger.error(f"Temizleme sırasında hata: {category_name.capitalize()} - {module_name}: {e}", exc_info=True)
+            cleanup_safely(
+                module_instance.cleanup, # Çalıştırılacak temizleme fonksiyonu
+                logger_instance=logger, # Loglama için bu modülün logger'ını gönder
+                error_message=f"Temizleme sırasında hata: {category_name.capitalize()} - {module_name} ({type(module_instance).__name__})", # Log mesajı
+                error_level=logging.ERROR # Log seviyesi
+            )
+            # logger.info(f"Temizlendi: {category_name.capitalize()} - {module_name}.") # cleanup_safely başarı durumunda loglamaz
 
         # Sensörler için özel olarak stop_stream metodunu çağır (cleanup'ları olmayabilir).
         # TODO: Sensörlerin stop_stream mantığını kendi cleanup metotlarına taşımak daha temiz olur. (Gelecekte refactoring).
         elif category_name == 'sensors' and hasattr(module_instance, 'stop_stream'):
              logger.info(f"Temizleniyor (stream): {category_name.capitalize()} - {module_name} ({type(module_instance).__name__})...")
-             try:
-                 module_instance.stop_stream()
-                 logger.info(f"Temizlendi (stream): {category_name.capitalize()} - {module_name}.")
-             except Exception as e:
-                  logger.error(f"Temizleme (stream) sırasında hata: {category_name.capitalize()} - {module_name}: {e}", exc_info=True)
+             cleanup_safely(
+                 module_instance.stop_stream, # Çalıştırılacak temizleme fonksiyonu
+                 logger_instance=logger, # Loglama için bu modülün logger'ını gönder
+                 error_message=f"Temizleme (stream) sırasında hata: {category_name.capitalize()} - {module_name} ({type(module_instance).__name__})", # Log mesajı
+                 error_level=logging.ERROR # Log seviyesi
+             )
+             # logger.info(f"Temizlendi (stream): {category_name.capitalize()} - {module_name}.") # cleanup_safely başarı durumunda loglamaz
 
         # Eğer obje None değil ama cleanup/stop_stream metotları yoksa bilgilendirici log (DEBUG seviyesinde)
         # elif not hasattr(module_instance, 'cleanup') and not hasattr(module_instance, 'stop_stream'):
