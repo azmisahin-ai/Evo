@@ -155,7 +155,7 @@ class RepresentationLearner:
     Bir Decoder katmanı (Dense) da içerir (Autoencoder prensibi için),
     bu katman latent vektörden orijinal girdi boyutunda bir rekonstrüksiyon üretir.
     Gelecekte daha karmaşık modeller (CNN, RNN, Transformer temelli) buraya gelecek.
-    Modül başlatılamazsa veya temsil öğrenme/çıkarma sırasında hata oluşarsa None döndürür.
+    Modül başlatılamazsa veya temsil öğrenme/çıkarma sırasında hata oluşursa None döndürür.
     """
     def __init__(self, config):
         """
@@ -362,7 +362,7 @@ class RepresentationLearner:
             # Eğer modelden None döndüyse (encoder içinde hata olduysa)
             if representation is None:
                  logger.error("RepresentationLearner.learn: Encoder modelinden None döndü, ileri geçiş başarısız. Temsil öğrenilemedi.")
-                 return None # Hata durumunda None döndür.
+                 return None # Hata durumında None döndür.
 
             # DEBUG logu: Temsil çıktı detayları.
             # if representation is not None: # Zaten None değilse buraya gelinir.
@@ -390,7 +390,7 @@ class RepresentationLearner:
                                                   veya None.
 
         Returns:
-            numpy.ndarray or None: Rekonstrüksiyon çıktısı (shape (input_dim,), dtype sayısal)
+            numpy.ndarray or None: Rekonstrukksiyon çıktısı (shape (input_dim,), dtype sayısal)
                                    veya hata durumunda ya da girdi None ise None.
         """
         # Hata yönetimi: Modül başlatılamamışsa veya Decoder yoksa işlem yapma.
@@ -426,10 +426,10 @@ class RepresentationLearner:
             # Eğer modelden None döndüyse (decoder içinde hata olduysa)
             if reconstruction is None:
                  logger.error("RepresentationLearner.decode: Decoder modelinden None döndü, ileri geçiş başarısız. Rekonstrüksiyon yapılamadı.")
-                 return None # Hata durumunda None döndür.
+                 return None # Hata durumında None döndür.
 
             # DEBUG logu: Rekonstrüksiyon çıktı detayları.
-            logger.debug(f"RepresentationLearner.decode: Rekonstrüksiyon tamamlandı. Output Shape: {reconstruction.shape}, Dtype: {reconstruction.dtype}.")
+            logger.debug(f"RepresentationLearner.decode: Rekonstrukksiyon tamamlandı. Output Shape: {reconstruction.shape}, Dtype: {reconstruction.dtype}.")
 
 
             # Başarılı durumda rekonstrüksiyon çıktısını döndür.
