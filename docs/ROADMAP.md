@@ -128,7 +128,3 @@ Aşağıdaki fazlar, Evo'nun doğumundan (temel algı) bilgelik ve ustalığa (k
 *   [ ] Bağımlılıkların yönetimi ve güncellenmesi.
 
 ---
-
-Bu içeriği `docs/ROADMAP.md` dosyanıza kopyalayıp yapıştırabilirsiniz.
-
-Commit işleminizi tamamlayıp bana linkini göndermenizi bekliyorum. Ardından, bu güncel ROADMAP'deki ilk `[ ]` görevlerini (Faz 1 Gerçek Implementasyon Görevleri altındaki görsel ve işitsel işleme algoritmaları) ele alarak Evo'nun bilişsel evrimine devam edebiliriz!
