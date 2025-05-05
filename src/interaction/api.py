@@ -2,13 +2,17 @@
 #
 # Evo'nın dış dünya ile iletişim arayüzünü temsil eder.
 # Motor Control'den gelen tepkileri alır ve aktif çıktı kanallarına gönderir.
+# Farklı çıktı kanallarını yönetir.
 # Gelecekte dış dünyadan girdi de alacak (Input kanalları).
 
 import logging # Loglama için.
 # import threading # Web API'si bir thread olarak çalışacaksa gerekebilir (Gelecek).
 # import requests # API endpoint'lerine çıktı göndermek için gerekebilir (Gelecek).
 
-# Çıktı kanalı sınıflarını import et
+# Yardımcı fonksiyonları import et
+from src.core.utils import check_input_not_none, check_input_type # <<< Yeni importlar
+
+# Output kanallarını import et
 from .output_channels import ConsoleOutputChannel, WebAPIOutputChannel, OutputChannel # Base sınıfı da referans için import edildi.
 
 # Bu modül için bir logger oluştur
@@ -23,6 +27,7 @@ class InteractionAPI:
     MotorControl modülünden gelen tepkileri (output_data) alır
     ve yapılandırmada belirtilen tüm aktif çıktı kanallarına gönderir.
     Farklı çıktı kanallarını (konsol, Web API vb.) yönetir.
+    Kanal başlatma, gönderme ve temizleme sırasında oluşabilecek hataları yönetir.
     Gelecekte dış dünyadan girdi alımı için arayüzler de buraya eklenecek.
     """
     def __init__(self, config):
@@ -35,19 +40,30 @@ class InteractionAPI:
         Args:
             config (dict): Interaction modülü yapılandırma ayarları.
                            'enabled_channels': Aktif edilecek çıktı kanallarının adlarını içeren liste (örn: ['console', 'web_api']).
+                                               Beklenen tip: liste.
                            'channel_configs': Kanal adlarına göre özel yapılandırma ayarları içeren sözlük (örn: {'web_api': {'port': 5000}}).
+                                            Beklenen tip: sözlük.
         """
         self.config = config
-        # Yapılandırmadan aktif kanalların listesini al, yoksa sadece 'console' kullan.
-        self.enabled_channels = config.get('enabled_channels', ['console'])
-        # Yapılandırmadan kanal bazlı özel ayarları al, yoksa boş sözlük kullan.
-        self.channel_configs = config.get('channel_configs', {})
-
-        # Başlatılan aktif çıktı kanalı objelerini tutacak sözlük.
-        # Anahtar: kanal adı (string), Değer: kanal objesi (OutputChannel veya alt sınıfı).
-        self.output_channels = {}
-
         logger.info("InteractionAPI modülü başlatılıyor...")
+
+        # Yapılandırmadan aktif kanalların listesini alırken get_config_value kullan.
+        # enabled_channels için tip kontrolü (liste) yapalım.
+        self.enabled_channels = self.config.get('enabled_channels', ['console'])
+        if not check_input_type(self.enabled_channels, list, input_name="enabled_channels config", logger_instance=logger):
+             logger.warning("InteractionAPI: Konfigurasyonda 'enabled_channels' beklenmeyen tipte. Varsayılan ['console'] kullanılıyor.")
+             self.enabled_channels = ['console'] # Geçersiz tipse varsayılanı kullan.
+
+        # Yapılandırmadan kanal bazlı özel ayarları alırken get_config_value kullan.
+        # channel_configs için tip kontrolü (sözlük) yapalım.
+        self.channel_configs = self.config.get('channel_configs', {})
+        if not check_input_type(self.channel_configs, dict, input_name="channel_configs config", logger_instance=logger):
+             logger.warning("InteractionAPI: Konfigurasyonda 'channel_configs' beklenmeyen tipte. Boş sözlük {} kullanılıyor.")
+             self.channel_configs = {} # Geçersiz tipse boş sözlük kullan.
+
+
+        self.output_channels = {} # Başlatılan aktif çıktı kanalı objelerini tutacak sözlük.
+
         logger.info(f"InteractionAPI: Konfigurasyondan aktif kanallar: {self.enabled_channels}")
 
         # Desteklenen çıktı kanalı sınıflarının eşleştirmesi.
@@ -61,11 +77,17 @@ class InteractionAPI:
         # Yapılandırmada belirtilen her aktif kanalı başlatmayı dene.
         # Hata yönetimi: Bir kanal başlatılırken hata olsa bile diğerleri denenmeye devam etmeli.
         for channel_name in self.enabled_channels:
+            # channel_name'in string olduğundan emin olalım (listedeki öğeler).
+            if not isinstance(channel_name, str):
+                 logger.warning(f"InteractionAPI: 'enabled_channels' listesinde beklenmeyen öğe tipi: {type(channel_name)}. String bekleniyordu. Bu öğe atlandı.")
+                 continue # String değilse bu öğeyi atla.
+
             # İlgili kanal sınıfı tanımlanmış mı kontrol et.
             channel_class = channel_classes.get(channel_name)
             if channel_class:
                 # Kanal sınıfı bulundu, şimdi başlatmayı dene.
                 # Konfigurasyondan o kanala ait özel ayarları al, yoksa boş sözlük kullan.
+                # self.channel_configs dict olduğundan emin olundu, get() güvenli.
                 channel_config = self.channel_configs.get(channel_name, {})
                 try:
                     # Kanal objesini oluştur ve başlat.
@@ -80,7 +102,7 @@ class InteractionAPI:
                     logger.error(f"InteractionAPI: OutputChannel '{channel_name}' başlatılırken hata oluştu: {e}", exc_info=True)
                     # Hata veren kanalı aktif kanallar sözlüğüne eklememek önemlidir.
                     # Eğer hata oluşmadan önce eklenmişse (olası değil init sırasında), buradan silmek gerekebilir.
-                    # if channel_name in self.output_channels:
+                    # if channel_name in self.output_channels: # Zaten error logu üstte
                     #      del self.output_channels[channel_name]
             else:
                 # Config'te adı geçen ama channel_classes sözlüğünde karşılığı olmayan kanal adları için uyarı.
@@ -112,10 +134,9 @@ class InteractionAPI:
                                Formatı kanaldan kanala değişebilir (str, dict, numpy array vb.).
                                None olabilir, bu durumda gönderme atlanır.
         """
-        # Hata yönetimi: Gönderilecek veri None ise işlem yapma.
-        if output_data is None:
-            # Çıktı verisi yoksa, gönderme işlemi atlanır. Bu bir hata değil.
-            logger.debug("InteractionAPI: Gönderilecek çıktı verisi None. Gönderme atlanıyor.")
+        # Hata yönetimi: Gönderilecek veri None ise işlem yapma. check_input_not_none kullan.
+        if not check_input_not_none(output_data, input_name="output_data", logger_instance=logger):
+            # Çıktı verisi None ise, gönderme işlemi atlanır. Bu bir hata değil.
             return
 
         # DEBUG logu: Çıktının hangi kanallara gönderileceği.
@@ -127,28 +148,36 @@ class InteractionAPI:
         # yapılmadığı varsayılır. Eğer send metodu kanalı pasifize edip sözlükten silerse,
         # döngünün bir kopyası üzerinde dönmek (list(self.output_channels.items())) daha güvenli olabilir.
         for channel_name, channel_instance in self.output_channels.items():
-            try:
-                # Kanalın send metodunu çağır.
-                # OutputChannel alt sınıflarının send metotları kendi içlerinde de hata yakalamalı.
-                # Burada yakaladığımız hata, send metodunun kendisinin çağrılması sırasında
-                # veya send metodunun içindeki *işlenmemiş* kritik bir hatadan kaynaklanır.
-                channel_instance.send(output_data)
-                # DEBUG logu: Hangi kanala gönderim yapıldığı.
-                # logger.debug(f"InteractionAPI: Çikti OutputChannel '{channel_name}' kanalına gönderildi.")
+            # channel_instance'ın None olup olmadığını kontrol et (başlatma hatası nedeniyle None olabilir).
+            if channel_instance:
+                try:
+                    # Kanalın send metodunu çağır.
+                    # send metotlarının kendi içlerinde de hata yakalama olmalı.
+                    # Burada yakaladığımız hata, send metodunun kendisinin çağrılması sırasında
+                    # veya send metodunun içindeki *işlenmemiş* bir hatadan kaynaklanır.
+                    channel_instance.send(output_data)
+                    # DEBUG logu: Hangi kanala gönderim yapıldığı.
+                    # logger.debug(f"InteractionAPI: Çikti OutputChannel '{channel_name}' kanalına gönderildi.")
 
-            except Exception as e:
-                # Kanalın send metodunu çağırırken veya çalıştırırken beklenmedik bir hata oluşursa logla.
-                logger.error(f"InteractionAPI: OutputChannel '{channel_name}' send metodu çalıştırılırken beklenmedik hata: {e}", exc_info=True)
-                # Hata veren bu kanalın bir daha kullanılmaması için aktif listesinden çıkarılması düşünülebilir
-                # (Gelecekteki bir iyileştirme/policy). Şu an sadece loglayıp devam ediyoruz.
-                # del self.output_channels[channel_name] # Döngü sırasında dict'i değiştirmek sorun yaratabilir!
+                except Exception as e:
+                    # Kanalın send metodunu çağırırken veya çalıştırırken beklenmedik bir hata oluşursa logla.
+                    logger.error(f"InteractionAPI: OutputChannel '{channel_name}' send metodu çalıştırılırken beklenmedik hata: {e}", exc_info=True)
+                    # Hata veren bu kanalın bir daha kullanılmaması için aktif listesinden çıkarılması düşünülebilir
+                    # (Gelecekteki bir iyileştirme/policy). Şu an sadece loglayıp devam ediyoruz.
+                    # del self.output_channels[channel_name] # Döngü sırasında dict'i değiştirmek sorun yaratabilir!
+            # else:
+                 # Eğer channel_instance None ise, bu zaten başlatma sırasında loglanmıştır.
+                 # Burada tekrar loglamaya gerek yok.
+                 # logger.debug(f"InteractionAPI: OutputChannel '{channel_name}' objesi None, gönderme atlandı.")
+
 
     def start(self):
         """
         Interaction arayüzlerini başlatır (örn: Web API sunucusu).
 
         Bu metot, run_evo.py tarafından program başlatıldığında çağrılır.
-        Şimdilik placeholder.
+        Şimdilik placeholder. Eğer bir API servisi thread veya process olarak
+        çalışacaksa burası kullanılacak.
         """
         logger.info("InteractionAPI başlatılıyor (Placeholder)...")
         # Eğer Web API kanalı aktifse ve sunucuyu başlatma yeteneği varsa, burası çağrılabilir.

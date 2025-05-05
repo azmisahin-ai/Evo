@@ -4,8 +4,11 @@
 # Gelen temsilleri ve bellekteki anıları kullanarak dünyayı anlamaya çalışır ve bir eylem kararı alır.
 
 import logging # Loglama için.
-# numpy, temsil ve bellek verileri için gerekli, ancak doğrudan core.py'de kullanılmıyor.
-# import numpy as np
+# numpy, temsil ve bellek verileri için gerekli, ancak doğrudan core.py'de her yerde kullanılmıyor.
+import numpy as np # check_numpy_input için gerekli
+
+# Yardımcı fonksiyonları import et
+from src.core.utils import check_input_not_none, check_numpy_input, check_input_type # <<< Yeni importlar
 
 
 # Bu modül için bir logger oluştur
@@ -42,7 +45,6 @@ class CognitionCore:
         # Alt modüllerin başlatılması buraya gelebilir (Gelecek TODO).
         # self.understanding_module = UnderstandingModule(config.get('understanding', {})) # Gelecek
         # self.decision_module = DecisionModule(config.get('decision', {})) # Gelecek
-
         logger.info("Cognition modülü başlatıldı.")
 
     def decide(self, learned_representation, relevant_memory_entries):
@@ -57,8 +59,10 @@ class CognitionCore:
         Args:
             learned_representation (numpy.ndarray or None): RepresentationLearner'dan gelen en son öğrenilmiş temsil vektörü
                                                          veya işleme sırasında hata oluştuysa None.
-            relevant_memory_entries (list): Memory modülünden gelen en son sorguyla ilgili bellek girdileri listesi.
+                                                         Beklenen format: shape (D,), dtype sayısal, veya None.
+            relevant_memory_entries (list): Memory modülünden gelen ilgili bellek girdileri listesi.
                                             Bellek boşsa veya sorgu sırasında hata oluştuysa boş liste `[]` olabilir.
+                                            Beklenen format: liste.
 
         Returns:
             str or None: Alınan karar (şimdilik metin olarak temsil ediliyor, örn: 'processing_and_remembering')
@@ -67,10 +71,23 @@ class CognitionCore:
         """
         # Hata yönetimi: Karar almak için temel girdilerin varlığı kontrolü.
         # Representation None olabilir veya bellek girdileri boş olabilir. Bu durumlar normaldir.
-        # Sadece her ikisi birden None veya boşsa, karar almak için yeterli bilgi olmayabilir.
-        # run_evo.py'deki main loop, her ikisi de None/boş ise decide'ı çağırmayacak şekilde ayarlanabilir,
-        # ancak burada da kontrol etmek sağlamlık katar.
-        # Şimdilik, temsil veya bellekten herhangi biri varsa karar almaya çalışalım.
+        # check_input_not_none fonksiyonu sadece None kontrolü yapar. Burada None olması hata değil.
+
+        # Hata yönetimi: Girdilerin beklenen tiplerde olup olmadığını kontrol et.
+        # learned_representation: None veya numpy array (sayısal, 1D) beklenir.
+        # relevant_memory_entries: list beklenir.
+
+        # Representation tipi kontrolü (None veya beklenen numpy array)
+        if learned_representation is not None and not check_numpy_input(learned_representation, expected_dtype=np.number, expected_ndim=1, input_name="learned_representation", logger_instance=logger):
+             logger.warning("CognitionCore.decide: Learned representation beklenmeyen tip veya formatta, yoksayılıyor.")
+             learned_representation = None # Geçersizse None olarak ele al.
+
+        # Bellek girdileri tipi kontrolü (liste)
+        if not check_input_type(relevant_memory_entries, list, input_name="relevant_memory_entries", logger_instance=logger):
+             logger.warning("CognitionCore.decide: Relevant memory entries beklenmeyen tipte, boş liste olarak ele alınıyor.")
+             relevant_memory_entries = [] # Geçersizse boş liste olarak ele al.
+
+        # Karar almak için yeterli bilgi var mı kontrolü (Temsil VEYA Bellek Girdisi).
         if learned_representation is None and not relevant_memory_entries:
              # Hem temsil yoksa hem de bellek girdisi yoksa karar alınamaz.
              logger.debug("CognitionCore.decide: Karar almak için yeterli girdi (temsil veya bellek) yok.")
@@ -81,22 +98,16 @@ class CognitionCore:
         try:
             # Basit Placeholder Karar Mantığı:
             # Eğer en son bir temsil öğrenildiyse VEYA ilgili bellek girdileri varsa,
-            # "işleme ve hatırlama" kararı al. Bu, Evo'nun temel birincil aktivitesini temsil eder.
-            # Gelecekte: Gelen input'un içeriğine, bellektekilerle ilişkisine,
-            # içsel duruma (açlık, merak vb.) göre daha karmaşık karar ağaçları,
-            # kural tabanlı sistemler, planlama veya öğrenilmiş karar modelleri kullanılacak.
+            # "işleme ve hatırlama" kararı al.
             if learned_representation is not None or relevant_memory_entries:
-                # Eğer temsil var veya bellekten bir şeyler çağrılabildiyse,
-                # temel aktivite "çevreyi algıla ve hatırla" olsun.
-                decision = "processing_and_remembering" # Placeholder karar stringi.
+                decision = "processing_and_remembering" #Placeholder karar stringi.
             else:
-                 # Bu durum, yukarıdaki kontrol ve main loop mantığı nedeniyle nadiren oluşmalı,
-                 # ancak kodun tam olması için else bloğunu ekleyebiliriz.
+                 # Bu durum, yukarıdaki kontrol nedeniyle buraya gelmemeli.
                  logger.debug("CognitionCore.decide: Girdi olmasına rağmen (placeholder mantığına göre) karar alınmadı.")
                  decision = None # Karar yoksa None döndür.
 
 
-            # Gelecekte Kullanım Örneği:
+            # Gelecekte Kullanım Örneği (Alt Modüller):
             # # Anlama modülünü kullanarak girdiyi anlamlandır
             # processed_understanding = self.understanding_module.process(learned_representation, relevant_memory_entries)
             # # Karar modülünü kullanarak anlama ve içsel duruma göre karar al
@@ -104,7 +115,7 @@ class CognitionCore:
 
 
             # DEBUG logu: Alınan karar (None değilse).
-            # if decision is not None:
+            # if decision is not None: # Zaten None değilse buraya gelinir.
             #      logger.debug(f"CognitionCore.decide: Bilişsel karar alındı (placeholder): '{decision}'")
 
 

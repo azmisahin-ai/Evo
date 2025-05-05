@@ -5,6 +5,10 @@
 
 import logging # Loglama için.
 
+# Yardımcı fonksiyonları import et
+from src.core.utils import check_input_not_none, check_input_type # <<< Yeni importlar
+
+
 # Bu modül için bir logger oluştur
 # 'src.motor_control.core' adında bir logger döndürür.
 logger = logging.getLogger(__name__)
@@ -24,6 +28,7 @@ class MotorControlCore:
     Şimdilik çok basit placeholder tepki üretme mantığı içerir.
     Gelecekte metin sentezi, ses sentezi, görsel çıktı üretimi veya
     fiziksel eylem komutları gibi yetenekler eklenecek.
+    Hata durumlarında işlemleri loglar ve programın çökmesini engeller.
     """
     def __init__(self, config):
         """
@@ -47,13 +52,14 @@ class MotorControlCore:
 
         CognitionCore'dan gelen 'decision' string'ini girdi olarak alır.
         Bu karara göre basit bir çıktı string'i (tepki) üretir.
-        Karar None ise veya işlenemeyen bir karar ise None döndürür.
+        Karar None veya işlenemeyen bir karar ise None döndürür.
         Tepki üretme sırasında hata oluşursa None döndürür.
 
         Args:
             decision (str or None): Cognition modülünden gelen karar.
                                     Şimdilik 'processing_and_remembering' gibi bir string beklenir,
                                     ancak None da olabilir.
+                                    Gelecekte daha yapısal bir format (örn: dict) beklenir.
 
         Returns:
             str or None: Üretilen tepki (çıktı olarak Interaction modülüne iletilecek bir string)
@@ -61,12 +67,19 @@ class MotorControlCore:
                          tepki üretme sırasında hata durumunda None.
                          Gelecekte daha yapısal bir çıktı formatı beklenir (örn: {'type': 'text', 'content': '...'}).
         """
-        # Hata yönetimi: Karar None ise işlem yapma.
-        if decision is None:
-            # Karar None ise, bu bir hata değil, sadece o döngüde bir karar alınmadı demektir.
-            # DEBUG seviyesinde logla ve None döndürerek tepki üretmeyi atla.
-            logger.debug("MotorControlCore.generate_response: Karar None. Tepki üretilemiyor.")
-            return None # Karar yoksa tepki de yok.
+        # Hata yönetimi: Karar None ise işlem yapma. check_input_not_none kullan.
+        if not check_input_not_none(decision, input_name="decision", logger_instance=logger):
+             return None # Karar None ise None döndürerek tepki üretmeyi atla.
+
+        # Hata yönetimi: Kararın beklenen tipte (şimdilik str) olup olmadığını kontrol et.
+        # Gelecekte karar formatı değişirse burası da değişmeli.
+        # Eğer karar string değilse uyarı verip işlenemeyen karar gibi ele alalım.
+        if not check_input_type(decision, str, input_name="decision", logger_instance=logger):
+             logger.warning(f"MotorControlCore.generate_response: Karar beklenmeyen tipte: {type(decision)}. String bekleniyordu.")
+             # Bu durumda işlenemeyen karar mantığına düşecektir try bloğu içinde.
+             # Ya da burada None döndürebiliriz: return None
+             # Şimdilik loglayıp devam etsin ve try bloğundaki else'e düşsün.
+
 
         response_output = None # Üretilen çıktıyı tutacak değişken. Başlangıçta None.
 
@@ -87,6 +100,7 @@ class MotorControlCore:
             #      response_output = self._get_templated_response(response_key) # Bir şablon fonksiyonu kullan.
             else:
                  # Gelen karar beklenmeyen veya mevcut mantıkla işlenemeyen bir karar ise.
+                 # check_input_type ile string değilse zaten loglandı. Burada geçerli ama bilinmeyen string kararlar ele alınır.
                  logger.warning(f"MotorControlCore.generate_response: Bilinmeyen veya işlenemeyen karar: '{decision}'. Varsayilan tepki üretiliyor.")
                  response_output = "Ne yapacağımı bilemedim." # Bilinmeyen kararlar için varsayılan tepki.
 
@@ -101,7 +115,7 @@ class MotorControlCore:
 
 
             # DEBUG logu: Üretilen tepki (None değilse).
-            # if response_output is not None:
+            # if response_output is not None: # Zaten None değilse buraya gelinir.
             #      logger.debug(f"MotorControlCore.generate_response: Motor kontrol tepki üretti (placeholder). Output: '{response_output}'")
 
 

@@ -11,9 +11,8 @@ import logging # Loglama için.
 # import sys # Hata yönetimi veya stream handler için kullanılabilir. Şu an doğrudan kullanılmıyor.
 
 # Yardımcı fonksiyonları import et
-# Şu an capture_chunk girdiyi işlemek yerine ürettiği için check_input_not_none gerekli değil.
-# Ancak gelecekte başka metotlar girdi alırsa kullanılabilir.
-# from src.core.utils import check_input_not_none # <<< Gerekirse import edilebilir
+from src.core.utils import get_config_value # <<< get_config_value import edildi
+# check_input_not_none, check_numpy_input bu modülde girdi alan metot olmadığı için gerekli değil şimdilik.
 
 
 # Bu modül için bir logger oluştur
@@ -44,59 +43,49 @@ class AudioSensor:
                                                        None ise varsayılan cihaz kullanılır.
         """
         self.config = config
-        # Yapılandırmadan ayarları al, yoksa varsayılanları kullan.
-        # utils.get_config_value kullanılabilir ama init sırasında doğrudan erişim de yaygın.
-        self.audio_rate = self.config.get('audio_rate', 44100)
-        self.audio_chunk_size = self.config.get('audio_chunk_size', 1024)
+        logger.info("AudioSensor başlatılıyor...")
+
+        # Yapılandırmadan ayarları alırken get_config_value kullan
+        # audio_input_device_index hem int hem de None olabildiği için expected_type olarak (int, type(None)) tuple verilebilir.
+        self.audio_rate = get_config_value(config, 'audio_rate', 44100, expected_type=int, logger_instance=logger)
+        self.audio_chunk_size = get_config_value(config, 'audio_chunk_size', 1024, expected_type=int, logger_instance=logger)
+        self.audio_input_device_index = get_config_value(config, 'audio_input_device_index', None, expected_type=(int, type(None)), logger_instance=logger)
+
+
         self.audio_format = pyaudio.paInt16 # 16-bit integer formatı yaygın ve basit
         self.audio_channels = 1 # Mono ses
-        # Cihaz indeksi config'ten alınır. None ise PyAudio varsayılanı dener.
-        self.audio_input_device_index = self.config.get('audio_input_device_index')
 
 
         self.p = None # PyAudio objesi. PyAudio başlatılırsa atanır.
         self.stream = None # PyAudio Stream objesi. Ses akışı açılırsa atanır.
         self.is_audio_available = False # Gerçek ses akışının şu an aktif olup olmadığını tutar. Başlangıçta False.
 
-        logger.info("AudioSensor başlatılıyor...")
         try:
             # PyAudio objesini başlat.
             self.p = pyaudio.PyAudio()
 
-            # Eğer config'te belirli bir cihaz indeksi belirtilmemişse, varsayılan input cihazını bulmaya çalış.
+            # Eğer config'te belirli bir cihaz indeksi belirtilmemişse (None ise) ve PyAudio varsayılan bulabiliyorsa, onu kullan.
+            # get_config_value None olarak döndürdüyse veya config'te None ise buraya girilir.
             if self.audio_input_device_index is None:
                  try:
-                      # PyAudio'nun varsayılan input cihazını getir.
+                      # PyAudio'nın varsayılan input cihazını getir.
                       default_device_info = self.p.getDefaultInputDevice()
                       self.audio_input_device_index = default_device_info['index']
                       # Varsayılan cihazın adını ve indeksini logla.
                       logger.info(f"AudioSensor: Varsayılan ses input cihazı bulundu: {default_device_info['name']} (Index: {self.audio_input_device_index})")
                  except Exception:
-                      # Varsayılan cihaz bulunamazsa (örn: hiç mikrofon bağlı değilse veya driver sorunu varsa).
-                      # Cihaz indeksi None kalır. PyAudio open stream çağrısında hata verecektir.
+                      # Varsayılan cihaz bulunamazsa uyarı logla.
                       logger.warning("AudioSensor: Varsayılan ses input cihazı bulunamadı. PyAudio varsayılanını kullanmaya çalışılacak.")
                       # İndeks None kaldığı için PyAudio'nun open stream metodunun hata verme ihtimali yüksektir.
                       # Bu durum open stream try-except bloğunda yakalanacaktır.
 
-            # Config'ten alınan veya bulunan cihaz indeksinin geçerli bir int veya None olduğundan emin olmak için kontrol edilebilir.
-            # if self.audio_input_device_index is not None and not isinstance(self.audio_input_device_index, int):
-            #     logger.warning(f"AudioSensor: Konfigurasyonda geçersiz ses cihazı indeksi tipi: {type(self.audio_input_device_index)}. int veya None bekleniyor. None kullanılıyor.")
-            #     self.audio_input_device_index = None # Geçersizse None yap
-
-
             # Ses akışını başlatmak için PyAudio'nun open methodunu kullan.
-            # format: ses örneği tipi (örn: 16-bit int)
-            # channels: kanal sayısı (mono=1, stereo=2)
-            # rate: örnekleme oranı (Hz)
-            # input=True: Bu bir input (yakalama) akışı
-            # input_device_index: kullanılacak cihaz indeksi (None ise PyAudio varsayılanı dener)
-            # frames_per_buffer: capture_chunk metodunda okunacak veri boyutu (chunk size)
             self.stream = self.p.open(format=self.audio_format,
                                       channels=self.audio_channels,
-                                      rate=self.audio_rate,
+                                      rate=self.audio_rate, # config'ten int olarak alındı
                                       input=True,
-                                      input_device_index=self.audio_input_device_index, # Config'ten alınan veya bulunan index kullanılır.
-                                      frames_per_buffer=self.audio_chunk_size)
+                                      input_device_index=self.audio_input_device_index, # config'ten int veya None olarak alındı
+                                      frames_per_buffer=self.audio_chunk_size) # config'ten int olarak alındı
 
             # Akış başarıyla açıldıysa
             self.is_audio_available = True # Ses aktif bayrağını True yap.
@@ -104,11 +93,10 @@ class AudioSensor:
 
         except Exception as e:
             # PyAudio başlatma veya akış açma sırasında beklenmedik bir istisna oluşursa.
-            # (örn: PortAudio hatası, cihaz bulunamadı, geçersiz parametreler vb.)
             # Bu hata init sırasında kritik değildir (simüle moda geçiyoruz).
             logger.error(f"AudioSensor başlatılırken hata oluştu: {e}", exc_info=True)
             self.is_audio_available = False # Hata durumunda ses aktif değil.
-            # Hata durumunda açılmış olabilecek kaynakları (stream, pyaudio objesi) temizlemeyi dene.
+            # Hata durumunda açılmış olabilecek kaynakları temizlemeyi dene.
             if self.stream:
                  try:
                       self.stream.stop_stream()
@@ -134,11 +122,8 @@ class AudioSensor:
         """
         Ses akışından bir chunk (parça) ses verisi yakalar.
 
-        Eğer gerçek ses akışı aktifse, PyAudio stream objesinden bir chunk okur.
-        Eğer gerçek ses akışı aktif değilse (başlatılamadı veya hata oluştu),
-        yapılandırmada belirtilen boyutta simüle edilmiş (sessiz) ses verisi döndürür.
-        Chunk yakalama sırasında hata oluşursa (gerçek akıştan), hatayı loglar
-        ve None döndürerek main loop'un çökmesini engeller.
+        Bu metot girdi almadığı için check_input_* fonksiyonları kullanılmaz.
+        Mantık aynı kalır.
 
         Returns:
             numpy.ndarray or None: Başarıyla yakalanan (gerçek veya simüle) ses chunk'ı
@@ -149,16 +134,10 @@ class AudioSensor:
         if self.is_audio_available and self.stream is not None:
             try:
                 # Akıştan belirtilen chunk boyutu kadar veri oku.
-                # read() metodu blocking'tir (veri gelene kadar bekler).
-                # Eğer timeout olursa IOError yükseltir.
-                # Hata yönetimi bu IOError'ı yakalamalıdır.
-                # Timeout parametresi read metoduna eklenebilir (isteğe bağlı).
+                # read() metodu blocking'tir. IOError'ı yakalıyoruz.
                 data = self.stream.read(self.audio_chunk_size)
 
                 # Okunan byte verisini numpy array'e dönüştür.
-                # np.frombuffer, byte'ları belirtilen dtype'a çevirir.
-                # len(data) byte sayısını verir. dtype int16 2 byte olduğu için
-                # chunk boyutu np.frombuffer(data, dtype=np.int16).shape[0] olacaktır.
                 audio_chunk = np.frombuffer(data, dtype=np.int16)
 
                 # logger.debug(f"AudioSensor: Gerçek chunk yakalandı. Shape: {audio_chunk.shape}, Dtype: {audio_chunk.dtype}")
@@ -166,26 +145,22 @@ class AudioSensor:
                 return audio_chunk
 
             except IOError as e:
-                 # PyAudio okuma sırasında oluşabilecek spesifik hatalar (örn: timeout, akış kesilmesi, cihaz hatası).
+                 # PyAudio okuma sırasında oluşabilecek spesifik hatalar.
                  logger.error(f"AudioSensor: Ses chunk okuma hatası (IOError): {e}", exc_info=True)
-                 # Bu tür bir hata akışın durduğu anlamına gelebilir.
                  self.is_audio_available = False # Geçici olarak akışı aktif değil yap.
-                 # Hata durumunda None döndürerek main loop'un bu chunk'ı atlamasını sağla.
                  return None
             except Exception as e:
                 # Okuma sırasında beklenmedik bir istisna oluşursa.
                 logger.error(f"AudioSensor: Ses chunk yakalama sırasında beklenmedik hata: {e}", exc_info=True)
                 self.is_audio_available = False # Hata durumunda akışı aktif değil yap.
-                # Hata durumunda None döndürerek main loop'un çökmesini engelle.
                 return None
         else:
-            # Eğer gerçek ses akışı aktif değilse (başlatılamadı veya hata oluştu)
+            # Eğer gerçek ses akışı aktif değilse
             # Yapılandırmada belirtilen chunk boyutunda simüle edilmiş (sessiz) bir ses verisi döndür.
             # logger.debug("AudioSensor: Simüle edilmiş chunk üretiliyor.")
-            # Simüle edilmiş sessiz (sıfır değerleri) int16 formatında numpy array oluştur.
+            # audio_chunk_size'ın int olduğundan emin olmak için get_config_value init'te kullanıldı.
             dummy_chunk = np.zeros(self.audio_chunk_size, dtype=np.int16)
             # logger.debug(f"AudioSensor: Simüle edilmiş chunk üretildi. Shape: {dummy_chunk.shape}, Dtype: {dummy_chunk.dtype}")
-            # Simüle edilmiş chunk'ı döndür.
             return dummy_chunk
 
     def stop_stream(self):
@@ -197,7 +172,6 @@ class AudioSensor:
         # Stream objesi mevcutsa
         if self.stream is not None:
             try:
-                 # Akışı durdur ve kapat.
                  self.stream.stop_stream()
                  logger.info("AudioSensor: Ses akışı durduruldu.")
                  self.stream.close()
@@ -211,7 +185,6 @@ class AudioSensor:
         # PyAudio objesi mevcutsa sonlandır.
         if self.p is not None:
             try:
-                 # PyAudio instance'ını sonlandır.
                  self.p.terminate()
                  logger.info("AudioSensor: PyAudio sonlandırıldı.")
             except Exception as e:
@@ -225,10 +198,11 @@ class AudioSensor:
 
     def cleanup(self):
         """
-        Nesne temizlendiğinde çağrılır (Gelecekte __del__ metodunda veya explicit olarak kullanılabilir).
-        Şimdilik stop_stream metodunu çağırmak için placeholder olarak eklendi,
-        ancak kaynak temizliği genellikle stop_stream'de yapılır.
-        module_loader.py bu metodu çağırır (varsa).
+        Nesne temizlendiğinde çağrılır.
+
+        Bu metot genellikle stop_stream metodunu çağırmak için bir placeholder'dır.
+        Kaynak temizliği stop_stream metodunda yapılır.
+        module_loader.py bu metodu program sonlanırken çağırır (varsa).
         """
         logger.info("AudioSensor objesi temizleniyor.")
         # Kaynak temizliği stop_stream metodunda yapıldığı için burada ekstra bir şey yapmaya gerek yok,
