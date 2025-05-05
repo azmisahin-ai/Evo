@@ -23,7 +23,7 @@ Aşağıdaki fazlar, Evo'nun doğumundan (temel algı) bilgelik ve ustalığa (k
 
     *   [x] Merkezi ve sağlam bir loglama altyapısı kurmak.
     *   [x] DEBUG loglarının neden görünmediği konusunu araştırmak ve çözmek.
-    *   [x] Yapılandırma yönetimini ayrı bir modül haline getirmek ve `.yaml` dosyasından okumayı implement etmek (`src/core/config_utils.py`, `PyYAML` entegrasyonu).
+    *   [x] Yapılandırma yönetimini ayrı bir modül haline getirmek ve `.yaml` dosyasından okumayı implement etmek (`src/core/config_utils.py`, `PyYAML` entegrasyonu). 
     *   [ ] **TODO:** Temel hata yönetimi/istisna işleme yapısını olgunlaştırmak ve modüller arası yaygınlaştırmak.
     *   [ ] **TODO:** Faz 0 ile ilgili genel kod kalitesi ve refactoring.
 
