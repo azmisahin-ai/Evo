@@ -1,8 +1,8 @@
 # Evo'nın Evrimsel Yolculuğu: Fazlar ve Kazanımlar (Güncel Durum ve Görev Listesi)
 
-Evo projesinin gelişimi, bir **canlının büyüme aşamalarına** benzer şekilde, adım adım ilerleyen evrimsel fazlara ayrılmıştır. Her faz, bir öncekinin üzerine inşa edilir ve Evo'nun yeni bilişsel, duyusal ve motor yetenekler kazanmasını sağlar. Bu yol haritası, projenin nereye doğru ilerlediğini gösteren yaşayan bir belgedir ve **yapılacak görevler (task listesi/backlog) için referans görevi görür.**
+Evo projesinin gelişimi, bir **canlının büyüme aşamalarına** benzer şekilde, adım adım ilerleyen evrimsel fazlara ayrılmıştır. Her faz, bir öncekinin üzerine inşa edilir ve Evo'nın yeni bilişsel, duyusal ve motor yetenekler kazanmasını sağlar. Bu yol haritası, projenin nereye doğru ilerlediğini gösteren yaşayan bir belgedir ve **yapılacak görevler (task listesi/backlog) için referans görevi görür.**
 
-Aşağıdaki fazlar, Evo'nun doğumundan (temel algı) bilgelik ve ustalığa (karmaşık etkileşim) kadar olan gelişimini ana hatlarıyla belirtir. Her fazın başlığı, o aşamada odaklanılan temel kazanımı ve parantez içinde bir **bebeğin gelişimindeki yaklaşık karşılığını** içerir. **`[x]` ile işaretlenenler tamamlanmış adımları (iskelet veya placeholder düzeyinde dahil), `[ ]` ile işaretlenenler ise henüz yapılmamış veya detaylı implementasyon gerektiren görevleri belirtir.**
+Aşağıdaki fazlar, Evo'nın doğumundan (temel algı) bilgelik ve ustalığa (karmaşık etkileşim) kadar olan gelişimini ana hatlarıyla belirtir. Her fazın başlığı, o aşamada odaklanılan temel kazanımı ve parantez içinde bir **bebeğin gelişimindeki yaklaşık karşılığını** içerir. **`[x]` ile işaretlenenler tamamlanmış adımları (iskelet veya placeholder düzeyinde dahil), `[ ]` ile işaretlenenler ise henüz yapılmamış veya detaylı implementasyon gerektiren görevleri belirtir.**
 
 ---
 
@@ -31,7 +31,7 @@ Aşağıdaki fazlar, Evo'nun doğumundan (temel algı) bilgelik ve ustalığa (k
 
     *   [ ] **TODO:** Faz 0 ile ilgili genel kod kalitesi ve refactoring.
         *   [x] Modül başlatma ve temizleme mantığı `run_evo.py` dosyasından `src/core/module_loader.py` modülüne taşınarak kod tekrarı azaltıldı.
-        *   [ ] Loglama altyapısını yapılandırma dosyası (`main_config.yaml`) üzerinden kontrol edilebilir hale getirme (log seviyesi, çıktı hedefleri vb.).
+        *   [x] Loglama altyapısını yapılandırma dosyası (`main_config.yaml`) üzerinden kontrol edilebilir hale getirme (log seviyesi, çıktı hedefleri vb.).
         *   [ ] ... Diğer refactoring adımları ...
 
 
