@@ -26,10 +26,10 @@ class VisionProcessor:
         ve işlenmiş özellikleri (örneğin, yeniden boyutlandırılmış gri tonlama) döndürür.
         """
         if visual_data is None:
-            # logging.debug("VisionProcessor: İşlenecek görsel veri yok.")
+            logging.debug("VisionProcessor: İşlenecek görsel veri yok.") # DEBUG logu
             return None # Veri yoksa None döndür
 
-        # logging.debug(f"VisionProcessor: Görsel veri alindi. Shape: {visual_data.shape}, Dtype: {visual_data.dtype}")
+        logging.debug(f"VisionProcessor: Görsel veri alindi. Shape: {visual_data.shape}, Dtype: {visual_data.dtype}") # DEBUG logu
 
         try:
             # --- Gerçek Görsel İşleme Mantığı (Faz 1) ---
@@ -38,8 +38,10 @@ class VisionProcessor:
             # OpenCV renk formatı BGR'dir. Eğer girdi RGB ise cv2.COLOR_RGB2GRAY kullanın.
             if len(visual_data.shape) == 3 and visual_data.shape[2] == 3:
                 gray_image = cv2.cvtColor(visual_data, cv2.COLOR_BGR2GRAY)
+                logging.debug("VisionProcessor: Görsel veri gri tonlamaya çevrildi.") # DEBUG logu
             elif len(visual_data.shape) == 2: # Zaten gri tonlama ise
                  gray_image = visual_data
+                 logging.debug("VisionProcessor: Görsel veri zaten gri tonlama.") # DEBUG logu
             else:
                  logging.warning(f"Beklenmeyen görsel veri formatı (shape: {visual_data.shape}). Gri tonlama işlemi atlandı.")
                  # Gri tonlama yapılamazsa sadece yeniden boyutlandırmayı dene
@@ -51,12 +53,13 @@ class VisionProcessor:
             # yeniden boyutlandırma renkli olarak yapılır.
             if gray_image is not None:
                  processed_data = cv2.resize(gray_image, (self.output_width, self.output_height))
+                 logging.debug(f"VisionProcessor: Görsel veri {processed_data.shape} boyutuna yeniden boyutlandırıldı.") # DEBUG logu
             else:
                  logging.error("Görsel veri işlenemedi, yeniden boyutlandırma atlandı.")
                  return None
 
 
-            # logging.debug(f"VisionProcessor: Görsel veri işlendi. Output Shape: {processed_data.shape}, Dtype: {processed_data.dtype}")
+            logging.debug(f"VisionProcessor: Görsel veri işlendi. Output Shape: {processed_data.shape}, Dtype: {processed_data.dtype}") # DEBUG logu
 
             return processed_data # İşlenmiş veriyi (NumPy array) döndür
 
@@ -103,6 +106,7 @@ if __name__ == '__main__':
         # İsteğe bağlı: İşlenmiş kareyi kaydet veya göster (GUI gerektirir)
         # cv2.imwrite("processed_frame.png", processed_output)
         # cv2.imshow("İşlenmiş Kare", processed_output)
+        # print("Kare görüntüleniyor. Kapatmak için bir tuşa basın.")
         # cv2.waitKey(0)
         # cv2.destroyAllWindows()
 

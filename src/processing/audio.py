@@ -7,7 +7,7 @@ import numpy as np
 
 class AudioProcessor:
     """
-    Evo'nun işitsel işlem birimini temsil eder.
+    Evo'nın işitsel işlem birimini temsil eder.
     Ham ses veriden temel özellikleri çıkarmaktan sorumludur.
     """
     def __init__(self, config=None):
@@ -25,10 +25,10 @@ class AudioProcessor:
         ve işlenmiş özellikleri (örneğin, enerji) döndürür.
         """
         if audio_data is None:
-            # logging.debug("AudioProcessor: İşlenecek ses verisi yok.")
+            logging.debug("AudioProcessor: İşlenecek ses verisi yok.") # DEBUG logu
             return None # Veri yoksa None döndür
 
-        # logging.debug(f"AudioProcessor: Ses verisi alindi. Shape: {audio_data.shape}, Dtype: {audio_data.dtype}")
+        logging.debug(f"AudioProcessor: Ses verisi alindi. Shape: {audio_data.shape}, Dtype: {audio_data.dtype}") # DEBUG logu
 
         try:
             # --- Gerçek İşitsel İşleme Mantığı (Faz 1) ---
@@ -41,15 +41,16 @@ class AudioProcessor:
             else:
                  normalized_audio = audio_data.astype(np.float32) # Zaten float ise
 
+            logging.debug(f"AudioProcessor: Ses verisi float32'ye çevrildi. Shape: {normalized_audio.shape}") # DEBUG logu
 
             if normalized_audio.size == 0: # Boş array kontrolü
                  energy = 0.0
-                 logging.debug("Boş ses chunk'ı, enerji 0.")
+                 logging.debug("AudioProcessor: Boş ses chunk'ı, enerji 0.") # DEBUG logu
             else:
                  # RMS = sqrt(mean(square(samples)))
                  energy = np.sqrt(np.mean(np.square(normalized_audio)))
+                 logging.debug(f"AudioProcessor: Ses enerjisi hesaplandı: {energy:.4f}") # DEBUG logu
 
-            # logging.debug(f"AudioProcessor: Ses enerjisi hesaplandı: {energy:.4f}")
 
             # --- Çıktı Formatı ---
             # Processorlar genellikle bir özellik vektörü veya daha karmaşık bir yapı döndürür.
@@ -57,13 +58,11 @@ class AudioProcessor:
             # Gelecekte MFCC gibi daha karmaşık özellikler çıkarılacak.
             # processed_features = self._extract_mfcc(audio_data) # Örnek: MFCC
 
-            # Şimdilik sadece enerjiyi ve belki chunk boyutunu içeren basit bir vektör döndür
-            # processed_data = np.array([energy, audio_data.size], dtype=np.float32)
-            # Veya sadece enerji:
+            # Şimdilik sadece enerjiyi döndür (float değeri)
             processed_data = energy # float değeri döndür
 
 
-            # logging.debug(f"AudioProcessor: Ses verisi işlendi. Output: {processed_data}")
+            logging.debug(f"AudioProcessor: Ses verisi işlendi. Output (Energy): {processed_data:.4f}") # DEBUG logu
 
             return processed_data # İşlenmiş veriyi (float veya NumPy array) döndür
 
