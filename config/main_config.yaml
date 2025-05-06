@@ -118,3 +118,4 @@ logging:
     src.motor_control.core: [INFO, DEBUG, WARNING, ERROR, CRITICAL]
     # INTERACTION
     src.interaction.api: [INFO, DEBUG, WARNING, ERROR, CRITICAL]
+    src.interaction.output_channels.console: [INFO, DEBUG, WARNING, ERROR, CRITICAL]

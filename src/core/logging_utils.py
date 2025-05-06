@@ -132,33 +132,21 @@ def setup_logging(config=None):
                     fmt="%(asctime)s | %(levelname)s | %(name)-40s | %(message)s",
                     datefmt="%Y-%m-%d %H:%M:%S"
                 ))
-        elif htype == 'file':
-            filename = hcfg.get('filename', 'logs/evo_all.log')
-            handler = logging.FileHandler(filename, encoding='utf-8')
+        elif htype in ('file', 'webapi', 'socket'):
+            # Dosya ve diğer handler'lar için her zaman renksiz formatter!
+            if htype == 'file':
+                filename = hcfg.get('filename', 'logs/evo_all.log')
+                handler = logging.FileHandler(filename, encoding='utf-8')
+            elif htype == 'webapi':
+                url = hcfg.get('url')
+                handler = WebAPIHandler(url)
+            elif htype == 'socket':
+                host = hcfg.get('host')
+                port = hcfg.get('port')
+                udp = hcfg.get('udp', False)
+                handler = SocketHandler(host, port, udp=udp)
             handler.setFormatter(PlainFormatter(
                 fmt="%(asctime)s | %(levelname)s | %(name)-40s | %(message)s",
-                datefmt="%Y-%m-%d %H:%M:%S"
-            ))
-        elif htype == 'webapi':
-            url = hcfg.get('url')
-            if not url:
-                logger.warning("Logging: webapi handler için 'url' belirtilmeli.")
-                continue
-            handler = WebAPIHandler(url)
-            handler.setFormatter(PlainFormatter(
-                fmt="%(asctime)s | %(levelname)s | %(name)s | %(message)s",
-                datefmt="%Y-%m-%d %H:%M:%S"
-            ))
-        elif htype == 'socket':
-            host = hcfg.get('host')
-            port = hcfg.get('port')
-            udp = hcfg.get('udp', False)
-            if not host or not port:
-                logger.warning("Logging: socket handler için 'host' ve 'port' belirtilmeli.")
-                continue
-            handler = SocketHandler(host, port, udp=udp)
-            handler.setFormatter(PlainFormatter(
-                fmt="%(asctime)s | %(levelname)s | %(name)s | %(message)s",
                 datefmt="%Y-%m-%d %H:%M:%S"
             ))
         else:
