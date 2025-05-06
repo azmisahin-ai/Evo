@@ -85,10 +85,10 @@ Aşağıdaki fazlar, Evo'nın doğumundan (temel algı) bilgelik ve ustalığa (
 
     *   **Faz 3 Gerçek Implementasyon Görevleri (TAMAMLANDI):**
         *   [x] Basit karar alma mantığı tasarımı (Input temsili/Process çıktısı ve retrieve edilen belleği kullanarak nasıl bir karar alınacak?). (Bellek benzerliği skoruna ve Process çıktısı eşiklerine dayalı öncelikli mantık implemente edildi).
-        *   [x] `CognitionCore.decide` metodunun tasarlanan basit mantığa göre implementasyonu. (UnderstandingModule ve DecisionModule'de implemente edildi, run_evo entegrasyonu düzeltildi).
+        *   [x] `CognitionCore.decide` metodunun tasarlanan basit mantığına göre implementasyonu. (UnderstandingModule ve DecisionModule'de implemente edildi, run_evo entegrasyonu düzeltildi).
         *   [x] Kararın MotorControl modülüne iletilmesi formatının belirlenmesi ve uygulanması. (String kararlar kullanılıyor).
         *   [x] Yanıt üretme mantığı tasarımı. (MotorControl -> ExpressionGenerator akışı kullanılıyor).
-        *   [x] `MotorControlCore.generate_response` metodunun tasarlanan basit mantığa göre implementasyonu. (Yeni string kararlara göre sabit metin yanıtları üretildi).
+        *   [x] `MotorControlCore.generate_response` metodunun tasarlanan basit mantığına göre implementasyonu. (Yeni string kararlara göre sabit metin yanıtları üretildi).
         *   [x] Temel "anlama-yanıtla" döngüsünün basit bir senaryo ile test edilmesi. (Entegrasyon çalışıyor, Process çıktılarına, bellek benzerliğine ve merak seviyesine göre farklı karar/tepki döngüleri gözlemlendi).
 
     *   [x] **TODO:** İşlenmiş temsilleri kullanarak basit ayırımlar yapma ("Bu farklı bir şey", "Bu tanıdık") yeteneğinin geliştirilmesi. (Bellek benzerlik eşiği ve Process çıktısı eşikleri ile yapıldı).
@@ -125,7 +125,7 @@ Aşağıdaki fazlar, Evo'nın doğumundan (temel algı) bilgelik ve ustalığa (
 
 *   **Faz 10: Bilgelik ve Ustalık (Olgunluk ve Otonomi)**
     *   [ ] Hedef: Tüm yeteneklerin entegre ve akıcı çalışması. Karmaşık dünyayı derinlemesine anlama. Gelişmiş planlama, problem çözme ve iletişim. Yeni yetenekler ve bilgiler öğrenme sürecini otonom olarak yönetme.
-    *   [ ] Odak Modülleri: Tüm modüllerin entegrasyonu, optimizasyonu ve otonom öğrenme mekanizmaları.
+    *   [ ] Odak Modülleri: Tüm modüllerde optimization ve otonom öğrenme mekanizmaları.
 
 ---
 
