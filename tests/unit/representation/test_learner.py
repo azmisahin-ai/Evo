@@ -73,8 +73,8 @@ def test_representation_learner_basic_learn(representation_learner_instance, dum
     # Bu dictionary, VisionProcessor ve AudioProcessor'ın process çıktılarının birleşimidir.
 
     # Sahte VisionProcessor çıktısı dictionary'si
-    vis_out_w = get_config_value(dummy_learner_config, 'processors', {}).get('vision', {}).get('output_width', 64)
-    vis_out_h = get_config_value(dummy_learner_config, 'processors', {}).get('vision', {}).get('output_height', 64)
+    vis_out_w = get_config_value(dummy_learner_config, 'processors', 'vision', 'output_width', default=64)
+    vis_out_h = get_config_value(dummy_learner_config, 'processors', 'vision', 'output_height', default=64)
     # Sahte grayscale ve edges arrayleri (VisionProcessor çıktısının formatı)
     dummy_processed_visual_gray = np.random.randint(0, 256, size=(vis_out_h, vis_out_w), dtype=np.uint8)
     dummy_processed_visual_edges = np.random.randint(0, 256, size=(vis_out_h, vis_out_w), dtype=np.uint8)
@@ -83,7 +83,7 @@ def test_representation_learner_basic_learn(representation_learner_instance, dum
 
 
     # Sahte AudioProcessor çıktısı array'i
-    audio_out_dim = get_config_value(dummy_learner_config, 'processors', {}).get('audio', {}).get('output_dim', 2)
+    audio_out_dim = get_config_value(dummy_learner_config, 'processors', 'audio', 'output_dim', default=2)
     dummy_audio_input = np.random.rand(audio_out_dim).astype(np.float32) # Float32 veya float64 olabilir? RepLearner implementasyonuna bağlı
     test_logger.debug(f"Sahte audio input oluşturuldu: {dummy_audio_input.shape}, {dummy_audio_input.dtype}")
 
@@ -108,8 +108,7 @@ def test_representation_learner_basic_learn(representation_learner_instance, dum
     # --- Çıktıyı Kontrol Et (Assert) ---
     # RepresentationLearner'ın Representation vektörü (numpy array) döndürmesi beklenir.
     # Boyutu config'deki representation_dim ile uyumlu olmalıdır.
-    expected_representation_dim = get_config_value(dummy_learner_config, 'representation', {}).get('representation_dim', 128)
-
+    expected_representation_dim = get_config_value(dummy_learner_config, 'representation', 'representation_dim', default=128)
 
     # 1. Çıktı bir numpy array mi?
     assert isinstance(learned_representation, np.ndarray), f"Learn çıktısı numpy array olmalı, alınan tip: {type(learned_representation)}"
