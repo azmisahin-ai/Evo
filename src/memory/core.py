@@ -2,19 +2,18 @@
 #
 # Evo'nın temel bellek sistemini temsil eder.
 # Öğrenilmiş temsilleri saklar ve gerektiğinde geri çağırır.
+# Belleğe dosya tabanlı kalıcılık kazandırır.
 # Gelecekte episodik ve semantik bellek gibi alt modülleri koordine edecektir.
 
 import numpy as np # Temsil vektörleri (numpy array) için.
 import time # Anıların zaman damgası için.
 import random # Placeholder retrieve (rastgele seçim) için.
 import logging # Loglama için.
+import pickle # Belleği dosyaya kaydetmek ve yüklemek için
+import os # Dosya sistemi işlemleri için (kontrol etme, dizin oluşturma)
 
 # Yardımcı fonksiyonları import et
 from src.core.utils import check_input_not_none, check_numpy_input, get_config_value, check_input_type, run_safely, cleanup_safely # utils fonksiyonları kullanılmış
-
-# Alt bellek modüllerini import et (Placeholder sınıflar)
-from .episodic import EpisodicMemory # <<< Yeni import
-from .semantic import SemanticMemory # <<< Yeni import
 
 
 # Bu modül için bir logger oluştur
@@ -29,24 +28,24 @@ class Memory:
     Bu temsilleri ve/veya ilgili bilgileri farklı bellek türlerine (core/working,
     episodik, semantik) yönlendirir ve yönetir.
     İstek üzerine ilgili anıları veya bilgileri farklı bellek türlerinden geri çağırır.
-    Şimdilik temel list tabanlı depolama (core/working memory) ve vektör benzerliği
-    ile geri çağırma implementasyonu içerir.
+    Temel list tabanlı depolama (core/working memory) implementasyonu içerir
+    ve bu belleğe dosya tabanlı kalıcılık (pickle) kazandırılmıştır.
     Hata durumlarında işlemleri loglar ve programın çökmesini engeller.
     """
     def __init__(self, config):
         """
         Memory modülünü başlatır.
 
-        Temel depolama yapısını (şimdilik liste) başlatır ve alt bellek modüllerini
-        (EpisodicMemory, SemanticMemory) başlatmayı dener (gelecekte).
+        Temel depolama yapısını (şimdilik liste) başlatır, kalıcı bellekten yükler
+        ve alt bellek modüllerini (EpisodicMemory, SemanticMemory) başlatmayı dener (gelecekte).
 
         Args:
             config (dict): Bellek sistemi yapılandırma ayarları.
                            'max_memory_size': Core/Working bellekte saklanacak maksimum temsil sayısı (int, varsayılan 1000).
                            'num_retrieved_memories': retrieve metodunda varsayılan olarak geri çağrılacak anı sayısı (int, varsayılan 5).
+                           'memory_file_path': Belleğin kaydedileceği/yükleneceği dosya yolu (str, varsayılan 'data/core_memory.pkl').
                            Alt modüllere ait ayarlar kendi adları altında beklenir
                            (örn: {'episodic': {...}, 'semantic': {...}}).
-                           Gelecekte kalıcı depolama ayarları (file_path vb.) buraya gelebilir.
         """
         self.config = config
         logger.info("Memory modülü başlatılıyor...")
@@ -54,6 +53,9 @@ class Memory:
         # Yapılandırmadan ayarları alırken get_config_value kullan
         self.max_memory_size = get_config_value(config, 'max_memory_size', 1000, expected_type=int, logger_instance=logger)
         self.num_retrieved_memories = get_config_value(config, 'num_retrieved_memories', 5, expected_type=int, logger_instance=logger)
+        self.memory_file_path = get_config_value(config, 'memory_file_path', 'data/core_memory.pkl', expected_type=str, logger_instance=logger)
+
+        # num_retrieved_memories için negatif değer kontrolü (get_config_value tipi kontrol ediyor ama değeri etmiyor)
         if self.num_retrieved_memories < 0:
              logger.warning(f"Memory: Konfigurasyonda num_retrieved_memories negatif ({self.num_retrieved_memories}). Varsayılan 5 kullanılıyor.")
              self.num_retrieved_memories = 5
@@ -67,13 +69,12 @@ class Memory:
         self.semantic_memory = None # Kavramsal bellek alt modülü objesi.
 
 
+        # Kalıcı bellekten yükleme mantığı
+        self._load_from_storage()
+
+
         # Alt bellek modüllerini başlatmayı dene (Gelecek TODO).
         # Başlatma hataları kendi içlerinde veya _initialize_single_module gibi bir utility ile yönetilmeli.
-        # Şu anki module_loader initiate_modules fonksiyonu bu sınıfın init'ini çağırıyor.
-        # Alt modüllerin başlatılması initialize_modules içinde değil, burada (ana modül init içinde) olmalıdır.
-        # Ancak alt modüllerin init hataları Memory modülünün kendisinin başlatılmasını (initialize_modules'da)
-        # KRİTİK olarak işaretlememeli (eğer Memory koordinatör ise).
-
         # TODO: Alt bellek modüllerini burada başlatma mantığı eklenecek.
         # try:
         #     episodic_config = config.get('episodic', {})
@@ -88,11 +89,107 @@ class Memory:
         # except Exception as e: logger.error(f"Memory: SemanticMemory başlatılırken hata: {e}", exc_info=True); self.semantic_memory = None
 
 
-        # Kalıcı bellekten yükleme mantığı buraya gelebilir (Gelecek TODO).
-        # self._load_from_storage() # Gelecek TODO
+        logger.info(f"Memory modülü başlatıldı. Maksimum Core Bellek boyutu: {self.max_memory_size}. Varsayılan geri çağrı sayısı: {self.num_retrieved_memories}. Kalıcılık dosyası: {self.memory_file_path}. Yüklenen anı sayısı: {len(self.core_memory_storage)}")
 
 
-        logger.info(f"Memory modülü başlatıldı. Maksimum Core Bellek boyutu: {self.max_memory_size}. Varsayılan geri çağrı sayısı: {self.num_retrieved_memories}")
+    def _load_from_storage(self):
+        """
+        Belirtilen dosyadan bellek durumunu (core_memory_storage) yükler.
+        Dosya yoksa, okunamıyorsa veya bozuksa, belleği boş başlatır.
+        """
+        # Dosya yolu geçerli bir string mi kontrol et
+        if not isinstance(self.memory_file_path, str) or not self.memory_file_path:
+             logger.warning("Memory._load_from_storage: Geçersiz veya boş bellek dosyası yolu belirtildi. Yükleme atlandi.")
+             self.core_memory_storage = [] # Yüklenemediyse belleği boş başlat.
+             return
+
+        # Dosya mevcut mu kontrol et
+        if not os.path.exists(self.memory_file_path):
+            logger.info(f"Memory._load_from_storage: Bellek dosyası bulunamadı: {self.memory_file_path}. Bellek boş başlatılıyor.")
+            self.core_memory_storage = [] # Dosya yoksa boş başlat.
+            return
+
+        # Dosyayı okumayı ve pickle ile yüklemeyi dene
+        try:
+            with open(self.memory_file_path, 'rb') as f: # 'rb' binary read mode
+                # pickle.load ile dosyadan veriyi yükle
+                loaded_data = pickle.load(f)
+
+            # Yüklenen verinin beklendiği gibi bir liste olup olmadığını kontrol et.
+            # Daha sağlam bir kontrol, listedeki her öğenin {'representation': np.ndarray, 'metadata': dict, 'timestamp': float}
+            # formatında olup olmadığını da içerebilir, ancak bu başlangıç için yeterli.
+            if isinstance(loaded_data, list):
+                self.core_memory_storage = loaded_data
+                logger.info(f"Memory._load_from_storage: Bellek başarıyla yüklendi: {self.memory_file_path} ({len(self.core_memory_storage)} anı).")
+                # Yüklenen anı sayısı max_memory_size'ı aşıyorsa eski anıları sil (yükleme sonrası temizlik)
+                if len(self.core_memory_storage) > self.max_memory_size:
+                    logger.warning(f"Memory._load_from_storage: Yüklenen anı sayısı ({len(self.core_memory_storage)}) maksimum boyutu ({self.max_memory_size}) aşıyor. Eski anılar siliniyor.")
+                    self.core_memory_storage = self.core_memory_storage[-self.max_memory_size:] # Sadece son max_memory_size kadar anıyı tut.
+
+            else:
+                # Yüklenen veri liste formatında değilse
+                logger.error(f"Memory._load_from_storage: Yüklenen bellek dosyası beklenmeyen formatta: {self.memory_file_path}. Liste bekleniyordu, geldi: {type(loaded_data)}. Bellek boş başlatılıyor.", exc_info=True)
+                self.core_memory_storage = [] # Format yanlışsa boş başlat.
+
+        except FileNotFoundError:
+            # os.path.exists kontrolü yapıldı ama yine de yakalamak sağlamlık katabilir.
+            logger.warning(f"Memory._load_from_storage: Bellek dosyası bulunamadı (yeniden kontrol sonrası): {self.memory_file_path}. Bellek boş başlatılıyor.")
+            self.core_memory_storage = []
+
+        except (pickle.UnpicklingError, EOFError, ImportError, IndexError, Exception) as e:
+            # pickle yükleme sırasında oluşabilecek hatalar (bozuk dosya, uyumsuz pickle sürümü, vb.)
+            logger.error(f"Memory._load_from_storage: Bellek dosyası yüklenirken pickle hatası oluştu: {self.memory_file_path}. Bellek boş başlatılıyor.", exc_info=True)
+            self.core_memory_storage = [] # Yükleme hatası olursa boş başlat.
+
+        except Exception as e:
+            # Diğer tüm beklenmedik hatalar.
+            logger.error(f"Memory._load_from_storage: Bellek dosyası yüklenirken beklenmedik hata: {self.memory_file_path}. Bellek boş başlatılıyor.", exc_info=True)
+            self.core_memory_storage = []
+
+
+    def _save_to_storage(self):
+        """
+        Mevcut bellek durumunu (core_memory_storage) belirtilen dosyaya kaydeder (pickle formatında).
+        Bellek boşsa kaydetme işlemini atlar. Kaydetme sırasında hata oluşursa loglar.
+        """
+        # Bellek boşsa kaydetme.
+        if not self.core_memory_storage:
+            logger.info("Memory._save_to_storage: Core memory boş. Kaydetme atlandi.")
+            return
+
+        # Dosya yolu geçerli bir string mi ve boş değil mi kontrol et
+        if not isinstance(self.memory_file_path, str) or not self.memory_file_path:
+             logger.warning("Memory._save_to_storage: Geçersiz veya boş bellek dosyası yolu belirtildi. Kaydetme atlandi.")
+             return
+
+        # Dosya yolunun dizinini oluştur (eğer yoksa)
+        save_dir = os.path.dirname(self.memory_file_path)
+        if save_dir and not os.path.exists(save_dir): # Boş string kontrolü ekledim.
+             try:
+                  os.makedirs(save_dir, exist_ok=True) # exist_ok=True dizin zaten varsa hata vermez
+                  logger.info(f"Memory._save_to_storage: Kaydetme dizini oluşturuldu: {save_dir}")
+             except OSError as e:
+                  logger.error(f"Memory._save_to_storage: Kaydetme dizini oluşturulurken hata: {save_dir}. Kaydetme atlandi.", exc_info=True)
+                  return # Dizin oluşturulamazsa kaydetme.
+             except Exception as e:
+                  logger.error(f"Memory._save_to_storage: Kaydetme dizini oluşturulurken beklenmedik hata: {save_dir}. Kaydetme atlandi.", exc_info=True)
+                  return # Dizin oluşturulamazsa kaydetme.
+
+
+        # Dosyaya yazmayı ve pickle ile kaydetmeyi dene
+        try:
+            with open(self.memory_file_path, 'wb') as f: # 'wb' binary write mode
+                # pickle.dump ile veriyi dosyaya kaydet
+                pickle.dump(self.core_memory_storage, f)
+            logger.info(f"Memory._save_to_storage: Bellek başarıyla kaydedildi: {self.memory_file_path} ({len(self.core_memory_storage)} anı).")
+
+        except (pickle.PicklingError, IOError, OSError, Exception) as e:
+            # pickle kaydetme veya dosya yazma sırasında oluşabilecek hatalar
+            logger.error(f"Memory._save_to_storage: Bellek dosyası kaydedilirken hata oluştu: {self.memory_file_path}.", exc_info=True)
+
+        except Exception as e:
+             # Diğer tüm beklenmedik hatalar.
+             logger.error(f"Memory._save_to_storage: Bellek dosyası kaydedilirken beklenmedik hata: {self.memory_file_path}.", exc_info=True)
 
 
     def store(self, representation, metadata=None):
@@ -168,7 +265,7 @@ class Memory:
 
 
         except Exception as e:
-            # Saklama işlemi sırasında beklenmedik bir hata oluşursa logla.
+            # Saklama işlemi sırasında beklenmedik bir hata oluşarsa logla.
             logger.error(f"Memory.store: Belleğe kaydetme sırasında beklenmedik hata: {e}", exc_info=True)
             # Hata durumunda programın çökmesini engelle, sadece logla ve devam et.
 
@@ -239,16 +336,25 @@ class Memory:
                         stored_norm = np.linalg.norm(stored_representation)
                         if stored_norm > 1e-8: # Stored vektör sıfır ise bölme hatası olmaması için kontrol et.
                             # Kosinüs benzerliği hesapla: (dot product) / (norm1 * norm2)
+                            # Güvenlik için np.dot sonuçlarının float olup olmadığını kontrol etmek iyi olabilir.
                             similarity = np.dot(query_representation, stored_representation) / (query_norm * stored_norm)
-                            similarities.append((similarity, memory_entry))
+                            # logger.debug(f"Memory.retrieve: Calculated similarity for a memory entry: {similarity:.4f}")
+                            # Benzerlik değeri NaN (Not a Number) olabilir (örn: sıfıra bölme hatası veya geçersiz input).
+                            # NaN değerler genellikle sıralamada sorun yaratır, bu yüzden kontrol edip yoksayalım veya belirli bir değer atayalım.
+                            if not np.isnan(similarity):
+                                similarities.append((similarity, memory_entry))
+                            else:
+                                logger.warning("Memory.retrieve: Calculated NaN similarity for a memory entry. Skipping this entry.")
                         # else: logger.debug("Memory.retrieve: Stored representation has near-zero norm, skipping similarity calculation for this entry.")
                     # else: logger.debug("Memory.retrieve: Stored entry does not contain a valid numeric 1D numpy array representation, skipping.")
 
 
                 # Benzerliklere göre azalan sırada sırala.
+                # Eğer similarities listesi boşsa sort hata vermez, sadece bir şey yapmaz.
                 similarities.sort(key=lambda item: item[0], reverse=True)
 
                 # En yüksek benzerliğe sahip 'actual_num_results' kadar anıyı al.
+                # Eğer similarities listesi istenen sayıdan azsa, sadece listedeki kadarını alır.
                 retrieved_list = [item[1] for item in similarities[:actual_num_results]]
 
                 logger.debug(f"Memory.retrieve: Found {len(similarities)} memories with valid representations for similarity check. Retrieved top {len(retrieved_list)} by similarity.")
@@ -286,38 +392,28 @@ class Memory:
         """
         Memory modülü kaynaklarını temizler.
 
-        Temel (core) bellek listesini temizler ve alt bellek modüllerinin
-        (EpisodicMemory, SemanticMemory) cleanup metotlarını (varsa) çağırır.
-        Gelecekte kalıcı bellek depolamaya kaydetme (save) mantığı buraya gelebilir.
+        Temel (core) bellek listesini kalıcı depolamaya kaydeder
+        ve alt bellek modüllerinin (EpisodicMemory, SemanticMemory)
+        cleanup metotlarını (varsa) çağırır.
         module_loader.py bu metotu program sonlanırken çağrır (varsa).
         """
         logger.info("Memory modülü objesi siliniyor...")
 
-        # Belleği kalıcı depolamaya kaydetme mantığı buraya gelebilir (Gelecek TODO).
-        # self._save_to_storage() # Gelecek TODO
+        # Belleği kalıcı depolamaya kaydetme mantığı
+        self._save_to_storage()
 
-        # Temel (core) bellekteki anı listesini temizle.
+        # Temel (core) bellekteki anı listesini temizle (kaydedildikten sonra).
         # Listeyi None yapmak veya boş bir liste atamak, objelerin garbage collection tarafından toplanmasına yardımcı olur.
         self.core_memory_storage = [] # Veya self.core_memory_storage = None
-        logger.info("Memory: Core bellek temizlendi.")
+        logger.info("Memory: Core bellek temizlendi (RAM).") # RAM'deki kopyanın temizlendiğini belirt.
 
         # Alt bellek modüllerinin cleanup metotlarını çağır (varsa).
         # cleanup_safely yardımcı fonksiyonunu kullanabiliriz.
-        if self.episodic_memory:
-             # cleanup_safely ilk argüman olarak self'i almamalı, sadece fonksiyonu almalı.
+        # cleanup_safely'ye sadece method referansı gönderilmelidir.
+        if self.episodic_memory and hasattr(self.episodic_memory, 'cleanup'):
              cleanup_safely(self.episodic_memory.cleanup, logger_instance=logger, error_message="Memory: EpisodicMemory temizlenirken hata")
-        if self.semantic_memory:
-             # cleanup_safely ilk argüman olarak self'i almamalı, sadece fonksiyonu almalı.
+        if self.semantic_memory and hasattr(self.semantic_memory, 'cleanup'):
              cleanup_safely(self.semantic_memory.cleanup, logger_instance=logger, error_message="Memory: SemanticMemory temizlenirken hata")
 
 
         logger.info("Memory modülü objesi silindi.")
-
-# # Kalıcı depolama için yardımcı metotlar (Gelecek TODO)
-# def _load_from_storage(self):
-#     """Kalıcı depolamadan (dosya vb.) belleği yükler."""
-#     pass # Implement edilecek
-
-# def _save_to_storage(self):
-#     """Belleği kalıcı depolamaya (dosya vb.) kaydeder."""
-#     pass # Implement edilecek

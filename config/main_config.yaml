@@ -43,10 +43,9 @@ representation:
 memory:
   max_memory_size: 1000 # Saklanacak maksimum temsil sayısı (core/working memory)
   num_retrieved_memories: 5 # Retrieve metodunda varsayılan olarak geri çağrılacak anı sayısı
-  # Gelecekte kalıcı depolama ayarları buraya gelebilir (örn: file_path: data/memory.pkl)
+  # Kalıcı depolama ayarları
+  memory_file_path: data/core_memory.pkl # Belleğin kaydedileceği/yükleneceği dosya yolu. data/ dizini oluşturulacak.
   # retrieval_method: similarity # Gelecekte farklı method seçimi olabilir.
-  memory_file_path: data/core_memory.pkl # Belleğin kaydedileceği/yükleneceği dosya yolu (Yeni Eklenecek)
-
 
 # Cognition modülleri ayarları
 cognition:
