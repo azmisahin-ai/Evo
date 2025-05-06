@@ -80,7 +80,7 @@ Aşağıdaki fazlar, Evo'nın doğumundan (temel algı) bilgelik ve ustalığa (
     *   [x] Memory modülünün oluşturulması (`src/memory/core.py`).
     *   [x] Memory modülüne `store` ve `retrieve` temel işlevselliğin eklenmesi.
     *   [x] Metadata desteğinin eklenmesi.
-    *   [x] Basit (rastgele) geri çağırma mantığının implementasyonu. (Vektör benzerliği implementasyonu ana mantık oldu).
+    *   [x] Basit (rastgele) geri çağırma mantığının implementasyonu. (Ana mantık vektör benzerliği oldu).
     *   [x] Belleğin temel döngüye entegrasyonu (`run_evo.py` içinde çağrılıyor).
 
     *   **Faz 2 Gerçek Implementasyon Görevleri (TAMAMLANDI):**
@@ -99,21 +99,21 @@ Aşağıdaki fazlar, Evo'nın doğumundan (temel algı) bilgelik ve ustalığa (
 
 ---
 
-*   **Faz 3: İlkel Anlama ve Tepkiler (İlk Anlama ve İfade - ŞU ANKİ ODAK NOKTASI)**
+*   **Faz 3: İlkel Anlama ve Tepkiler (İlk Anlama ve İ ifade - ŞU ANKİ ODAK NOKTASI)**
     *   [x] Cognition modülünün oluşturulması (`src/cognition/core.py` - Placeholder/Temel Sınıf, `understanding.py`, `decision.py` - placeholder dosyalar).
     *   [x] MotorControl modülünün oluşturulması (`src/motor_control/core.py` - Placeholder/Temel Sınıf, `expression.py` - placeholder dosya).
     *   [x] Bu modüllerin temel döngüye entegrasyonu (`run_evo.py` içinde çağrılıyorlar).
     *   [x] Interaction modülünün MotorControl'den gelen tepkileri dış dünyaya iletmesi (Console Çıktısı çalışıyor, WebAPI temel entegrasyonu ve placeholder sınıfı mevcut).
 
     *   **Faz 3 Gerçek Implementasyon Görevleri (İlerleme Kaydedildi):**
-        *   [x] Basit karar alma mantığı tasarımı (Input temsili/Process çıktısı ve retrieve edilen belleği kullanarak nasıl bir karar alınacak? - Faz 1 ve 2 çıktılarını kullanma). (Bellek benzerliği skoruna dayalı basit tanıdık/yeni ayrımı yapılacak).
-        *   [ ] `CognitionCore.decide` metodunun tasarlanan basit mantığa göre implementasyonu (örn: Representation/Bellek eşleşmesine göre basit yanıt seçimi, If-else kuralları, basit bir durum makinesi). (DecisionModule'de implemente ediliyor).
+        *   [x] Basit karar alma mantığı tasarımı (Input temsili/Process çıktısı ve retrieve edilen belleği kullanarak nasıl bir karar alınacak? - Faz 1 ve 2 çıktılarını kullanma). (Bellek benzerliği skoruna dayalı basit tanıdık/yeni ayrımı implemente edildi).
+        *   [x] `CognitionCore.decide` metodunun tasarlanan basit mantığa göre implementasyonu (örn: Representation/Bellek eşleşmesine göre basit yanıt seçimi, If-else kuralları, basit bir durum makinesi). (UnderstandingModule ve DecisionModule'de implemente edildi).
         *   [x] Kararın MotorControl modülüne iletilmesi formatının belirlenmesi ve uygulanması. (String kararlar kullanılıyor).
         *   [x] Yanıt üretme mantığı tasarımı (Cognition'dan gelen karara göre nasıl bir metin/ses/görsel sinyal üretilecek?). (MotorControl -> ExpressionGenerator akışı kullanılıyor).
         *   [x] `MotorControlCore.generate_response` metodunun tasarlanan basit mantığa göre implementasyonu (örn: Sabit metin yanıtları, basit ses sinyalleri, Cognition çıktısını metne/sinyale dönüştürme). (String kararlara göre sabit metin yanıtları üretildi).
-        *   [x] Temel "anlama-yanıtla" döngüsünün (Represent -> Memory -> Cognition -> Motor -> Interact) basit bir senaryo ile test edilmesi. (Entegrasyon çalışıyor, karar mantığı güncelleniyor).
+        *   [x] Temel "anlama-yanıtla" döngüsünün (Represent -> Memory -> Cognition -> Motor -> Interact) basit bir senaryo ile test edilmesi. (Entegrasyon ve bellek eşiğine göre karar/tepki döngüsü çalışıyor).
 
-    *   [x] **TODO:** İşlenmiş temsilleri kullanarak basit ayırımlar yapma ("Bu farklı bir şey", "Bu tanıdık") yeteneğinin geliştirilmesi. (Bellek benzerlik eşiği ile yapılacak).
+    *   [x] **TODO:** İşlenmiş temsilleri kullanarak basit ayırımlar yapma ("Bu farklı bir şey", "Bu tanıdık") yeteneğinin geliştirilmesi. (Bellek benzerlik eşiği ile yapıldı).
     *   [ ] **TODO:** Önceden öğretilmiş (denetimli) temel etiketleri/kavramları (örn. "ses var", "ışık var", "hareket var") bazı temsil desenleriyle ilişkilendirme mekanizmasının eklenmesi. (Hala TODO).
     *   [ ] **TODO:** İçsel durumdan (örn. yeni bir desen fark ettiğinde, bellekten bir şey çağırdığında) basit dışsal tepkiler (rastgele ses çıkarma, ilkel görsel veya basit bir sinyal/metin) üretme mantığı. (Hala TODO).
 
@@ -141,12 +141,12 @@ Aşağıdaki fazlar, Evo'nın doğumundan (temel algı) bilgelik ve ustalığa (
     *   [ ] Hedef: Sanal bedene (robot veya somut donanım) entegrasyonun ilk adımları. Bedene ait sensörlerden girdi alma ve motorlara temel komutlar gönderme. Fiziksel eylemlerin duyu girdilerini nasıl değiştirdiğini deneyimleyerek öğrenme.
     *   [ ] Odak Modülleri tanımlanacak (`src/interaction/robotics_interface.py` - yeni, `src/motor_control/manipulation.py` - yeni, `src/motor_control/locomotion.py` - yeni, `src/cognition/learning.py` - pekiştirmeli öğrenme).
 
-*   **Faz 9: Soyutlama ve Yaratıcılık (Yüksek Seviye Anlama ve Özgün İ ifade)**
+*   **Faz 9: Soyutlama ve Yaratıcılık (Yüksek Seviye Anlama ve Özgün İfade)**
     *   [ ] Hedef: Yüksek seviye, soyut temsiller öğrenme. Öğrenilen latent uzayda bilinçli manipülasyonla tamamen yeni ve özgün çıktılar üretme.
     *   [ ] Odak Modülleri tanımlanacak (`src/cognition/abstraction.py` - yeni, `src/motor_control/expression.py` - yaratıcılık için geliştirilecek).
 
 *   **Faz 10: Bilgelik ve Ustalık (Olgunluk ve Otonomi)**
-    *   [ ] Hedef: Tüm yeteneklerin entegre ve akıcı çalışması. Karmaşık dünyayı derinleşimliğine anlama. Gelişmiş planlama, problem çözme ve iletişim. Yeni yetenekler ve bilgiler öğrenme sürecini otonom olarak yönetme.
+    *   [ ] Hedef: Tüm yeteneklerin entegre ve akıcı çalışması. Karmaşık dünyayı derinlemesine anlama. Gelişmiş planlama, problem çözme ve iletişim. Yeni yetenekler ve bilgiler öğrenme sürecini otonom olarak yönetme.
     *   [ ] Odak Modülleri: Tüm modüllerin entegrasyonu, optimizasyonu ve otonom öğrenme mekanizmaları.
 
 ---
@@ -165,3 +165,4 @@ Aşağıdaki fazlar, Evo'nın doğumundan (temel algı) bilgelik ve ustalığa (
 *   [x] Config dosyasındaki gereksiz bölümlerin temizlenmesi.
 
 ---
+
