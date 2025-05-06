@@ -78,35 +78,36 @@ Aşağıdaki fazlar, Evo'nın doğumundan (temel algı) bilgelik ve ustalığa (
 ---
 
 *   **Faz 3: İlkel Anlama ve Tepkiler (İlk Anlama ve İfade - TAMAMLANDI)**
-    *   [x] Cognition modülünün oluşturulması (`src/cognition/core.py`).
-    *   [x] MotorControl modülünün oluşturulması (`src/motor_control/core.py`).
+    *   [x] Cognition modülünün oluşturulması.
+    *   [x] MotorControl modülünün oluşturulması.
     *   [x] Bu modüllerin temel döngüye entegrasyonu.
     *   [x] Interaction modülünün MotorControl'den gelen tepkileri dış dünyaya iletmesi.
 
     *   **Faz 3 Gerçek Implementasyon Görevleri (TAMAMLANDI):**
-        *   [x] Basit karar alma mantığı tasarımı (Input temsili/Process çıktısı ve retrieve edilen belleği kullanarak nasıl bir karar alınacak?). (Bellek benzerliği, Process çıktısı eşikleri ve merak seviyesine dayalı öncelikli mantık implemente edildi).
-        *   [x] `CognitionCore.decide` metodunun tasarlanan basit mantığına göre implementasyonu. (UnderstandingModule ve DecisionModule'de implemente edildi).
-        *   [x] Kararın MotorControl modülüne iletilmesi formatının belirlenmesi ve uygulanması. (String kararlar kullanılıyor).
-        *   [x] Yanıt üretme mantığı tasarımı. (MotorControl -> ExpressionGenerator akışı kullanılıyor).
-        *   [x] `MotorControlCore.generate_response` metodunun tasarlanan basit mantığına göre implementasyonu. (Yeni string kararlara göre sabit metin yanıtları üretildi).
-        *   [x] Temel "anlama-yanıtla" döngüsünün basit bir senaryo ile test edilmesi. (Entegrasyon çalışıyor, farklı karar/tepki döngüleri gözlemlendi).
+        *   [x] Basit karar alma mantığı tasarımı (Input temsili/Process çıktısı ve retrieve edilen belleği kullanarak nasıl bir karar alınacak?).
+        *   [x] `CognitionCore.decide` metodunun tasarlanan basit mantığına göre implementasyonu.
+        *   [x] Kararın MotorControl modülüne iletilmesi formatının belirlenmesi ve uygulanması.
+        *   [x] Yanıt üretme mantığı tasarımı.
+        *   [x] `MotorControlCore.generate_response` metodunun tasarlanan basit mantığına göre implementasyonu.
+        *   [x] Temel "anlama-yanıtla" döngüsünün basit bir senaryo ile test edilmesi.
 
-    *   [x] **TODO:** İşlenmiş temsilleri kullanarak basit ayırımlar yapma ("Bu farklı bir şey", "Bu tanıdık") yeteneğinin geliştirilmesi. (Bellek benzerlik eşiği ve Process çıktısı eşikleri ile yapıldı).
-    *   [x] **TODO:** Önceden öğretilmiş (denetimli) temel etiketleri/kavramları (örn. "ses var", "ışık var", "hareket var") bazı temsil desenleriyle ilişkilendirme mekanizmasının eklenmesi. (Process çıktısı eşiklerine dayalı basit boolean etiketlerle (ses, kenar, parlak, karanlık) ilk adımı atıldı).
-    *   [x] **TODO:** İçsel durumdan (örn. yeni bir desen fark ettiğinde, bellekten bir şey çağırdığında) basit dışsal tepkiler (rastgele ses çıkarma, ilkel görsel veya basit bir sinyal/metin) üretme mantığı. (Merak seviyesi ve merak eşiği ile yapıldı).
+    *   [x] **TODO:** İşlenmiş temsilleri kullanarak basit ayırımlar yapma ("Bu farklı bir şey", "Bu tanıdık") yeteneğinin geliştirilmesi.
+    *   [x] **TODO:** Önceden öğretilmiş (denetimli) temel etiketleri/kavramları... ilişkilendirme mekanizmasının eklenmesi. (Process çıktısı eşiklerine dayalı basit boolean etiketlerle (ses, kenar, parlak, karanlık) ilk adımı atıldı).
+    *   [x] **TODO:** İçsel durumdan (örn. yeni bir desen fark ettiğinde, bellekten bir şey çağırdığında) basit dışsal tepkiler (rastgele ses çıkarma, ilkel görsel veya basit bir sinyal/metin) üretme mantığı.
+
 
 ---
 
 *   **Faz 4: Kavramsal Genişleme ve İfade Gelişimi (Dünyayı Keşfetme ve İfade Çeşitliliği - ŞU ANKİ ODAK NOKTASI)**
-    *   [ ] Hedef: Daha fazla kavramı kendi kendine (denetimsiz öğrenme ile) keşfetmeye başlama. Denetimli öğrenme ile öğretilen etiket setini genişletme. İçsel temsillerden daha kontrollü dışsal ifadeler üretme (ses sentezi, basit görsel çıktılar).
+    *   [x] Hedef: Daha fazla kavramı kendi kendine (denetimsiz öğrenme ile) keşfetmeye başlama. Denetimli öğrenme ile öğretilen etiket setini genişletme. İçsel temsillerden daha kontrollü dışsal ifadeler üretme (ses sentezi, basit görsel çıktılar).
     *   [x] Odak Modülleri için temel dosyalar/placeholder'lar mevcut (`src/cognition/learning.py`, `src/motor_control/expression.py`).
 
-    *   **Faz 4 Gerçek Implementasyon Görevleri (Başlangıç):**
-        *   [ ] Basit denetimsiz kavram keşfi (kümeleme) algoritmasının implementasyonu (`src/cognition/learning.py`).
-        *   [ ] LearningModule'ün bellekteki Representation vektörlerini kullanarak kavram temsilcilerini periyodik olarak öğrenmesi.
-        *   [ ] UnderstandingModule'ün gelen Representation'ın öğrenilmiş kavramlara olan benzerliğini hesaplaması.
-        *   [ ] DecisionModule'ün kavram tanıma benzerlik skoruna dayalı yeni kararlar üretmesi.
-        *   [ ] MotorControl ve ExpressionGenerator'ın yeni kavram tanıma kararlarını işlemesi için güncellenmesi.
+    *   **Faz 4 Gerçek Implementasyon Görevleri (İlerleme Kaydedildi):**
+        *   [x] Basit denetimsiz kavram keşfi (kümeleme) algoritmasının implementasyonu (`src/cognition/learning.py`).
+        *   [x] LearningModule'ün bellekteki Representation vektörlerini kullanarak kavram temsilcilerini periyodik olarak öğrenmesi. (Memory erişim hatası düzeltildi).
+        *   [x] UnderstandingModule'ün gelen Representation'ın öğrenilmiş kavramlara olan benzerliğini hesaplaması. (`issubtype` hatası düzeltildi).
+        *   [x] DecisionModule'ün kavram tanıma benzerlik skoruna dayalı yeni kararlar üretmesi. (`issubtype` hatası düzeltildi).
+        *   [x] MotorControl ve ExpressionGenerator'ın yeni kavram tanıma kararlarını işlemesi için güncellenmesi.
 
     *   [ ] **TODO:** Denetimli öğrenme ile temel kavram/etiket setini genişletme mekanizmasının eklenmesi. (Hala TODO)
     *   [ ] **TODO:** İçsel temsilleri kullanarak daha karmaşık anlama (nesne takibi, aktivite tanıma vb.). (Hala TODO)
@@ -117,7 +118,7 @@ Aşağıdaki fazlar, Evo'nın doğumundan (temel algı) bilgelik ve ustalığa (
 *   **Faz 5: Çapraz Duyusal Bağlantılar ve Temel İletişim (Duyuların Birleşimi ve Anlamlı Etkileşim)**
     *   [x] Interaction modülüne Console ve WebAPI çıktı kanallarının eklenmesi.
     *   [ ] **TODO:** WebAPIOutputChannel implementasyonunu tamamlama ve dış arayüz ile çift yönlü (girdi alımını da içerecek şekilde) temel iletişimi sağlama.
-    *   [ ] Hedef: Farklı modalitelere ait içsel temsilleri (görsel ve işitsel) birleştirmeye veya birinden diğerine dönüştürmeye başlama ("Bu ses bu görüntüyle ilişkili"). Belirli duyu girdilerine (örn. kullanıcı sesi/yüzü) spesifik ve anlamlı ilk ifadelerle (örn. basit bir metin onayı, ses sinyali) yanıt verme. Temel "anlama-yanıtla" döngüsünün güçlenmesi.
+    *   [x] Hedef: Farklı modalitelere ait içsel temsilleri (görsel ve işitsel) birleştirmeye veya birinden diğerine dönüştürmeye başlama ("Bu ses bu görüntüyle ilişkili"). Belirli duyu girdilerine (örn. kullanıcı sesi/yüzü) spesifik ve anlamlı ilk ifadelerle (örn. basit bir metin onayı, ses sinyali) yanıt verme. Temel "anlama-yanıtla" döngüsünün güçlenmesi. (Bu hedefin temel adımları Faz 3/4'te atıldı, çapraz modalite birleştirme/dönüşüm hala TODO).
     *   [ ] Odak Modülleri için temel dosyalar/placeholder'lar mevcut veya tanımlanacak.
 
 *   **Faz 6: Sekans Anlama ve Üretme (Hikaye Anlama Başlangıcı)**
@@ -148,16 +149,17 @@ Aşağıdaki fazlar, Evo'nın doğumundan (temel algı) bilgelik ve ustalığa (
 *   [ ] Proje dokümantasyonunun güncel tutulması (yapılan her adımı dokümanlara yansıtma). (Hala TODO)
 *   [x] `requirements.txt` dosyasının oluşturulması ve temel bağımlılıkların listelenmesi.
     *   [ ] **TODO:** requirements.txt dosyasını proje geliştikçe güncel tutmak. (Hala TODO)
-*   [ ] Unit testlerin yazılması ve çalıştırılması. (Hala TODO)
-*   [ ] Entegrasyon testlerinin yazılması ve çalıştırılması. (Hala TODO)
+*   [ ] Unit testlerin yazılması ve çalıştırılması. (Hala TODO - Öncelik Artırılacak)
+*   [ ] Entegrasyon testlerinin yazılması ve çalıştırılması. (Hala TODO - Öncelik Artırılacak)
 *   [ ] Kod kalitesinin ve okunabilirliğinin artırılması (Refactoring). (Hala TODO)
 *   [ ] Performans optimizasyonları. (Hala TODO)
     *   [ ] **TODO:** Merak seviyesi update mantığı (artış, azalış, decay) DecisionModule'den ayrı bir İçsel Durum (Internal State) modülüne taşınabilir/yönetilebilir.
 *   [ ] Bağımlılıkların yönetimi ve güncellenmesi. (Hala TODO)
 *   [x] Config dosyasındaki gereksiz bölümlerin temizlenmesi.
-*   [ ] **TODO:** Modülleri tek başına girdi/çıktı ile test etme altyapısı oluşturulması. (YENİ TODO)
-*   [ ] **TODO:** Temel Process/Representation/Cognition çıktı değerlerinin log detaylarının artırılması. (YENİ TODO)
+*   [ ] **TODO:** Modülleri tek başına girdi/çıktı ile test etme altyapısı oluşturulması. (YENİ TODO - Öncelik Artırılacak)
+*   [ ] **TODO:** Temel Process/Representation/Cognition çıktı değerlerinin log detaylarının artırılması. (YENİ TODO - Öncelik Artırılacak)
+*   [ ] **TODO:** Ses duyu verisinden uzamsal (spatial) konum bilgisinin çıkarılması ve işlenmesi. (YENİ TODO)
+*   [ ] **TODO:** Farklı canlılarla (örn: kedi) ve doğal ortamlarla etkileşim kurma yeteneklerinin planlanması ve implementasyonu. (YENİ TODO)
+
 
 ---
-
- 
