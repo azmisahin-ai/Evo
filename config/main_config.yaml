@@ -3,7 +3,7 @@
 # Modül ayarları, genel parametreler ve diğer yapılandırmalar burada tanımlanır.
 
 # Genel Ayarlar
-cognitive_loop_interval: 0.1 # Bilişsel döngünün ne sıklıkta çalışacağı (saniye)
+cognitive_loop_interval: 1.0 # Bilişsel döngünün ne sıklıkta çalışacağı (saniye)
 
 # Sense modülleri ayarları
 vision:
@@ -53,6 +53,8 @@ cognition:
   # decision_threshold: 0.7
   # familiarity_threshold: Girdiyi "tanıdık" kabul etmek için gereken en düşük bellek benzerlik skoru (0.0 ile 1.0 arası float).
   familiarity_threshold: 0.8 # Varsayılan değer
+  audio_energy_threshold: 1000.0 # Ses enerjisi eşiği (Ses algılama için)
+  visual_edges_threshold: 50.0 # Görsel kenar algılama eşiği (Canny kenar tespiti için)
 
 # Motor Control modülleri ayarları
 motor_control:

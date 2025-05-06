@@ -66,7 +66,7 @@ def run_evo():
         # Bu noktada modüller başlatılmadı, kaynak temizleme gerekmez.
         # Programı burada sonlandırmak en mantıklısı.
         # sys.exit(1) # Eğer sys import ediliyorsa
-        return # run_evo fonksiyonundan çık - program main bloğunda sonlanır.
+        return # run_evo fonksiyonundan çık - program main bloğında sonlanır.
 
     logger.info("Evo canlanıyor...")
     logger.info(f"Konfigürasyon başarıyla yüklendi: {config_path}")
@@ -105,7 +105,7 @@ def run_evo():
 
     # Tüm temel modül kategorileri başarıyla başlatıldıysa logla (initialize_modules bayrağına göre)
     # can_run_main_loop True ise buraya gelinir.
-    # initialize_modules içinde zaten kritik hata durumları loglanmıştı.
+    # initialize_modules içinde zaten kritik hata durumları loglandmıştı.
     logger.info("Evo bilişsel döngüye hazır.")
     # Interaction modülü başlatılamadıysa initialize_modules içinde warning loglandı.
 
@@ -116,8 +116,17 @@ def run_evo():
         logger.info("Evo'nın bilişsel döngüsü başlatıldı...")
         # Bilişsel döngü hızını konfigürasyondan al. Yoksa varsayılan 0.1 saniye kullan.
         # Config'ten okurken get_config_value kullanılabilir, ama config objesi burada zaten kontrol edildi.
+        # float tipi bekleniyor.
         loop_interval = config.get('cognitive_loop_interval', 0.1)
-        # Bellekten kaç anı çağrılacağını konfigürasyondan al. Memory config yoksa veya değer yoksa varsayılan 5 kullan.
+        if not isinstance(loop_interval, (int, float)) or loop_interval <= 0:
+             logger.warning(f"RUN_EVO: Konfigürasyondan alınan geçersiz cognitive_loop_interval değeri ({loop_interval}). Varsayılan 0.1 kullanılıyor.")
+             loop_interval = 0.1
+        else:
+             loop_interval = float(loop_interval) # float'a çevir
+
+
+        # Bellekten kaç anı çağrılacağını konfigüraasyon
+        # dan al. Memory config yoksa veya değer yoksa varsayılan 5 kullan.
         # Config dict'inin 'memory' anahtarı altındaki 'num_retrieved_memories' değerini al.
         # .get('memory', {}) kullanarak memory config'i yoksa boş dict döner ve sonraki .get() hata vermez.
         num_memories_to_retrieve = config.get('memory', {}).get('num_retrieved_memories', 5)
@@ -132,7 +141,7 @@ def run_evo():
             while True:
                 start_time = time.time() # Döngü adımının başlangıç zamanı
 
-                # --- Bilgi Akışı (Sense -> Process -> Represent -> Memory -> Cognition -> Motor -> Interact) ---
+                # --- Bil bilgi Akışı (Sense -> Process -> Represent -> Memory -> Cognition -> Motor -> Interact) ---
                 # Her adımda, bir önceki adımdan gelen çıktı (veya None veya boş dict/liste) bir sonraki adıma girdi olur.
                 # Modül objelerinin None olma durumları ve metotların None/boş girdi alma durumları
                 # ilgili modül içindeki hata yönetimi ile ele alınır.
@@ -222,7 +231,7 @@ def run_evo():
                 learned_representation = None # Başlangıçta temsil yok
                 if representers.get('main_learner'):
                      # RepresentationLearner.learn metodu processed_inputs sözlüğünü bekler.
-                     # Bu sözlük artık VisionProcessor'dan dict, AudioProcessor'dan array içeriyor.
+                     # Bu sözlük VisionProcessor'dan dict, AudioProcessor'dan array içeriyor.
                      learned_representation = representers['main_learner'].learn(processed_inputs)
 
                 # DEBUG Log: Öğrenilmiş Temsil
@@ -237,7 +246,7 @@ def run_evo():
                 # Temsili Hafızaya Kaydet ve/veya Hafızadan Bilgi Al (Faz 2)
                 # Memory objesinin varlığını kontrol ederek güvenli çağrı
                 # memories dict'inin kendisi None değil (get() ile varsayılan {} aldık)
-                # Store/Retrieve metotları None representation (veya array) alabilmeli ve retrieve None/boş liste döndürebilmeli (hata durumunda)
+                # Store/Retrieve metotları Representation (None/array) alabilmeli ve retrieve None/boş liste döndürebilmeli (hata durumunda)
                 relevant_memory_entries = [] # Başlangıçta ilgili bellek girdileri yok, boş liste
 
                 # Bellek objesi varsa işlemleri yap
@@ -259,10 +268,10 @@ def run_evo():
 
 
                 # DEBUG Log: Geri Çağrılan Bellek Girdileri
-                # relevant_memory_entries boş liste olabilir, bu normaldir.
+                # relevant_memory_entries boş liste veya None olabilir, bu normaldir.
                 if isinstance(relevant_memory_entries, list):
                      if relevant_memory_entries:
-                          logger.debug(f"RUN_EVO: Hafızadan {len(relevant_memory_entries)} ilgili girdi geri çağrıldı (placeholder).")
+                          logger.debug(f"RUN_EVO: Hafızadan {len(relevant_memory_entries)} ilgili girdi geri çağrıldı.") # Placeholder kaldırıldı
                      else:
                           logger.debug("RUN_EVO: Hafızadan ilgili girdi geri çağrılamadı (boş liste).")
                 elif relevant_memory_entries is not None: # Liste değil ama None da değilse
@@ -271,36 +280,30 @@ def run_evo():
                      logger.debug("RUN_EVO: Geri çağrılan bellek girdileri None.")
 
 
-                # Hafıza ve temsile göre Bilişsel işlem yap (Faz 3 Başlangıcı)
+                # Hafıza ve temsile göre Bilişsel işlem yap (Faz 3)
                 # Cognition objesinin varlığını kontrol ederek güvenli çağrı
                 # cognition_modules dict'inin kendisi None değil (get() ile varsayılan {} aldık)
-                # Decide metodu None representation (veya array) ve boş/None memory listesi (veya liste) alabilmeli, None karar döndürebilmeli (hata durumunda)
+                # Decide metodu artık processed_inputs, learned_representation ve relevant_memory_entries bekliyor.
+                # DecisionModule.decide string veya None karar döndürebilmeli (hata durumunda)
                 decision = None # Başlangıçta bir karar yok
 
                 # CognitionCore objesi varsa decide metodunu çağır
                 core_cognition_instance = cognition_modules.get('core_cognition')
                 if core_cognition_instance:
-                     # CognitionCore.decide None temsil/liste girdilerini güvenle ele alır.
+                     # *** HATA DÜZELTME BURADA YAPILDI ***
+                     # CognitionCore.decide artık processed_inputs, learned_representation ve relevant_memory_entries argümanlarını bekliyor.
                      decision = core_cognition_instance.decide(
-                         learned_representation, # Temsil None veya array olabilir
-                         relevant_memory_entries # Liste veya None olabilir (Memory.retrieve'den)
-                         # İçsel durum (internal_state) gelecekte buraya eklenecek, şimdilik None varsayılır.
+                         processed_inputs, # İşlenmiş Processor çıktıları (dict/None)
+                         learned_representation, # Temsil (None/array)
+                         relevant_memory_entries # Bellek girdileri (list/None)
+                         # internal_state # Gelecekte eklenecek.
                      )
                      # logger.debug(f"RUN_EVO: Bilişsel karar alma tamamlandı.")
 
 
-                # DEBUG Log: Bilişsel Karar
-                if decision is not None:
-                     # Kararın formatı (str veya gelecekte dict/başka) CognitionCore.decide tarafından belirlenir.
-                     # Şimdilik str bekleniyor, loglarken tip kontrolü veya genel repr() kullanmak güvenlidir.
-                     # logger.debug(f"RUN_EVO: Bilişsel karar alındı (placeholder): {repr(decision)}")
-                     # Eğer string ise ve çok uzun değilse doğrudan string olarak loglamak daha okunabilir.
-                     if isinstance(decision, str):
-                         logger.debug(f"RUN_EVO: Bilişsel karar alındı (string): '{decision}'")
-                     else: # String değilse, tipini de belirt.
-                         logger.debug(f"RUN_EVO: Bilişsel karar alındı (tip: {type(decision)}): {repr(decision)}")
-                else:
-                     logger.debug("RUN_EVO: Bilişsel karar alınamadı (None).")
+                # DEBUG Log: Bilişsel Karar (Loglama artık DecisionModule içinde yapılıyor)
+                # DecisionModule.decide string veya None döndürür.
+                # if decision is not None: ... # Loglama DecisionModule'e taşındı
 
 
                 # Karara göre bir Tepki Ü üret (Faz 3 Devamı)
@@ -341,7 +344,10 @@ def run_evo():
                 else:
                     # Döngü intervalinden uzun süren durumlar için uyarı (DEBUG seviyesinde)
                     # Bu, performans darboğazlarını tespit etmede yardımcı olur.
-                    logger.debug(f"RUN_EVO: Bilişsel döngü {loop_interval} saniyeden daha uzun sürdü ({elapsed_time:.4f}s). İşlem yükü yüksek olabilir.")
+                    # INFO seviyesinde çok sık olabilir, DEBUG seviyesine düşürelim.
+                    # logger.debug(f"RUN_EVO: Bilişsel döngü {loop_interval} saniyeden daha uzun sürdü ({elapsed_time:.4f}s). İşlem yükü yüksek olabilir.")
+                    if elapsed_time > loop_interval + 0.1: # Sadece belirgin gecikmeleri logla
+                         logger.debug(f"RUN_EVO: Bilişsel döngü {loop_interval:.2f}s hedefinden daha uzun sürdü ({elapsed_time:.4f}s).")
 
 
                 # Gelecekte döngüyü sonlandıracak bir mekanizma eklenecek (örn. kullanıcı sinyali, içsel durum)

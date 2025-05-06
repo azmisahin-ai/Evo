@@ -1,7 +1,7 @@
 # src/motor_control/expression.py
 #
 # Evo'nın dışsal ifade modülünü temsil eder.
-# Bilişsel kararları metin, ses veya görsel çıktılara dönüştürür.
+# MotorControl'den gelen komutları metin çıktılara dönüştürür.
 
 import logging
 # import numpy as np # Gerekirse görsel veya ses çıktısı için
@@ -17,7 +17,6 @@ class ExpressionGenerator:
     Evo'nın dışsal ifade yeteneğini sağlayan sınıf (Faz 3 implementasyonu).
 
     MotorControl modülünden gelen komutları alır.
-    Bu komutlara dayanarak farklı modalitelerde (metin, ses, görsel) çıktılar üretir.
     Mevcut implementasyon: Belirli metin komutlarına göre sabit stringler döndürür.
     Gelecekte metin sentezi (NLG), ses sentezi (TTS), görsel üretim algoritmaları implement edilecektir.
     """
@@ -42,15 +41,12 @@ class ExpressionGenerator:
 
         Args:
             command (str or any): MotorControlCore'dan gelen komut.
-                                  Beklenen format: şimdilik "familiar_response", "new_response", "default_response" stringleri veya None.
+                                  Beklenen format: "familiar_response", "new_response", "sound_detected_response", "complex_visual_response", "default_response" stringleri veya None.
 
         Returns:
-            str or any or None: Üretilen çıktı (metin stringi, ses verisi numpy arrayi, görsel data vb.) veya hata durumunda None.
-                                 Mevcut olarak metin stringi veya None döndürür.
+            str or None: Üretilen metin stringi veya hata durumunda None.
         """
         # Girdi kontrolleri. command'ın string olup olmadığını kontrol et.
-        # check_input_not_none ve check_input_type fonksiyonlarını kullanalım.
-        # command'ın None olması veya string olmaması durumunda çıktı üretemeyebiliriz.
         if not check_input_not_none(command, input_name="command for ExpressionGenerator", logger_instance=logger) and command is not None:
              logger.warning(f"ExpressionGenerator.generate: Komut beklenmeyen tipte: {type(command)}. String veya None bekleniyordu.")
              return None # Geçersiz tipte komut gelirse None döndür.
@@ -60,27 +56,31 @@ class ExpressionGenerator:
         output_data = None # Üretilen çıktıyı tutacak değişken.
 
         try:
-            # Basit İfade Üretme Mantığı (Faz 3 başlangıcı):
+            # İfade Üretme Mantığı (Faz 3):
             # MotorControl'den gelen spesifik string komutlara göre sabit metin stringleri döndür.
             if command == "familiar_response":
                  output_data = "Bu tanıdık geliyor." # Tanıdık input için yanıt
             elif command == "new_response":
                  output_data = "Yeni bir şey algıladım." # Yeni input için yanıt
+            elif command == "sound_detected_response":
+                 output_data = "Bir ses duyuyorum." # Ses algılama için yanıt
+            elif command == "complex_visual_response":
+                 output_data = "Detaylı bir şey görüyorum." # Detaylı görsel algılama için yanıt
             elif command == "default_response":
                  output_data = "Ne yapacağımı bilemedim." # Varsayılan yanıt
+            # Gelecekte eklenecek diğer komutlar (örn: ses çalma komutu, görsel çizim komutu) buraya eklenecek.
+            # elif command == "play_sound_X":
+            #      # Ses çalma mantığı buraya gelecek. Metin çıktı döndürmeyebilir.
+            #      output_data = None
 
-            # Gelecekte daha karmaşık mantıklar:
-            # - Komutun içeriğine göre farklı metinler sentezleme (NLG).
-            # - Ses sentezi (TTS) kullanarak metni sese çevirme.
-            # - Görsel üretim algoritmaları kullanarak görsel çıktılar üretme.
 
-            if output_data is not None: # Eğer bir çıktı üretildiyse (Yukarıdaki if/elif bloklarına girdiyseniz)
+            if output_data is not None: # Eğer bir çıktı (metin) üretildiyse
                  logger.debug(f"ExpressionGenerator.generate: İfade üretildi: '{output_data}'")
             else: # Eğer command bilinen komutlardan biri değilse veya None ise
                  if command is not None: # Komut None değildi ama eşleşmedi
                       logger.warning(f"ExpressionGenerator.generate: Bilinmeyen komut '{command}'. Çıktı üretilemedi.")
                  # Eğer command None ise, zaten yukarıdaki check_input_not_none loglamış olmalı.
-                 logger.debug("ExpressionGenerator.generate: Komut None veya bilinmiyor. Çıktı None.")
+                 # logger.debug("ExpressionGenerator.generate: Komut None veya bilinmiyor. Çıktı None.") # Bu log üstteki uyarılarla çakışabilir, kaldırdım.
 
 
         except Exception as e:
@@ -94,7 +94,7 @@ class ExpressionGenerator:
         ExpressionGenerator kaynaklarını temizler.
 
         Gelecekte sentezleyici model temizliği gerekebilir.
-        module_loader.py bu metodu program sonlanırken çağırır (varsa).
+        module_loader.py bu metotu program sonlanırken çağırır (varsa).
         """
         logger.info("ExpressionGenerator objesi temizleniyor.")
         # Kaynak temizleme mantığı buraya gelecek

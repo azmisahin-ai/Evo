@@ -10,7 +10,7 @@ import logging # Loglama için.
 from src.core.utils import check_input_not_none, check_input_type, cleanup_safely # utils fonksiyonları kullanılmış
 
 # Alt modül sınıflarını import et (Placeholder sınıflar)
-from .expression import ExpressionGenerator # ExpressionGenerator şimdilik sadece MotorControl'den gelen kararı alıp bir çıktı üretiyor.
+from .expression import ExpressionGenerator # ExpressionGenerator MotorControl'den gelen komutu alıp çıktı üretiyor.
 # from .manipulation import Manipulator # Gelecekte kullanılacak
 # from .locomotion import LocomotionController # Gelecekte kullanılacak
 
@@ -89,13 +89,13 @@ class MotorControlCore:
         CognitionCore'dan gelen 'decision' girdisini alır.
         Bu karara göre, ExpressionGenerator gibi alt modülleri kullanarak
         dışarıya gönderilecek bir tepki (output_data) üretir.
-        Mevcut implementasyon: Karar stringlerine göre farklı metin yanıtları üretir.
+        Mevcut implementasyon: Karar stringlerine göre farklı metin tepkileri üretir.
         Karar None ise veya işlenemeyen bir karar ise None döndürür.
         Tepki üretme veya eylem başlatma sırasında hata oluşursa None döndürür.
 
         Args:
             decision (str or any): Cognition modülünden gelen karar.
-                                    Beklenen format: şimdilik "familiar_input_detected", "new_input_detected" stringleri veya None.
+                                    Beklenen format: "sound_detected", "complex_visual_detected", "familiar_input_detected", "new_input_detected" stringleri veya None.
                                     Gelecekte daha yapısal bir format (örn: dict {'action': '...', 'params': {...}}) beklenir.
 
         Returns:
@@ -107,50 +107,33 @@ class MotorControlCore:
         if not check_input_not_none(decision, input_name="decision for MotorControl", logger_instance=logger) and decision is not None:
              # Eğer karar None değil ama geçerli tipi değilse (string değilse) uyarı ver.
              logger.warning(f"MotorControlCore.generate_response: Karar beklenmeyen tipte: {type(decision)}. String veya None bekleniyordu.")
-             # Bu durumda altındaki else bloğuna düşecek ve varsayılan yanıtı üretecek.
+             # Bu durumda altındaki else if/else bloklarına düşecektir.
+             # Eğer ExpressionGenerator yoksa veya bilinen komutlardan değilse yine varsayılan tepkiye düşer.
 
 
         output_data = None # Üretilen çıktıyı tutacak değişken. Başlangıçta None.
         handled_decision = False # Kararın bilinen bir mantıkla ele alınıp alınmadığını tutar.
+        expression_command = None # ExpressionGenerator'a gönderilecek komut stringi.
 
         try:
-            # TODO: Gelecekte: Gelen kararın tipine ve içeriğine bakarak hangi alt modülün (expression, manipulation, locomotion) kullanılacağına karar ver.
-            # Örneğin, eğer karar {'action': 'generate_text', 'content': '...'} gibi bir şeyse ExpressionGenerator'ı kullan.
-            # Eğer karar {'action': 'move', 'direction': 'forward'} gibi bir şeyse LocomotionController'ı kullan.
-            # Eğer karar {'action': 'grasp', 'target': '...'} gibi bir şeyse Manipulator'ı kullan.
+            # Karar Yönlendirme ve Tepki Üretme Mantığı (Faz 3):
+            # Gelen karar stringine göre ExpressionGenerator'a gönderilecek komutu belirle.
+            # Öncelik sırası burada MotorControl'de yönetiliyor:
+            # sound_detected > complex_visual_detected > familiar_input_detected > new_input_detected > diğer/None
 
-            # Mevcut Karar Yönlendirme ve Tepki Üretme Mantığı (Faz 3 başlangıcı):
-            # DecisionModule'den gelen spesifik string kararlara göre farklı metin yanıtları üretelim.
-
-            if decision == "familiar_input_detected":
-                # Eğer karar "tanıdık input algılandı" ise, buna uygun metin yanıtı üret.
-                # Eğer ExpressionGenerator başlatıldıysa onu kullanmayı dene.
-                if self.expression_generator:
-                     # ExpressionGenerator'ın generate metoduna kararı ilet.
-                     output_data = self.expression_generator.generate("familiar_response") # ExpressionGenerator'a spesifik komut ver.
-                     if output_data is not None: # generate metodu başarıyla çıktı ürettiyse
-                          handled_decision = True
-                          # logger.debug("MotorControlCore.generate_response: Familiar response üretildi.")
-                     # else: ExpressionGenerator hata loglamış olmalı, handled_decision False kalır.
-                else: # ExpressionGenerator başlatılamadıysa veya yoksa
-                     output_data = "Bu tanıdık geliyor." # Varsayılan metin yanıtı
-                     handled_decision = True
-                     # logger.debug("MotorControlCore.generate_response: Familiar response (varsayilan metin) üretildi.")
-
+            if decision == "sound_detected":
+                expression_command = "sound_detected_response"
+                handled_decision = True
+            elif decision == "complex_visual_detected":
+                expression_command = "complex_visual_response"
+                handled_decision = True
+            elif decision == "familiar_input_detected":
+                expression_command = "familiar_response"
+                handled_decision = True
             elif decision == "new_input_detected":
-                # Eğer karar "yeni input algılandı" ise, buna uygun metin yanıtı üret.
-                # ExpressionGenerator varsa onu kullanmayı dene.
-                if self.expression_generator:
-                     output_data = self.expression_generator.generate("new_response") # ExpressionGenerator'a spesifik komut ver.
-                     if output_data is not None:
-                          handled_decision = True
-                          # logger.debug("MotorControlCore.generate_response: New response üretildi.")
-                else: # ExpressionGenerator yoksa
-                     output_data = "Yeni bir şey algıladım." # Varsayılan metin yanıtı
-                     handled_decision = True
-                     # logger.debug("MotorControlCore.generate_response: New response (varsayilan metin) üretildi.")
-
-            # TODO: Gelecekte eklenebilecek diğer karar türleri (örn: hareket, manipülasyon, ses çıkarma vb.) buraya else if blokları olarak eklenecek.
+                expression_command = "new_response"
+                handled_decision = True
+            # TODO: Gelecekte fiziksel eylem kararları (move_forward, grasp_object vb.) buraya eklenecek.
             # elif decision == "move_forward":
             #      if self.locomotion_controller:
             #           self.locomotion_controller.execute_command("forward")
@@ -158,12 +141,19 @@ class MotorControlCore:
             #           output_data = None # Fiziksel eylemlerde çıktı üretmeyebiliriz.
             #      else: logger.warning("MotorControlCore: LocomotionController yok, hareket kararı işlenemedi."); handled_decision = False # İşlenemedi olarak işaretle.
 
-            # Karar bilinen mantıkla ele alınmadıysa veya işlenirken hata olduysa varsayılan tepki.
+
+            # Belirlenen ExpressionGenerator komutunu çalıştır (Eğer bir komut belirlendiyse)
+            if handled_decision and expression_command is not None:
+                 # ExpressionGenerator varsa onu kullan, yoksa varsayılan metni üret (ExpressionGenerator'da tanımlı fallback).
+                 if self.expression_generator:
+                      output_data = self.expression_generator.generate(expression_command)
+                      # generate None döndürürse output_data None kalır, bu kabul edilebilir (örn: ExpressionGenerator o komutu bilmiyorsa).
+                 # else: ExpressionGenerator yoksa veya generate None döndürdüyse output_data None kalır.
+
+            # Eğer gelen karar None ise VEYA bilinen bir komuta eşleşmediyse/işlenirken hata olduysa
             if not handled_decision:
-                 # Gelen karar None veya bilinen stringlerden farklıysa veya ExpressionGenerator/alt modül hata verdiyse buraya gelinir.
-                 # decision None ise check_input_not_none ile zaten loglandı. Geçersiz tipteyse check_input_type ile loglandı.
-                 # Burada sadece bilgilendirme logu verelim.
-                 if decision is not None:
+                 # Gelen karar None ise (DecisionModule'den None geldiyse) veya burada eşleşmediyse
+                 if decision is not None: # Karar None değildi ama eşleşmedi
                       logger.warning(f"MotorControlCore.generate_response: Karar '{decision}' bilinen bir eyleme dönüştürülemedi veya işlenirken hata oluştu. Varsayilan tepki üretiliyor.")
 
                  # Varsayılan fallback metin yanıtını üret.
@@ -182,7 +172,6 @@ class MotorControlCore:
 
         except Exception as e:
             # Tepki üretme veya eylem başlatma işlemi sırasında beklenmedik bir hata olursa logla.
-            # Örneğin, string birleştirme hataları veya gelecekteki sentezleyici/aktüatör çağrı hataları.
             logger.error(f"MotorControlCore.generate_response: Tepki üretme/Eylem başlatma sırasında beklenmedik hata: {e}", exc_info=True)
             return None # Hata durumunda None döndürerek main loop'un çökmesini engelle.
 
@@ -190,7 +179,9 @@ class MotorControlCore:
         # output_data, üretilen string yanıt veya None olabilir.
         if output_data is not None:
              # Üretilen çıktı None değilse (örn: metin yanıtıysa) debug logla.
-             logger.debug(f"MotorControlCore.generate_response: Tepki üretildi. Output: '{output_data}'")
+             # Loglama artık ExpressionGenerator'da yapılıyor. Buradaki debug log çok detaylı olabilir.
+             # logger.debug(f"MotorControlCore.generate_response: Tepki üretildi. Output: '{output_data}'")
+             pass # Loglama ExpressionGenerator'a taşındı.
         # else: Üretilen çıktı None ise (örn: fiziksel eylem veya generate None döndürdü) loga gerek yok.
 
         return output_data # String metin yanıtı veya None döndürülür.
@@ -201,7 +192,7 @@ class MotorControlCore:
 
         Alt modüllerin (ExpressionGenerator, Manipulator, LocomotionController)
         cleanup metotlarını (varsa) çağırır.
-        module_loader.py bu metodu program sonlanırken çağrır (varsa).
+        module_loader.py bu metotu program sonlanırken çağrır (varsa).
         """
         logger.info("MotorControl modülü objesi siliniyor...")
         # Alt modüllerin cleanup metotlarını çağır (varsa).
