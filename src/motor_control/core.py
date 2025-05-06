@@ -87,8 +87,8 @@ class MotorControlCore:
         Bu karara göre, ExpressionGenerator gibi alt modülleri kullanarak
         dışarıya gönderilecek bir tepki (output_data) üretir.
         Mevcut implementasyon: Karar stringlerine göre farklı metin tepkileri üretir.
-        Karar None ise veya işlenmeyen bir karar ise None döndürür.
-        Tepki üretme veya eylem başlatma sırasında hata oluşarsa None döndürür.
+        Karar None ise veya işlenemeyen bir karar ise None döndürür.
+        Tepki üretme veya eylem başlatma sırasında hata oluşursa None döndürür.
 
         Args:
             decision (str or any): Cognition modülünden gelen karar.
@@ -97,13 +97,13 @@ class MotorControlCore:
 
         Returns:
             str or any or None: Üretilen tepki (Interaction modülüne iletilecek string, ses verisi, görsel data vb.)
-                                 veya hata durumunda ya da tepki üretilemezse None.
+                                 veya hata durumında ya da tepki üretilemezse None.
         """
         # Hata yönetimi: Karar None ise veya beklenmeyen tipte ise. check_input_not_none kullan.
         # decision string veya None bekleniyor şimdilik.
         if not check_input_not_none(decision, input_name="decision for MotorControl", logger_instance=logger) and decision is not None:
              # Eğer karar None değil ama geçerli tipi değilse (string değilse) uyarı ver.
-             logger.warning(f"MotorControlCore.generate_response: Karar beklenmeyen tipte: {type(decision)}. String veya None bekleniyordu.")
+             logger.warning(f"MotorControlCore.generate_response: Karar beklenmeyen tipte: {type(decision)}. String veya None beklenıyordu.")
              # Bu durumda altındaki else if/else bloklarına düşecektir.
              # Eğer ExpressionGenerator yoksa veya bilinen komutlardan değilse yine varsayılan tepkiye düşer.
 

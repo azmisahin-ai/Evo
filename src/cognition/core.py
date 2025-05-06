@@ -4,10 +4,10 @@
 # Gelen temsilleri, bellek girdilerini, işlenmiş anlık duyu özelliklerini kullanarak dünyayı anlamaya çalışır, kavramları öğrenir ve bir eylem kararı alır.
 # UnderstandingModule, DecisionModule ve LearningModule alt modüllerini koordine eder.
 
-import logging
-import random # Loglama için.
+import logging # Loglama için.
 # numpy gerekli (parametre tipi için)
 import numpy as np
+import random # LearningModule için örneklem almak için
 
 # Yardımcı fonksiyonları import et
 from src.core.utils import check_input_not_none, check_numpy_input, check_input_type, get_config_value # <<< Utils importları
@@ -45,10 +45,8 @@ class CognitionCore:
             config (dict): Bilişsel çekirdek yapılandırma ayarları.
                            Alt modüllere ait ayarlar kendi adları altında beklenir
                            (örn: {'understanding': {...}, 'decision': {...}, 'learning': {...}}).
-                           'learning_frequency': LearningModule'ün kaç döngü adımında bir çağrılacağı (int, varsayılan 100).
+                           'learning_frequency': LearningModule'ün kaç bilişsel döngü adımında bir tetikleneceği (int, varsayılan 100).
                            'learning_memory_sample_size': LearningModule için Memory'den alınacak Representation sayısı (int, varsayılan 50).
-            module_objects (dict): initialize_modules tarafından döndürülen, tüm modül objelerini içeren dictionary.
-                                   Memory modülü objesine erişmek için kullanılır.
         """
         self.config = config
         logger.info("Cognition modülü başlatılıyor...")
@@ -59,6 +57,7 @@ class CognitionCore:
 
         # Memory modülü referansını sakla.
         # module_objects geçerli bir dict ise içinden Memory objesini al. None olabilir.
+        # run_evo tarafından initialize_modules çağrılırken module_objects dictionary'si CognitiveCore init'ine iletilecektir.
         self.memory_instance = module_objects.get('memories', {}).get('core_memory')
         if self.memory_instance is None:
              logger.warning("CognitionCore: Memory modülü referansı alınamadı. Öğrenme (LearningModule) ve bazı karar mekanizmaları (Bellek tabanlı) çalışmayabilir.")
@@ -90,8 +89,11 @@ class CognitionCore:
             learning_config = config.get('learning', {})
             # LearningModule'e Representation boyutunu config'ten verelim.
             # Bu boyut RepresentationLearner output_dim ile aynı olmalı.
+            # Learning config'te representation_dim yoksa, üstteki representation anahtarı altındaki boyutu almayı dene.
             representation_config = config.get('representation', {})
-            learning_config['representation_dim'] = representation_config.get('representation_dim', 128) # Varsayılanı RL'den al.
+            # get() ile güvenli erişim.
+            learning_config['representation_dim'] = learning_config.get('representation_dim', representation_config.get('representation_dim', 128)) # Varsayılanı RL'den al
+
             self.learning_module = LearningModule(learning_config)
             if self.learning_module is None:
                  logger.error("CognitionCore: LearningModule başlatılamadı.")
@@ -100,7 +102,7 @@ class CognitionCore:
         except Exception as e:
              # Alt modül başlatma sırasında beklenmedik hata olursa
              logger.critical(f"CognitionCore: Alt modülleri başlatılırken hata oluştu: {e}", exc_info=True)
-             # Hata durumında alt modül objeleri None kalır.
+             # Hata durumunda alt modül objeleri None kalır.
 
 
         # Learning sıklığı ve örneklem boyutu kontrolü (negatif veya sıfır olmamalı)
@@ -141,22 +143,28 @@ class CognitionCore:
         # Döngü sayacını artır.
         self._loop_counter += 1
 
-        # LearningModule'ü tetikleme kontrolü. Öğrenme modülü ve Memory modülü varsa ve sıklık zamanı geldiyse.
+        # LearningModule'ü tetikleme kontrolü. LearningModule ve Memory modülü varsa ve sıklık zamanı geldiyse.
         if self.learning_module is not None and self.memory_instance is not None and self._loop_counter % self.learning_frequency == 0:
              logger.info(f"CognitionCore: Öğrenme döngüsü tetiklendi (döngü #{self._loop_counter}).")
              try:
                   # Memory'den öğrenme için Representation örneklemi al.
-                  # Memory objesi initialize_modules sırasında alınıp self.memory_instance olarak saklandı.
                   # Memory.core_memory_storage'a doğrudan erişim yerine Memory.retrieve gibi bir metod kullanmak daha iyi olabilir.
-                  # Ancak şu an Memory.retrieve Representation sorgusu bekliyor, tüm Representationları alma metodu yok.
-                  # TODO: Memory modülüne tüm Representationları dönecek bir metod (örn: get_all_representations) ekleyin.
-                  # Şimdilik geçici olarak core_memory_storage'a doğrudan erişelim (Refactoring TODO olarak işaretlenebilir).
-                  # Sadece geçerli numpy array Representationları alalım.
-                  all_memory_representations = [entry.get('representation') for entry in self.memory_instance.core_memory_storage if entry.get('representation') is not None and isinstance(entry.get('representation'), np.ndarray) and np.issubdtype(entry.get('representation').dtype, np.number) and entry.get('representation').ndim == 1 and entry.get('representation').shape[0] == self.learning_module.representation_dim]
+                  # Memory.retrieve metodunu 0 sorgusuyla ve büyük num_results ile tüm anıları çekebiliriz.
+                  # Veya Memory modülüne tüm Representationları dönecek bir metod (örn: get_all_representations) ekleyelim.
+                  # Şimdilik get_all_representations metodunun Memory modülünde var olduğunu varsayalım.
+                  # TODO: Memory modülüne get_all_representations metodunu ekleyin.
+                  if hasattr(self.memory_instance, 'get_all_representations'):
+                      all_memory_representations = self.memory_instance.get_all_representations() # Memory'den tüm Repr'ları al
+                  else:
+                      logger.warning("CognitionCore: Memory modülünde 'get_all_representations' metodu bulunamadı. LearningModule için Representation alınamadı.")
+                      all_memory_representations = [] # Metot yoksa boş liste.
 
-                  if all_memory_representations:
+                  # Alınan Representation listesinin numpy array listesi olduğundan emin olalım.
+                  valid_representations_for_learning = [rep for rep in all_memory_representations if rep is not None and isinstance(rep, np.ndarray) and np.issubtype(rep.dtype, np.number) and rep.ndim == 1 and rep.shape[0] == self.learning_module.representation_dim] # check_numpy_input yerine daha basit kontrol.
+
+                  if valid_representations_for_learning:
                        # Öğrenme için rastgele bir örneklem alalım (eğer bellek çok büyükse).
-                       learning_sample = random.sample(all_memory_representations, min(self.learning_memory_sample_size, len(all_memory_representations)))
+                       learning_sample = random.sample(valid_representations_for_learning, min(self.learning_memory_sample_size, len(valid_representations_for_learning)))
                        logger.debug(f"CognitionCore: Memory'den öğrenme için {len(learning_sample)} representation örneği alındı.")
                        # LearningModule'ü Representation örneklemi ile çağır.
                        self.learning_module.learn_concepts(learning_sample)
@@ -165,7 +173,6 @@ class CognitionCore:
 
              except Exception as e:
                   logger.error(f"CognitionCore: Öğrenme döngüsü sırasında bellekten veri alınırken veya LearningModule çağrılırken beklenmedik hata: {e}", exc_info=True)
-
 
         # CognitionCore'un alt modülleri başlatılamamışsa işlem yapma.
         if self.understanding_module is None or self.decision_module is None:

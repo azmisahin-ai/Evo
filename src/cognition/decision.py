@@ -122,7 +122,7 @@ class DecisionModule:
         Args:
             understanding_signals (dict or None): Anlama modülünden gelen anlama sinyalleri dictionary'si.
                                                 Beklenen format: {'similarity_score': float, 'high_audio_energy': bool, 'high_visual_edges': bool, 'is_bright': bool, 'is_dark': bool, 'max_concept_similarity': float, 'most_similar_concept_id': int or None} veya None.
-                                                UnderstandingModule hata durumunda varsayılan dict döndürmeyi hedefler.
+                                                UnderstandingModule hata durumunda varsayılan dict döndürmeyi hedefleri.
             relevant_memory_entries (list or None): Memory modülünden gelen ilgili bellek girdileri listesi.
                                             Bu metotta doğrudan karar için kullanılmıyor, ama parametre olarak geliyor.
                                             Gelecekte bağlamsal karar için kullanılabilir.
@@ -243,7 +243,7 @@ class DecisionModule:
             if np.isscalar(self.curiosity_level) and isinstance(self.curiosity_level, np.number): # <<< HATA DÜZELTME
                 try:
                     # Sadece Karar başarılı bir şekilde belirlendiyse (decision is not None) merakı güncelle.
-                    # Bu, hata durumında merakın yanlış güncellenmesini önler.
+                    # Bu, hata durumunda merakın yanlış güncellenmesini önler.
                     if decision is not None:
                         # Karar stringine göre merakı güncelle
                         if decision == "new_input_detected": # Yeni input kararı verildiğinde merak artar
@@ -253,9 +253,11 @@ class DecisionModule:
                              self.curiosity_level = max(0.0, self.curiosity_level - self.curiosity_decrement_familiar) # Merak negatif olmasın.
                              #logger.debug(f"DecisionModule: Merak azalışı ({self.curiosity_decrement_familiar:.2f}). Karar 'Tanıdık' veya 'Kavram'.")
                         # Ses, Görsel Kenar, Parlak/Karanlık kararları verildiğinde Merak ne olsun?
-                        # Şu anki mantık temel duruma (yeni/tanıdık) göre güncelliyor. Bu da mantıklı olabilir.
-                        # Veya bu kararlar verildiğinde merak sabit kalabilir.
-                        # Şimdiki mantık temel duruma göre güncellemeye devam etsin.
+                        # Şu anki mantık temel duruma göre güncellemeye devam etsin.
+                        # Alternatif: Eğer Process tabanlı veya Kavram tanıma kararı verilirse merak seviyesi DEĞİŞMESİN.
+                        # Bu ikinci mantık daha mantıklı olabilir: Evo yeni bir şey algıladığında meraklanır, ama o şeyi tanıyınca veya kategorize edince merakı azalır.
+                        # Yüksek ses veya detaylı görsel gibi Process özellikleri, başlı başına merakı artırmamalı veya azaltmamalı.
+                        # Önceki mantığı (temel duruma göre güncelleme) koruyorum şimdilik, ama burası gelecekte gözden geçirilebilir.
 
 
                     # Her döngü adımında merak seviyesini azalt (decay).

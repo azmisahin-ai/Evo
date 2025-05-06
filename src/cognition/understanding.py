@@ -1,4 +1,3 @@
-
 # src/cognition/understanding.py
 #
 # Evo'nın anlama modülünü temsil eder.
@@ -49,15 +48,15 @@ class UnderstandingModule:
         self.visual_edges_threshold = get_config_value(config, 'visual_edges_threshold', 50.0, expected_type=(float, int), logger_instance=logger)
         self.brightness_threshold_high = get_config_value(config, 'brightness_threshold_high', 200.0, expected_type=(float, int), logger_instance=logger)
         self.brightness_threshold_low = get_config_value(config, 'brightness_threshold_low', 50.0, expected_type=(float, int), logger_instance=logger)
-        # Concept recognition threshold DecisionModule'e taşındı ama burada da referans için saklayalım.
-        self.concept_recognition_threshold = get_config_value(config, 'concept_recognition_threshold', 0.85, expected_type=(float, int), logger_instance=logger)
+        # Concept recognition threshold DecisionModule'e taşındı.
+        # self.concept_recognition_threshold = get_config_value(config, 'concept_recognition_threshold', 0.85, expected_type=(float, int), logger_instance=logger)
 
 
         # Eşik değerleri için basit değer kontrolü.
         # Daha önce yapıldı, burada tekrar etmeye gerek yok, get_config_value yeterli.
 
 
-        logger.info(f"UnderstandingModule başlatıldı. Ses Enerji Eşiği: {self.audio_energy_threshold}, Görsel Kenar Eşiği: {self.visual_edges_threshold}, Parlaklık Yüksek Eşiği: {self.brightness_threshold_high}, Parlaklık Düşük Eşiği: {self.brightness_threshold_low}, Kavram Tanıma Eşiği (DM): {self.concept_recognition_threshold}")
+        logger.info(f"UnderstandingModule başlatıldı. Ses Enerji Eşiği: {self.audio_energy_threshold}, Görsel Kenar Eşiği: {self.visual_edges_threshold}, Parlaklık Yüksek Eşiği: {self.brightness_threshold_high}, Parlaklık Düşük Eşiği: {self.brightness_threshold_low}")
 
 
     # processed_inputs, learned_representation, relevant_memory_entries ve current_concepts argümanlarını alıyor.
@@ -70,7 +69,7 @@ class UnderstandingModule:
         hesaplar. Sonuçları bir dictionary olarak döndürür.
 
         Args:
-            processed_inputs (dict or None): Processor modüllerinden gelen işlenmiş ham veriler.
+            processed_inputs (dict or None): Processor modülllerinden gelen işlenmiş ham veriler.
                                             Beklenen format: {'visual': dict, 'audio': np.ndarray} veya None/boş dict.
             learned_representation (numpy.ndarray or None): En son öğrenilmiş temsil vektörü.
                                                          Beklenen format: shape (D,), dtype sayısal, veya None.
@@ -128,7 +127,8 @@ class UnderstandingModule:
                 for memory_entry in relevant_memory_entries:
                     stored_representation = memory_entry.get('representation')
                     # Stored representation'ın geçerli bir sayısal 1D numpy array olduğunu doğrula.
-                    if stored_representation is not None and isinstance(stored_representation, np.ndarray) and np.issubdtype(stored_representation.dtype, np.number) and stored_representation.ndim == 1:
+                    # np.issubtype yerine isinstance ve np.number kullanımı (Hata düzeltme).
+                    if stored_representation is not None and isinstance(stored_representation, np.ndarray) and isinstance(stored_representation.dtype, np.number) and stored_representation.ndim == 1:
                          stored_norm = np.linalg.norm(stored_representation)
                          if stored_norm > 1e-8:
                               similarity = np.dot(learned_representation, stored_representation) / (query_norm * stored_norm)
@@ -146,7 +146,8 @@ class UnderstandingModule:
             if is_valid_representation and is_valid_concepts_list and current_concepts: # Kavram listesi de boş olmamalı
                  for i, concept_rep in enumerate(current_concepts):
                       # Kavram temsilcisinin geçerli olduğundan emin ol.
-                      if concept_rep is not None and isinstance(concept_rep, np.ndarray) and np.issubdtype(concept_rep.dtype, np.number) and concept_rep.ndim == 1:
+                      # np.issubtype yerine isinstance ve np.number kullanımı (Hata düzeltme).
+                      if concept_rep is not None and isinstance(concept_rep, np.ndarray) and isinstance(concept_rep.dtype, np.number) and concept_rep.ndim == 1:
                            concept_norm = np.linalg.norm(concept_rep)
                            if concept_norm > 1e-8:
                                 similarity = np.dot(learned_representation, concept_rep) / (query_norm * concept_norm)
@@ -167,6 +168,7 @@ class UnderstandingModule:
                  # Ses Enerjisi Kontrolü
                  audio_features = processed_inputs.get('audio') # AudioProcessor'dan (2,) float32 numpy array bekleniyor veya None.
                  # check_numpy_input ile genel kontrol, sonra shape[0] >= 1 ve sayısal dtype kontrolü.
+                 # np.issubtype yerine isinstance ve np.number kullanımı (Hata düzeltme).
                  if isinstance(audio_features, np.ndarray) and check_numpy_input(audio_features, expected_dtype=np.number, expected_ndim=1, input_name="processed_inputs['audio']", logger_instance=logger) and audio_features.shape[0] >= 1 and isinstance(audio_features.dtype, np.number):
                       audio_energy = float(audio_features[0])
                       if audio_energy >= self.audio_energy_threshold:
@@ -180,6 +182,7 @@ class UnderstandingModule:
                  if isinstance(visual_features, dict):
                       edges_data = visual_features.get('edges')
                       # check_numpy_input ile genel control, size > 0 ve sayısal dtype.
+                      # np.issubtype yerine isinstance ve np.number kullanımı (Hata düzeltme).
                       if isinstance(edges_data, np.ndarray) and check_numpy_input(edges_data, expected_dtype=np.number, expected_ndim=(1,2), input_name="processed_inputs['visual']['edges']", logger_instance=logger) and edges_data.size > 0 and isinstance(edges_data.dtype, np.number):
                            visual_edges_mean = np.mean(edges_data)
                            if visual_edges_mean >= self.visual_edges_threshold:
@@ -191,6 +194,7 @@ class UnderstandingModule:
                  if isinstance(visual_features, dict):
                       grayscale_data = visual_features.get('grayscale')
                       # check_numpy_input ile genel control, size > 0 ve sayısal dtype.
+                      # np.issubtype yerine isinstance ve np.number kullanımı (Hata düzeltme).
                       if isinstance(grayscale_data, np.ndarray) and check_numpy_input(grayscale_data, expected_dtype=np.number, expected_ndim=(1,2), input_name="processed_inputs['visual']['grayscale']", logger_instance=logger) and grayscale_data.size > 0 and isinstance(grayscale_data.dtype, np.number):
                            visual_brightness_mean = np.mean(grayscale_data)
 

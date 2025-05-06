@@ -35,7 +35,9 @@ class LearningModule:
                                                     0.0'a yakınsa, çoğu şey yeni kavram olur.
                            'representation_dim': İşlenecek Representation vektörlerinin boyutu (int).
                                                   Bu, RepresentationLearner'ın çıktısı ile aynı olmalıdır.
-                                                  Config'ten alınır.
+                                                  Config'ten veya RepresentationLearner'dan alınabilir.
+                                                  Burada config'ten alalım.
+                                                  Eğer config'te yoksa RepresentationLearner default'u (128) kullanılır.
         """
         self.config = config
         logger.info("LearningModule başlatılıyor (Faz 4)...")
@@ -43,6 +45,7 @@ class LearningModule:
         # Yapılandırmadan eşiği alırken get_config_value kullan.
         self.new_concept_threshold = get_config_value(config, 'new_concept_threshold', 0.7, expected_type=(float, int), logger_instance=logger)
         # Representation boyutunu config'ten al (RepresentationLearner ile uyumlu olmalı).
+        # Eğer config'te learning altında 'representation_dim' yoksa, üstteki representation anahtarı altındaki boyutu almayı dene.
         self.representation_dim = get_config_value(config, 'representation_dim', 128, expected_type=int, logger_instance=logger)
 
 
