@@ -81,23 +81,23 @@ Aşağıdaki fazlar, Evo'nın doğumundan (temel algı) bilgelik ve ustalığa (
     *   [x] Cognition modülünün oluşturulması (`src/cognition/core.py`).
     *   [x] MotorControl modülünün oluşturulması (`src/motor_control/core.py`).
     *   [x] Bu modüllerin temel döngüye entegrasyonu.
-    *   [x] Interaction modülünün MotorControl'den gelen tepkileri dış dünyaya iletmesi.
+    *   [x] Interaction modülünün MotorControl'den gelen tepkiləri dış dünyaya iletmesi.
 
     *   **Faz 3 Gerçek Implementasyon Görevleri (TAMAMLANDI):**
-        *   [x] Basit karar alma mantığı tasarımı (Input temsili/Process çıktısı ve retrieve edilen belleği kullanarak nasıl bir karar alınacak?). (Bellek benzerliği, Process çıktısı eşikleri ve merak seviyesine dayalı öncelikli mantık implemente edildi).
-        *   [x] `CognitionCore.decide` metodunun tasarlanan basit mantığına göre implementasyonu. (UnderstandingModule ve DecisionModule'de implemente edildi).
-        *   [x] Kararın MotorControl modülüne iletilmesi formatının belirlenmesi ve uygulanması. (String kararlar kullanılıyor).
-        *   [x] Yanıt üretme mantığı tasarımı. (MotorControl -> ExpressionGenerator akışı kullanılıyor).
-        *   [x] `MotorControlCore.generate_response` metodunun tasarlanan basit mantığına göre implementasyonu. (Yeni string kararlara göre sabit metin yanıtları üretildi).
-        *   [x] Temel "anlama-yanıtla" döngüsünün basit bir senaryo ile test edilmesi. (Entegrasyon çalışıyor, farklı karar/tepki döngüleri gözlemlendi).
+        *   [x] Basit karar alma mantığı tasarımı (Input temsili/Process çıktısı ve retrieve edilen belleği kullanarak nasıl bir karar alınacak?).
+        *   [x] `CognitionCore.decide` metodunun tasarlanan basit mantığına göre implementasyonu.
+        *   [x] Kararın MotorControl modülüne iletilmesi formatının belirlenmesi ve uygulanması.
+        *   [x] Yanıt üretme mantığı tasarımı.
+        *   [x] `MotorControlCore.generate_response` metodunun tasarlanan basit mantığına göre implementasyonu.
+        *   [x] Temel "anlama-yanıtla" döngüsünün basit bir senaryo ile test edilmesi.
 
     *   [x] **TODO:** İşlenmiş temsilleri kullanarak basit ayırımlar yapma ("Bu farklı bir şey", "Bu tanıdık") yeteneğinin geliştirilmesi. (Bellek benzerlik eşiği ve Process çıktısı eşikleri ile yapıldı).
-    *   [x] **TODO:** Önceden öğretilmiş (denetimli) temel etiketleri/kavramları (örn. "ses var", "ışık var", "hareket var") bazı temsil desenleriyle ilişkilendirme mekanizmasının eklenmesi. (Process çıktısı eşiklerine dayalı basit boolean etiketlerle (ses, kenar, parlak, karanlık) implemente edildi).
+    *   [x] **TODO:** Önceden öğretilmiş (denetimli) temel etiketleri/kavramları (örn. "ses var", "ışık var", "hareket var") bazı temsil desenleriyle ilişkilendirme mekanizmasının eklenmesi. (Process çıktısı eşiklerine dayalı basit boolean etiketlerle (ses, kenar, parlak, karanlık) ilk adımı atıldı).
     *   [x] **TODO:** İçsel durumdan (örn. yeni bir desen fark ettiğinde, bellekten bir şey çağırdığında) basit dışsal tepkiler (rastgele ses çıkarma, ilkel görsel veya basit bir sinyal/metin) üretme mantığı. (Merak seviyesi ve merak eşiği ile yapıldı).
 
 ---
 
-*   **Faz 4: Kavramsal Genişleme ve İfade Gelişimi (Dünyayı Keşfetme ve İletişim Çabaları - ŞU ANKİ ODAK NOKTASI)**
+*   **Faz 4: Kavramsal Genişleme ve İfade Gelişimi (Dünyayı Keşfetme ve İfade Çeşitliliği - ŞU ANKİ ODAK NOKTASI)**
     *   [ ] Hedef: Daha fazla kavramı kendi kendine (denetimsiz öğrenme ile) keşfetmeye başlama. Denetimli öğrenme ile öğretilen etiket setini genişletme. İçsel temsillerden daha kontrollü dışsal ifadeler üretme (ses sentezi, basit görsel çıktılar).
     *   [x] Odak Modülleri için temel dosyalar/placeholder'lar mevcut (`src/cognition/learning.py`, `src/motor_control/expression.py`).
 
@@ -144,3 +144,4 @@ Aşağıdaki fazlar, Evo'nın doğumundan (temel algı) bilgelik ve ustalığa (
 *   [x] Config dosyasındaki gereksiz bölümlerin temizlenmesi.
 
 ---
+
