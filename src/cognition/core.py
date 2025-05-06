@@ -127,7 +127,7 @@ class CognitionCore:
         Args:
             processed_inputs (dict or None): Processor modüllerinden gelen işlenmiş ham veriler.
                                             Beklenen format: {'visual': dict, 'audio': np.ndarray} veya None/boş dict.
-            learned_representation (numpy.ndarray or None): En son öğrenilmiş temsil vektörü
+            learned_representation (numpy.ndarray or None): RepresentationLearner'dan gelen en son öğrenilmiş temsil vektörü
                                                          veya işleme sırasında hata oluştuysa None.
                                                          Beklenen format: shape (D,), dtype sayısal, veya None.
             relevant_memory_entries (list or None): Memory modülünden gelen ilgili bellek girdileri listesi.
@@ -156,9 +156,7 @@ class CognitionCore:
 
                   # Alınan Representation listesinin geçerli numpy array listesi olduğundan emin olalım.
                   # LearningModule'ün beklediği boyutta olanları alalım.
-                  valid_representations_for_learning = [rep for rep in all_memory_representations if rep is not None and isinstance(rep, np.ndarray) and np.issubtype(rep.dtype, np.number) and rep.ndim == 1 and self.learning_module is not None and rep.shape[0] == self.learning_module.representation_dim] # issubtype hala kullanılıyor? Ah!
-
-                  # Düzeltme: issubtype yerine isinstance kullan.
+                  # issubtype yerine isinstance kullan (Hata düzeltme).
                   valid_representations_for_learning = [rep for rep in all_memory_representations if rep is not None and isinstance(rep, np.ndarray) and isinstance(rep.dtype, np.number) and rep.ndim == 1 and self.learning_module is not None and rep.shape[0] == self.learning_module.representation_dim]
 
 
@@ -216,7 +214,7 @@ class CognitionCore:
 
 
         except Exception as e:
-            # Alt modüllerin metotlarını çağırırken veya içlerinde (eğer yakalamadılarsa) beklenmedek hata olursa.
+            # Alt modüllerin metotlarını çağırırken veya içlerinde (eğer yakalamadılarsa) beklenmedik hata olursa.
             logger.error(f"CognitionCore.decide: Anlama veya karar alma sırasında beklenmedik hata: {e}", exc_info=True)
             return None # Hata durumunda None döndür.
 

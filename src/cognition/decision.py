@@ -130,7 +130,7 @@ class DecisionModule:
 
         Returns:
             str or None: Alınan karar stringi (örn: "sound_detected", "complex_visual_detected", "bright_light_detected", "dark_environment_detected", "recognized_concept_X", "familiar_input_detected", "new_input_detected", "explore_randomly", "make_noise")
-                         veya girdi (understanding_signals) geçersizse ya da hata durumunda None.
+                         veya girdi (understanding_signals) geçersizse ya da hata durumında None.
         """
         # Girdi kontrolleri. understanding_signals'ın geçerli bir dictionary mi?
         if not check_input_not_none(understanding_signals, input_name="understanding_signals for DecisionModule", logger_instance=logger):
@@ -185,7 +185,7 @@ class DecisionModule:
                  decision = random.choice(["explore_randomly", "make_noise"]) # İki seçenekten birini rastgele seç.
                  logger.debug(f"DecisionModule.decide: Karar: '{decision}'. Merak eşiği ({self.curiosity_level:.2f} >= {self.curiosity_threshold:.2f}) aşıldı.")
 
-            # 2. Yüksek ses enerjisi var mı? (İ ikinci öncelik)
+            # 2. Yüksek ses enerjisi var mı? (İkinci öncelik)
             elif high_audio_energy: # high_audio_energy UnderstandingModule'da bool olarak belirlendi.
                  decision = "sound_detected"
                  logger.debug(f"DecisionModule.decide: Karar: '{decision}'. Yüksek ses enerjisi algılandı.")

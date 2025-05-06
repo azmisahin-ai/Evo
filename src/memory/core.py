@@ -82,7 +82,7 @@ class Memory:
         self._load_from_storage()
 
 
-        # Alt bellek modüllerini başlatmayı dene (Gelecek TODO).
+        # Alt bellek modülleri başlatmayı dene (Gelecek TODO).
         # Başlatma hataları kendi içlerinde veya _initialize_single_module gibi bir utility ile yönetilmeli.
         # TODO: Alt bellek modüllerini burada başlatma mantığı eklenecek.
         # try:
@@ -393,7 +393,7 @@ class Memory:
         except Exception as e:
             # Geri çağırma işlemi sırasında beklenmedik bir hata olursa logla.
             logger.error(f"Memory.retrieve: Bellekten geri çağırma sırasında beklenmedik hata: {e}", exc_info=True)
-            return [] # Hata durumında boş liste döndürerek main loop'un devam etmesini sağla.
+            return [] # Hata durumunda boş liste döndürerek main loop'un devam etmesini sağla.
 
         # Başarılı durumda geri çağrılan anı listesini döndür.
         # logger.debug(f"Memory.retrieve: Geri çağrılan anı listesi boyutu: {len(retrieved_list)}") # run_evo.py'de loglanıyor
@@ -409,7 +409,8 @@ class Memory:
         """
         # Sadece geçerli numpy array Representationları içeren bir liste döndür.
         # core_memory_storage'daki her öğenin {'representation': np.ndarray, ...} formatında olduğu varsayılır.
-        valid_representations = [entry.get('representation') for entry in self.core_memory_storage if isinstance(entry, dict) and entry.get('representation') is not None and isinstance(entry.get('representation'), np.ndarray) and np.issubtype(entry.get('representation').dtype, np.number) and entry.get('representation').ndim == 1]
+        # np.issubtype yerine isinstance ve np.number kullanımı (Hata düzeltme).
+        valid_representations = [entry.get('representation') for entry in self.core_memory_storage if isinstance(entry, dict) and entry.get('representation') is not None and isinstance(entry.get('representation'), np.ndarray) and isinstance(entry.get('representation').dtype, np.number) and entry.get('representation').ndim == 1] # <<< HATA DÜZELTME
         logger.debug(f"Memory.get_all_representations: {len(valid_representations)} geçerli Representation döndürülüyor.")
         return valid_representations # Kopyasını döndürmek daha güvenli olabilir: [rep.copy() for rep in valid_representations]
 
@@ -419,7 +420,7 @@ class Memory:
         Memory modülü kaynaklarını temizler.
 
         Temel (core) bellek listesini kalıcı depolamaya kaydeder
-        ve alt bellek modüllerinin (EpisodicMemory, SemanticMemory)
+        ve alt bellek modüllerinin (EpisodicMemory, SemantikMemory)
         cleanup metotlarını (varsa) çağırır.
         module_loader.py bu metotu program sonlanırken çağrır (varsa).
         """
@@ -428,7 +429,7 @@ class Memory:
         # Belleği kalıcı depolamaya kaydetme mantığı
         self._save_to_storage()
 
-        # Temel (core) bellek listesini temizle (kaydedildikten sonra).
+        # Temel (core) bellekteki anı listesini temizle (kaydedildikten sonra).
         # Listeyi None yapmak veya boş bir liste atamak, objelerin garbage collection tarafından toplanmasına yardımcı olur.
         self.core_memory_storage = [] # Veya self.core_memory_storage = None
         logger.info("Memory: Core bellek temizlendi (RAM).") # RAM'deki kopyanın temizlendiğini belirt.
