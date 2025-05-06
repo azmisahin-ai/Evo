@@ -87,8 +87,6 @@ class CognitionCore:
 
             # Öğrenme modülünü yapılandırmasından başlat
             learning_config = config.get('learning', {})
-            # LearningModule'e Representation boyutunu config'ten verelim.
-            # Bu boyut RepresentationLearner output_dim ile aynı olmalı.
             # Learning config'te representation_dim yoksa, üstteki representation anahtarı altındaki boyutu almayı dene.
             representation_config = config.get('representation', {})
             # get() ile güvenli erişim.
@@ -102,7 +100,7 @@ class CognitionCore:
         except Exception as e:
              # Alt modül başlatma sırasında beklenmedik hata olursa
              logger.critical(f"CognitionCore: Alt modülleri başlatılırken hata oluştu: {e}", exc_info=True)
-             # Hata durumunda alt modül objeleri None kalır.
+             # Hata durumında alt modül objeleri None kalır.
 
 
         # Learning sıklığı ve örneklem boyutu kontrolü (negatif veya sıfır olmamalı)
@@ -129,7 +127,7 @@ class CognitionCore:
         Args:
             processed_inputs (dict or None): Processor modüllerinden gelen işlenmiş ham veriler.
                                             Beklenen format: {'visual': dict, 'audio': np.ndarray} veya None/boş dict.
-            learned_representation (numpy.ndarray or None): RepresentationLearner'dan gelen en son öğrenilmiş temsil vektörü
+            learned_representation (numpy.ndarray or None): En son öğrenilmiş temsil vektörü
                                                          veya işleme sırasında hata oluştuysa None.
                                                          Beklenen format: shape (D,), dtype sayısal, veya None.
             relevant_memory_entries (list or None): Memory modülünden gelen ilgili bellek girdileri listesi.
@@ -148,19 +146,21 @@ class CognitionCore:
              logger.info(f"CognitionCore: Öğrenme döngüsü tetiklendi (döngü #{self._loop_counter}).")
              try:
                   # Memory'den öğrenme için Representation örneklemi al.
-                  # Memory.core_memory_storage'a doğrudan erişim yerine Memory.retrieve gibi bir metod kullanmak daha iyi olabilir.
-                  # Memory.retrieve metodunu 0 sorgusuyla ve büyük num_results ile tüm anıları çekebiliriz.
-                  # Veya Memory modülüne tüm Representationları dönecek bir metod (örn: get_all_representations) ekleyelim.
-                  # Şimdilik get_all_representations metodunun Memory modülünde var olduğunu varsayalım.
-                  # TODO: Memory modülüne get_all_representations metodunu ekleyin.
+                  # Memory modülünde get_all_representations metodu olmalı.
                   if hasattr(self.memory_instance, 'get_all_representations'):
-                      all_memory_representations = self.memory_instance.get_all_representations() # Memory'den tüm Repr'ları al
+                      # get_all_representations Representation vektörlerinin listesini döndürür.
+                      all_memory_representations = self.memory_instance.get_all_representations()
                   else:
                       logger.warning("CognitionCore: Memory modülünde 'get_all_representations' metodu bulunamadı. LearningModule için Representation alınamadı.")
                       all_memory_representations = [] # Metot yoksa boş liste.
 
-                  # Alınan Representation listesinin numpy array listesi olduğundan emin olalım.
-                  valid_representations_for_learning = [rep for rep in all_memory_representations if rep is not None and isinstance(rep, np.ndarray) and np.issubtype(rep.dtype, np.number) and rep.ndim == 1 and rep.shape[0] == self.learning_module.representation_dim] # check_numpy_input yerine daha basit kontrol.
+                  # Alınan Representation listesinin geçerli numpy array listesi olduğundan emin olalım.
+                  # LearningModule'ün beklediği boyutta olanları alalım.
+                  valid_representations_for_learning = [rep for rep in all_memory_representations if rep is not None and isinstance(rep, np.ndarray) and np.issubtype(rep.dtype, np.number) and rep.ndim == 1 and self.learning_module is not None and rep.shape[0] == self.learning_module.representation_dim] # issubtype hala kullanılıyor? Ah!
+
+                  # Düzeltme: issubtype yerine isinstance kullan.
+                  valid_representations_for_learning = [rep for rep in all_memory_representations if rep is not None and isinstance(rep, np.ndarray) and isinstance(rep.dtype, np.number) and rep.ndim == 1 and self.learning_module is not None and rep.shape[0] == self.learning_module.representation_dim]
+
 
                   if valid_representations_for_learning:
                        # Öğrenme için rastgele bir örneklem alalım (eğer bellek çok büyükse).
@@ -216,7 +216,7 @@ class CognitionCore:
 
 
         except Exception as e:
-            # Alt modüllerin metotlarını çağırırken veya içlerinde (eğer yakalamadılarsa) beklenmedik hata olursa.
+            # Alt modüllerin metotlarını çağırırken veya içlerinde (eğer yakalamadılarsa) beklenmedek hata olursa.
             logger.error(f"CognitionCore.decide: Anlama veya karar alma sırasında beklenmedik hata: {e}", exc_info=True)
             return None # Hata durumunda None döndür.
 

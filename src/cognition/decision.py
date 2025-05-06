@@ -122,7 +122,7 @@ class DecisionModule:
         Args:
             understanding_signals (dict or None): Anlama modülünden gelen anlama sinyalleri dictionary'si.
                                                 Beklenen format: {'similarity_score': float, 'high_audio_energy': bool, 'high_visual_edges': bool, 'is_bright': bool, 'is_dark': bool, 'max_concept_similarity': float, 'most_similar_concept_id': int or None} veya None.
-                                                UnderstandingModule hata durumunda varsayılan dict döndürmeyi hedefler.
+                                                UnderstandingModule hata durumunda varsayılan dict döndürmeyi hedefleri.
             relevant_memory_entries (list or None): Memory modülünden gelen ilgili bellek girdileri listesi.
                                             Bu metotta doğrudan karar için kullanılmıyor, ama parametre olarak geliyor.
                                             Gelecekte bağlamsal karar için kullanılabilir.
@@ -185,7 +185,7 @@ class DecisionModule:
                  decision = random.choice(["explore_randomly", "make_noise"]) # İki seçenekten birini rastgele seç.
                  logger.debug(f"DecisionModule.decide: Karar: '{decision}'. Merak eşiği ({self.curiosity_level:.2f} >= {self.curiosity_threshold:.2f}) aşıldı.")
 
-            # 2. Yüksek ses enerjisi var mı? (İkinci öncelik)
+            # 2. Yüksek ses enerjisi var mı? (İ ikinci öncelik)
             elif high_audio_energy: # high_audio_energy UnderstandingModule'da bool olarak belirlendi.
                  decision = "sound_detected"
                  logger.debug(f"DecisionModule.decide: Karar: '{decision}'. Yüksek ses enerjisi algılandı.")

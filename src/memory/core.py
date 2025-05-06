@@ -15,6 +15,10 @@ import os # Dosya sistemi işlemleri için (kontrol etme, dizin oluşturma)
 # Yardımcı fonksiyonları import et
 from src.core.utils import check_input_not_none, check_numpy_input, get_config_value, check_input_type, run_safely, cleanup_safely # utils fonksiyonları kullanılmış
 
+# Alt bellek modüllerini import et (Placeholder sınıflar)
+from .episodic import EpisodicMemory # <<< Yeni import
+from .semantic import SemanticMemory # <<< Yeni import
+
 
 # Bu modül için bir logger oluştur
 # 'src.memory.core' adında bir logger döndürür.
@@ -51,14 +55,19 @@ class Memory:
         logger.info("Memory modülü başlatılıyor...")
 
         # Yapılandırmadan ayarları alırken get_config_value kullan
-        self.max_memory_size = get_config_value(config, 'max_memory_size', 1000, expected_type=int, logger_instance=logger)
-        self.num_retrieved_memories = get_config_value(config, 'num_retrieved_memories', 5, expected_type=int, logger_instance=logger)
+        self.max_memory_size = get_config_value(config, 'max_memory_size', 1000, expected_type=(float, int), logger_instance=logger)
+        self.num_retrieved_memories = get_config_value(config, 'num_retrieved_memories', 5, expected_type=(float, int), logger_instance=logger)
         self.memory_file_path = get_config_value(config, 'memory_file_path', 'data/core_memory.pkl', expected_type=str, logger_instance=logger)
 
         # num_retrieved_memories için negatif değer kontrolü (get_config_value tipi kontrol ediyor ama değeri etmiyor)
-        if self.num_retrieved_memories < 0:
-             logger.warning(f"Memory: Konfigurasyonda num_retrieved_memories negatif ({self.num_retrieved_memories}). Varsayılan 5 kullanılıyor.")
+        if not isinstance(self.num_retrieved_memories, int) or self.num_retrieved_memories < 0:
+             logger.warning(f"Memory: Konfigürasyonda num_retrieved_memories geçersiz ({self.num_retrieved_memories}). Varsayılan 5 kullanılıyor.")
              self.num_retrieved_memories = 5
+
+        # max_memory_size için negatif veya float değer kontrolü
+        if not isinstance(self.max_memory_size, int) or self.max_memory_size < 0:
+             logger.warning(f"Memory: Konfigürasyonda max_memory_size geçersiz ({self.max_memory_size}). Varsayılan 1000 kullanılıyor.")
+             self.max_memory_size = 1000
 
 
         # Bellek depolama yapıları. Şimdilik sadece temel list tabanlı (core/working memory).
@@ -180,6 +189,7 @@ class Memory:
         try:
             with open(self.memory_file_path, 'wb') as f: # 'wb' binary write mode
                 # pickle.dump ile veriyi dosyaya kaydet
+                # Güvenlik için kopyasını kaydetmek daha iyi olabilir, ancak Representationlar zaten numpy array, immutable sayılabilir.
                 pickle.dump(self.core_memory_storage, f)
             logger.info(f"Memory._save_to_storage: Bellek başarıyla kaydedildi: {self.memory_file_path} ({len(self.core_memory_storage)} anı).")
 
@@ -265,7 +275,7 @@ class Memory:
 
 
         except Exception as e:
-            # Saklama işlemi sırasında beklenmedik bir hata oluşarsa logla.
+            # Saklama işlemi sırasında beklenmedik bir hata oluşursa logla.
             logger.error(f"Memory.store: Belleğe kaydetme sırasında beklenmedik hata: {e}", exc_info=True)
             # Hata durumunda programın çökmesini engelle, sadece logla ve devam et.
 
@@ -299,7 +309,7 @@ class Memory:
             num_results = self.num_retrieved_memories
 
         # Hata yönetimi: num_results'ın geçerli bir integer (>= 0) olup olmadığını kontrol et.
-        if not check_input_type(num_results, int, input_name="num_results for Memory.retrieve", logger_instance=logger) or num_results < 0:
+        if not isinstance(num_results, int) or num_results < 0:
              logger.warning(f"Memory.retrieve: Geçersiz num_results değeri veya tipi ({num_results}). Varsayılan ({self.num_retrieved_memories}) veya 5 kullanılacak.")
              num_results = self.num_retrieved_memories if isinstance(self.num_retrieved_memories, int) and self.num_retrieved_memories >= 0 else 5
         actual_num_results = min(num_results, len(self.core_memory_storage)) # Listenin boyutunu aşmasın
@@ -330,23 +340,20 @@ class Memory:
                 # Bellekteki her anı ile sorgu arasındaki benzerliği hesapla.
                 for memory_entry in self.core_memory_storage:
                     # Anıdaki representation'ı al ve geçerliliğini kontrol et.
-                    stored_representation = memory_entry.get('representation') # .get ile güvenli erişim
                     # Stored representation'ın geçerli bir sayısal 1D numpy array olduğunu doğrula.
-                    if stored_representation is not None and isinstance(stored_representation, np.ndarray) and np.issubdtype(stored_representation.dtype, np.number) and stored_representation.ndim == 1:
-                        stored_norm = np.linalg.norm(stored_representation)
-                        if stored_norm > 1e-8: # Stored vektör sıfır ise bölme hatası olmaması için kontrol et.
-                            # Kosinüs benzerliği hesapla: (dot product) / (norm1 * norm2)
-                            # Güvenlik için np.dot sonuçlarının float olup olmadığını kontrol etmek iyi olabilir.
-                            similarity = np.dot(query_representation, stored_representation) / (query_norm * stored_norm)
-                            # logger.debug(f"Memory.retrieve: Calculated similarity for a memory entry: {similarity:.4f}")
-                            # Benzerlik değeri NaN (Not a Number) olabilir (örn: sıfıra bölme hatası veya geçersiz input).
-                            # NaN değerler genellikle sıralamada sorun yaratır, bu yüzden kontrol edip yoksayalım veya belirli bir değer atayalım.
-                            if not np.isnan(similarity):
-                                similarities.append((similarity, memory_entry))
-                            else:
-                                logger.warning("Memory.retrieve: Calculated NaN similarity for a memory entry. Skipping this entry.")
-                        # else: logger.debug("Memory.retrieve: Stored representation has near-zero norm, skipping similarity calculation for this entry.")
-                    # else: logger.debug("Memory.retrieve: Stored entry does not contain a valid numeric 1D numpy array representation, skipping.")
+                    if memory_entry is not None and isinstance(memory_entry, dict): # memory_entry dict mi kontrol et
+                         stored_representation = memory_entry.get('representation') # .get ile güvenli erişim
+                         # np.issubtype yerine isinstance ve np.number kullanımı (Hata düzeltme).
+                         if stored_representation is not None and isinstance(stored_representation, np.ndarray) and isinstance(stored_representation.dtype, np.number) and stored_representation.ndim == 1: # <<< HATA DÜZELTME
+                              stored_norm = np.linalg.norm(stored_representation)
+                              if stored_norm > 1e-8: # Stored vektör sıfır ise bölme hatası olmaması için kontrol et.
+                                   # Kosinüs benzerliği hesapla: (dot product) / (norm1 * norm2)
+                                   similarity = np.dot(query_representation, stored_representation) / (query_norm * stored_norm)
+                                   if not np.isnan(similarity):
+                                        similarities.append((similarity, memory_entry))
+                              # else: logger.debug("Memory.retrieve: Stored rep near zero norm, skipping similarity.")
+                         # else: logger.debug("Memory.retrieve: Invalid stored rep, skipping.")
+                    # else: logger.warning("Memory.retrieve: Listedeki öğe dict değil, yoksayılıyor.")
 
 
                 # Benzerliklere göre azalan sırada sırala.
@@ -364,7 +371,11 @@ class Memory:
                 # Eğer sorgu representation None veya geçersiz ise, eski rastgele çağırma mantığına geri dön.
                 logger.debug("Memory.retrieve: Query representation is None or invalid. Falling back to random retrieval.")
                 if actual_num_results > 0: # Hala çağrılacak anı varsa rastgele seç.
-                    retrieved_list = random.sample(self.core_memory_storage, actual_num_results)
+                    # core_memory_storage listesinin her öğesinin dict olduğundan emin ol (yükleme/kaydetme mantığına göre olmalı).
+                    valid_memories_for_random = [entry for entry in self.core_memory_storage if isinstance(entry, dict)]
+                    if valid_memories_for_random:
+                         retrieved_list = random.sample(valid_memories_for_random, min(actual_num_results, len(valid_memories_for_random))) # Geçerli olanlardan seç
+                    # else: retrieved_list boş kalır.
                 logger.debug(f"Memory.retrieve: Retrieved {len(retrieved_list)} memories randomly.")
 
 
@@ -380,13 +391,28 @@ class Memory:
 
 
         except Exception as e:
-            # Geri çağırma işlemi sırasında beklenmedik bir hata oluşursa logla.
+            # Geri çağırma işlemi sırasında beklenmedik bir hata olursa logla.
             logger.error(f"Memory.retrieve: Bellekten geri çağırma sırasında beklenmedik hata: {e}", exc_info=True)
-            return [] # Hata durumunda boş liste döndürerek main loop'un devam etmesini sağla.
+            return [] # Hata durumında boş liste döndürerek main loop'un devam etmesini sağla.
 
         # Başarılı durumda geri çağrılan anı listesini döndür.
         # logger.debug(f"Memory.retrieve: Geri çağrılan anı listesi boyutu: {len(retrieved_list)}") # run_evo.py'de loglanıyor
         return retrieved_list
+
+    def get_all_representations(self):
+        """
+        Core bellekte depolanmış tüm Representation vektörlerinin bir listesini döndürür.
+        LearningModule gibi dış modüller tarafından öğrenme için kullanılır.
+
+        Returns:
+            list: numpy arraylerden oluşan liste.
+        """
+        # Sadece geçerli numpy array Representationları içeren bir liste döndür.
+        # core_memory_storage'daki her öğenin {'representation': np.ndarray, ...} formatında olduğu varsayılır.
+        valid_representations = [entry.get('representation') for entry in self.core_memory_storage if isinstance(entry, dict) and entry.get('representation') is not None and isinstance(entry.get('representation'), np.ndarray) and np.issubtype(entry.get('representation').dtype, np.number) and entry.get('representation').ndim == 1]
+        logger.debug(f"Memory.get_all_representations: {len(valid_representations)} geçerli Representation döndürülüyor.")
+        return valid_representations # Kopyasını döndürmek daha güvenli olabilir: [rep.copy() for rep in valid_representations]
+
 
     def cleanup(self):
         """
@@ -402,7 +428,7 @@ class Memory:
         # Belleği kalıcı depolamaya kaydetme mantığı
         self._save_to_storage()
 
-        # Temel (core) bellekteki anı listesini temizle (kaydedildikten sonra).
+        # Temel (core) bellek listesini temizle (kaydedildikten sonra).
         # Listeyi None yapmak veya boş bir liste atamak, objelerin garbage collection tarafından toplanmasına yardımcı olur.
         self.core_memory_storage = [] # Veya self.core_memory_storage = None
         logger.info("Memory: Core bellek temizlendi (RAM).") # RAM'deki kopyanın temizlendiğini belirt.

@@ -97,7 +97,7 @@ class MotorControlCore:
 
         Returns:
             str or any or None: Üretilen tepki (Interaction modülüne iletilecek string, ses verisi, görsel data vb.)
-                                 veya hata duruminda ya da tepki üretilemezse None.
+                                 veya hata durumunda ya da tepki üretilemezse None.
         """
         # Hata yönetimi: Karar None ise veya beklenmeyen tipte ise. check_input_not_none kullan.
         # decision string veya None bekleniyor şimdilik.
@@ -113,7 +113,7 @@ class MotorControlCore:
         expression_command = None # ExpressionGenerator'a gönderilecek komut stringi.
 
         try:
-            # Karar Yönlendirme ve Tepki Üretme Mantığı (Faz 3/4):
+            # Karar Yönlendirme ve Tepki Ü üretme Mantığı (Faz 3/4):
             # Gelen karar stringine göre ExpressionGenerator'a gönderilecek komutu belirle.
             # Karar önceliği DecisionModule'de belirlendiği için burada sadece kararı ExpressionGenerator komutuna EŞLEŞTİRİYORUZ.
 
