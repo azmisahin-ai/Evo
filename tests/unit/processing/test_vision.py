@@ -5,16 +5,6 @@ import numpy as np
 import os
 import sys
 
-# src dizinini Python yoluna ekle, böylece modülleri içe aktarabiliriz
-# Proje kök dizininden çalıştırıldığında bu genellikle gerekli olmaz
-# ama testlerin her ortamda çalışmasını sağlamak için eklenebilir.
-# Alternatif ve genellikle daha temiz yol, pytest'ı yapılandırmaktır
-# (ancak şimdilik bu yeterli).
-# Projenin kök dizinini bul
-BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
-if BASE_DIR not in sys.path:
-    sys.path.insert(0, BASE_DIR)
-
 # Test edilecek modülü içe aktar
 try:
     from src.processing.vision import VisionProcessor
