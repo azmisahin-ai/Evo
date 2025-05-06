@@ -35,20 +35,17 @@ class UnderstandingModule:
                            'visual_edges_threshold': Yüksek görsel kenar yoğunluğu algılama eşiği (float, varsayılan 50.0).
                            'brightness_threshold_high': Parlak ortam algılama eşiği (float, varsayılan 200.0).
                            'brightness_threshold_low': Karanlık ortam algılama eşiği (float, varsayılan 50.0).
-                           # 'concept_recognition_threshold': Kavram tanıma için Representation'ın kavram temsilcisine
-                           #                                en az benzemesi gereken benzerlik eşiği (float, varsayılan 0.85).
-                           # Bu eşik DecisionModule'e taşındı.
                            Gelecekte model yolları, anlama stratejileri gibi ayarlar gelebilir.
         """
         self.config = config
         logger.info("UnderstandingModule başlatılıyor (Faz 3/4)...")
 
-        # Yapılandırmadan Process özellik eşiklerini ve kavram tanıma eşiğini alırken get_config_value kullan.
+        # Yapılandırmadan Process özellik eşiklerini alırken get_config_value kullan.
         self.audio_energy_threshold = get_config_value(config, 'audio_energy_threshold', 1000.0, expected_type=(float, int), logger_instance=logger)
         self.visual_edges_threshold = get_config_value(config, 'visual_edges_threshold', 50.0, expected_type=(float, int), logger_instance=logger)
         self.brightness_threshold_high = get_config_value(config, 'brightness_threshold_high', 200.0, expected_type=(float, int), logger_instance=logger)
         self.brightness_threshold_low = get_config_value(config, 'brightness_threshold_low', 50.0, expected_type=(float, int), logger_instance=logger)
-        # Concept recognition threshold DecisionModule'e taşındı.
+        # Concept recognition threshold DecisionModule'e taşındı. Bu log satırı silindi.
         # self.concept_recognition_threshold = get_config_value(config, 'concept_recognition_threshold', 0.85, expected_type=(float, int), logger_instance=logger)
 
 
@@ -56,6 +53,7 @@ class UnderstandingModule:
         # Daha önce yapıldı, burada tekrar etmeye gerek yok, get_config_value yeterli.
 
 
+        # Init log mesajı güncellendi. concept_recognition_threshold DecisionModule'de olduğu için burada loglanmıyor.
         logger.info(f"UnderstandingModule başlatıldı. Ses Enerji Eşiği: {self.audio_energy_threshold}, Görsel Kenar Eşiği: {self.visual_edges_threshold}, Parlaklık Yüksek Eşiği: {self.brightness_threshold_high}, Parlaklık Düşük Eşiği: {self.brightness_threshold_low}")
 
 
@@ -69,7 +67,7 @@ class UnderstandingModule:
         hesaplar. Sonuçları bir dictionary olarak döndürür.
 
         Args:
-            processed_inputs (dict or None): Processor modülllerinden gelen işlenmiş ham veriler.
+            processed_inputs (dict or None): Processor modüllerinden gelen işlenmiş ham veriler.
                                             Beklenen format: {'visual': dict, 'audio': np.ndarray} veya None/boş dict.
             learned_representation (numpy.ndarray or None): En son öğrenilmiş temsil vektörü.
                                                          Beklenen format: shape (D,), dtype sayısal, veya None.

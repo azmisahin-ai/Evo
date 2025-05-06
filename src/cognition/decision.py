@@ -22,7 +22,7 @@ class DecisionModule:
     ve içsel durumu (curiosity_level - merak seviyesi) alır. Bu bilgilere dayanarak,
     MotorControl modülüne iletilecek bir eylem kararı alır.
     Mevcut implementasyon: Process çıktısı (enerji/kenar/parlaklık), merak seviyesi,
-    öğrenilmiş kavram tanıma VE bellek benzerlik skoruna dayalı öncelikli bir karar verme mantığı uygular.
+    öğrenilmiş kavram tanıma VE bellek benzerlik skorına dayalı öncelikli bir karar verme mantığı uygular.
     Gelecekte daha karmaşık karar ağaçları, kural tabanlı sistemler veya
     öğrenilmiş karar modelleri implement edilecektir.
     """
@@ -114,7 +114,7 @@ class DecisionModule:
         """
         Anlama sinyallerine ve içsel duruma (curiosity_level) göre bir eylem kararı alır.
 
-        UnderstandingModule'den gelen anlama sinyalleri dictionary'sini alır.
+        UnderstandingModule'den gelen anlama sinyallerini (dictionary) alır.
         Process çıktısı tabanlı flag'lere, merak seviyesine, öğrenilmiş kavram tanıma
         ve bellek benzerlik skorına dayalı öncelikli bir karar verme mantığı uygular.
         Merak seviyesini günceller.
@@ -122,7 +122,7 @@ class DecisionModule:
         Args:
             understanding_signals (dict or None): Anlama modülünden gelen anlama sinyalleri dictionary'si.
                                                 Beklenen format: {'similarity_score': float, 'high_audio_energy': bool, 'high_visual_edges': bool, 'is_bright': bool, 'is_dark': bool, 'max_concept_similarity': float, 'most_similar_concept_id': int or None} veya None.
-                                                UnderstandingModule hata durumunda varsayılan dict döndürmeyi hedefleri.
+                                                UnderstandingModule hata durumunda varsayılan dict döndürmeyi hedefler.
             relevant_memory_entries (list or None): Memory modülünden gelen ilgili bellek girdileri listesi.
                                             Bu metotta doğrudan karar için kullanılmıyor, ama parametre olarak geliyor.
                                             Gelecekte bağlamsal karar için kullanılabilir.
@@ -243,7 +243,7 @@ class DecisionModule:
             if np.isscalar(self.curiosity_level) and isinstance(self.curiosity_level, np.number): # <<< HATA DÜZELTME
                 try:
                     # Sadece Karar başarılı bir şekilde belirlendiyse (decision is not None) merakı güncelle.
-                    # Bu, hata durumunda merakın yanlış güncellenmesini önler.
+                    # Bu, hata durumında merakın yanlış güncellenmesini önler.
                     if decision is not None:
                         # Karar stringine göre merakı güncelle
                         if decision == "new_input_detected": # Yeni input kararı verildiğinde merak artar
