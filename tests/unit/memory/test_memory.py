@@ -34,24 +34,42 @@ def temp_memory_dir(tmp_path):
     # Test fonksiyonu bittikten sonra dizini temizle (otomatik oluyor tmp_path ile ama explicit iyi)
     # shutil.rmtree(mem_dir) # tmp_path bunu otomatik yapar
 
+
 @pytest.fixture(scope="function") # Her test fonksiyonu için ayrı bir instance
 def dummy_memory_config(temp_memory_dir):
     """Memory modülü testi için sahte yapılandırma sözlüğü sağlar."""
+    # Gerçek Memory.__init__ metodu memory_file_path'i config'den alıyor.
+    # Bu test fixture'ı da bu yapıyı taklit etmeli.
+    # memory_file_path'i temporary_memory_dir ve bir dosya adı birleştirerek oluşturacağız.
+
+    test_file_name = "test_core_memory.pkl" # Teste özel dosya adı
+    test_memory_path = os.path.join(temp_memory_dir, test_file_name) # <-- Geçici dosya yolu
+
     config = {
         'memory': {
-            # Bellek dosyalarının saklanacağı dizin. Geçici dizini kullanacağız.
-            'storage_dir': temp_memory_dir,
-            'representation_dim': 128, # Memory'nin saklayacağı representation vektörü boyutu
-            'max_entries': 1000,       # Bellek kapasitesi (testte küçük tutulabilir)
-            'num_retrieved_memories': 5, # Retrieve metodu için varsayılan
+            # Gerçek Memory modülü memory_file_path'i bekliyor:
+            'memory_file_path': test_memory_path, # <-- Temporary dosya yolunu buraya atıyoruz.
+            'max_memory_size': 1000,         # Test için maksimum boyut
+            'num_retrieved_memories': 5,     # Test için varsayılan geri çağrı sayısı
+            'representation_dim': 128,       # Test için representation boyutu
+
+            # storage_dir ve file_name config girdileri gerçek Memory.__init__ tarafından kullanılmıyor,
+            # ama eğer alt modüller kullanacaksa config'de yer alabilirler.
+            # Şimdilik bu test için gerekli değiller, kaldırılabilir veya None olarak bırakılabilir.
+            # Kaldıralım ki kafa karışıklığı olmasın.
+            # 'storage_dir': temp_memory_dir, # <-- Kaldır
+            # 'file_name': test_file_name, # <-- Kaldır
             # ... Memory'nin kullandığı diğer configler ...
         },
-        'representation': { # get_config_value için gerekli olabilir
-             'representation_dim': 128, # Memory config'deki ile aynı olmalı
-        },
+        # representation.representation_dim de RepresentationLearner testinde kullanılıyor.
+        # Memory testinde doğrudan memory.representation_dim kullanıldığı için buraya gerek yok.
+        # Ama consistency için tutulabilir, get_config_value ile de erişilebilir.
+        # 'representation': {
+        #      'representation_dim': 128,
+        # },
         # ... diğer genel configler ...
     }
-    test_logger.debug("Sahte memory config fixture oluşturuldu.")
+    test_logger.debug(f"Sahte memory config fixture oluşturuldu. memory_file_path: {config['memory']['memory_file_path']}")
     return config
 
 
