@@ -89,5 +89,43 @@ Sanal ortamınız aktifken ve ilk modelleri hazırladıktan sonra, Evo'yu "canla
 
 `scripts/` dizinindeki diğer dosyalar manuel veri hazırlama, model eğitimi, modül test etme ve hata ayıklama gibi yardımcı görevler içindir.
 
+Kullanıcı tarafından doğrudan çalıştırılması beklenen basit scriptler
+
+1.  **VisionProcessor testi:**
+    ```bash
+    python -m scripts.test_module --module src.processing.vision --class_name VisionProcessor
+    ```
+    (Beklenti: VisionProcessor başlatılır, sahte girdi alır, işler ve output loglanır.)
+2.  **AudioProcessor testi:**
+    ```bash
+    python -m scripts.test_module --module src.processing.audio --class_name AudioProcessor
+    ```
+    (Beklenti: AudioProcessor başlatılır, sahte girdi alır, işler ve output loglanır.)
+3.  **RepresentationLearner testi:**
+    ```bash
+    python -m scripts.test_module --module src.representation.models --class_name RepresentationLearner
+    ```
+    (Beklenti: RepresentationLearner başlatılır, sahte processed_inputs alır, öğrenir ve output (Representation array) loglanır.)
+4.  **Memory testi (store için):**
+    ```bash
+    python -m scripts.test_module --module src.memory.core --class_name Memory
+    ```
+    (Beklenti: Memory başlatılır (varsa dosyadan yükler), sahte Representation alır, store eder. Cleanup sırasında kaydedilir.)
+5.  **DecisionModule testi:**
+    ```bash
+    python -m scripts.test_module --module src.cognition.decision --class_name DecisionModule
+    ```
+    (Beklenti: DecisionModule başlatılır, sahte understanding_signals alır, karar verir (merak dahil) ve output karar stringi loglanır.)
+6.  **CognitionCore testi:**
+    ```bash
+    python -m scripts.test_module --module src.cognition.core --class_name CognitionCore
+    ```
+    (Beklenti: CognitionCore, UnderstandingModule, DecisionModule, LearningModule başlatılır (Memory objesi None olarak iletilir), decide metodu sahte girdilerle çağrılır, anlama sinyalleri ve karar loglanır. Öğrenme döngüsü bu testte tetiklenmeyebilir (loop_counter 1'de kalır).)
+7.  **LearningModule testi:**
+    ```bash
+    python -m scripts.test_module --module src.cognition.learning --class_name LearningModule
+    ```
+    (Beklenti: LearningModule başlatılır, sahte Representation listesi alır, kavram keşfi yapmayı dener, öğrenilen kavram sayısı loglanır.)
+
 ---
 
