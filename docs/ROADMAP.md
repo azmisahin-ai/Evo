@@ -32,7 +32,7 @@ Aşağıdaki fazlar, Evo'nın doğumundan (temel algı) bilgelik ve ustalığa (
         *   [x] Loglama altyapısı yapılandırma dosyası (`main_config.yaml`) üzerinden control edilebilir hale getirildi.
         *   [x] Docstrings ve Yorumlar eklendi/güncellendi.
         *   [x] Genel kod tekrarı azaltma ve isimlendirme/tutarlılık iyileştirmeleri.
-        *   [ ] Unit testler için temel iskeletin kurulması. (Hala TODO)
+        *   [ ] Unit testler için temel iskeletin kurulması. (Hala TODO - Öncelik Artırılacak)
 
 
 *   **Faz 1: Temel İşleme ve Temsil (Duyusal Veriden Özellik Çıkarma - TAMAMLANDI)**
@@ -91,9 +91,9 @@ Aşağıdaki fazlar, Evo'nın doğumundan (temel algı) bilgelik ve ustalığa (
         *   [x] `MotorControlCore.generate_response` metodunun tasarlanan basit mantığına göre implementasyonu.
         *   [x] Temel "anlama-yanıtla" döngüsünün basit bir senaryo ile test edilmesi.
 
-    *   [x] **TODO:** İşlenmiş temsilleri kullanarak basit ayırımlar yapma ("Bu farklı bir şey", "Bu tanıdık") yeteneğinin geliştirilmesi.
-    *   [x] **TODO:** Önceden öğretilmiş (denetimli) temel etiketleri/kavramları... ilişkilendirme mekanizmasının eklenmesi. (Process çıktısı eşiklerine dayalı basit boolean etiketlerle (ses, kenar, parlak, karanlık) ilk adımı atıldı).
-    *   [x] **TODO:** İçsel durumdan (örn. yeni bir desen fark ettiğinde, bellekten bir şey çağırdığında) basit dışsal tepkiler (rastgele ses çıkarma, ilkel görsel veya basit bir sinyal/metin) üretme mantığı.
+    *   [x] **TODO:** İşlenmiş temsilleri kullanarak basit ayırımlar yapma.
+    *   [x] **TODO:** Önceden öğretilmiş (denetimli) temel etiketleri/kavramları... ilişkilendirme mekanizmasının eklenmesi. (Process çıktısı eşiklerine dayalı basit boolean etiketlerle ilk adımı atıldı).
+    *   [x] **TODO:** İçsel durumdan... basit dışsal tepkiler üretme mantığı.
 
 
 ---
@@ -102,7 +102,7 @@ Aşağıdaki fazlar, Evo'nın doğumundan (temel algı) bilgelik ve ustalığa (
     *   [x] Hedef: Daha fazla kavramı kendi kendine (denetimsiz öğrenme ile) keşfetmeye başlama. Denetimli öğrenme ile öğretilen etiket setini genişletme. İçsel temsillerden daha kontrollü dışsal ifadeler üretme (ses sentezi, basit görsel çıktılar).
     *   [x] Odak Modülleri için temel dosyalar/placeholder'lar mevcut (`src/cognition/learning.py`, `src/motor_control/expression.py`).
 
-    *   **Faz 4 Gerçek Implementasyon Görevleri (İlerleme Kaydedildi):**
+    *   **Faz 4 Gerçek Implementasyon Görevleri (Başlangıç):**
         *   [x] Basit denetimsiz kavram keşfi (kümeleme) algoritmasının implementasyonu (`src/cognition/learning.py`).
         *   [x] LearningModule'ün bellekteki Representation vektörlerini kullanarak kavram temsilcilerini periyodik olarak öğrenmesi. (Memory erişim hatası düzeltildi).
         *   [x] UnderstandingModule'ün gelen Representation'ın öğrenilmiş kavramlara olan benzerliğini hesaplaması. (`issubtype` hatası düzeltildi).
@@ -111,14 +111,15 @@ Aşağıdaki fazlar, Evo'nın doğumundan (temel algı) bilgelik ve ustalığa (
 
     *   [ ] **TODO:** Denetimli öğrenme ile temel kavram/etiket setini genişletme mekanizmasının eklenmesi. (Hala TODO)
     *   [ ] **TODO:** İçsel temsilleri kullanarak daha karmaşık anlama (nesne takibi, aktivite tanıma vb.). (Hala TODO)
-    *   [ ] **TODO:** İfade yeteneklerini çeşitlendirme (ses sentezi entegrasyonu, görsel çıktı üretimi). (Hala TODO)
+    *   [ ] **TODO:** İ ifade yeteneklerini çeşitlendirme (ses sentezi entegrasyonu, görsel çıktı üretimi). (Hala TODO)
+    *   [ ] **TODO:** Öğrenilen kavram temsilcilerine kalıcılık eklenmesi (LearningModule). (YENİ TODO)
 
 ---
 
 *   **Faz 5: Çapraz Duyusal Bağlantılar ve Temel İletişim (Duyuların Birleşimi ve Anlamlı Etkileşim)**
     *   [x] Interaction modülüne Console ve WebAPI çıktı kanallarının eklenmesi.
     *   [ ] **TODO:** WebAPIOutputChannel implementasyonunu tamamlama ve dış arayüz ile çift yönlü (girdi alımını da içerecek şekilde) temel iletişimi sağlama.
-    *   [x] Hedef: Farklı modalitelere ait içsel temsilleri (görsel ve işitsel) birleştirmeye veya birinden diğerine dönüştürmeye başlama ("Bu ses bu görüntüyle ilişkili"). Belirli duyu girdilerine (örn. kullanıcı sesi/yüzü) spesifik ve anlamlı ilk ifadelerle (örn. basit bir metin onayı, ses sinyali) yanıt verme. Temel "anlama-yanıtla" döngüsünün güçlenmesi. (Bu hedefin temel adımları Faz 3/4'te atıldı, çapraz modalite birleştirme/dönüşüm hala TODO).
+    *   [x] Hedef: Farklı modalitelere ait içsel temsilleri (görsel ve işitsel) birleştirmeye veya birinden diğerine dönüştürmeye başlama ("Bu ses bu görüntüyle ilişkili"). Belirli duyu girdilerine (örn. kullanıcı sesi/yüzü) spesifik ve anlamlı ilk ifadelerle (örn. basit bir metin onayı, ses sinyali) yanıt verme. Temel "anlama-yanıtla" döngüsünün güçlenmesi. (Temel adımlar atıldı, çapraz modalite işleme/birleştirme/dönüşüm hala TODO).
     *   [ ] Odak Modülleri için temel dosyalar/placeholder'lar mevcut veya tanımlanacak.
 
 *   **Faz 6: Sekans Anlama ve Üretme (Hikaye Anlama Başlangıcı)**
@@ -155,11 +156,13 @@ Aşağıdaki fazlar, Evo'nın doğumundan (temel algı) bilgelik ve ustalığa (
 *   [ ] Performans optimizasyonları. (Hala TODO)
     *   [ ] **TODO:** Merak seviyesi update mantığı (artış, azalış, decay) DecisionModule'den ayrı bir İçsel Durum (Internal State) modülüne taşınabilir/yönetilebilir.
 *   [ ] Bağımlılıkların yönetimi ve güncellenmesi. (Hala TODO)
-*   [x] Config dosyasındaki gereksiz bölümlerin temizlenmesi.
 *   [ ] **TODO:** Modülleri tek başına girdi/çıktı ile test etme altyapısı oluşturulması. (YENİ TODO - Öncelik Artırılacak)
 *   [ ] **TODO:** Temel Process/Representation/Cognition çıktı değerlerinin log detaylarının artırılması. (YENİ TODO - Öncelik Artırılacak)
 *   [ ] **TODO:** Ses duyu verisinden uzamsal (spatial) konum bilgisinin çıkarılması ve işlenmesi. (YENİ TODO)
 *   [ ] **TODO:** Farklı canlılarla (örn: kedi) ve doğal ortamlarla etkileşim kurma yeteneklerinin planlanması ve implementasyonu. (YENİ TODO)
+*   [ ] **TODO:** Kullanıcı arayüzü (mobil/web) üzerinden Evo'nun görsel ve işitsel algılarını canlı izleme ve temel etkileşim (Faz 5 ile ilişkili olabilir). (YENİ TODO)
+*   [ ] **TODO:** Öğrenilmiş kavram temsilcilerine (LearningModule) kalıcılık eklenmesi. (YENİ TODO)
+*   [ ] **TODO:** Otomatik kalibrasyon mekanizmalarının araştırılması/planlanması (örn: Processor çıktı eşiklerinin ortam gürültüsüne/ışığına göre ayarlanması). (YENİ TODO)
 
 
 ---
