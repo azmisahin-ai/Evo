@@ -24,7 +24,7 @@ try:
     from src.core.logging_utils import setup_logging
     import logging
     # Testler için loglamayı yapılandır (INFO seviyesinde)
-    setup_logging(config=None, level=logging.INFO)
+    setup_logging(config=None)
     test_logger = logging.getLogger(__name__)
     test_logger.info("src modülleri ve loglama başarıyla içe aktarıldı.")
 
