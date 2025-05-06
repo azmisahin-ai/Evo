@@ -38,7 +38,7 @@ def dummy_audio_config():
         },
          'processors': {
              'audio': {
-                 'output_dim': 10, # Process çıktısının boyutu (örneğin, özellik vektörü boyutu)
+                 'output_dim': 2, # Process çıktısının boyutu (örneğin, özellik vektörü boyutu)
                  'n_mfcc': 13,     # MFCC hesaplaması için kullanılan config (varsa)
                  # ... AudioProcessor'ın kullandığı diğer processor.audio configleri ...
              }
