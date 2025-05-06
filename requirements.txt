@@ -5,3 +5,4 @@ Flask
 PyYAML
 requests # for script testing
 pytest # for testing
+pytest-mock # for testing
