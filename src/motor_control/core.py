@@ -97,7 +97,7 @@ class MotorControlCore:
 
         Returns:
             str or any or None: Üretilen tepki (Interaction modülüne iletilecek string, ses verisi, görsel data vb.)
-                                 veya hata durumında ya da tepki üretilemezse None.
+                                 veya hata duruminda ya da tepki üretilemezse None.
         """
         # Hata yönetimi: Karar None ise veya beklenmeyen tipte ise. check_input_not_none kullan.
         # decision string veya None bekleniyor şimdilik.
@@ -115,7 +115,7 @@ class MotorControlCore:
         try:
             # Karar Yönlendirme ve Tepki Üretme Mantığı (Faz 3/4):
             # Gelen karar stringine göre ExpressionGenerator'a gönderilecek komutu belirle.
-            # Karar öncelığı DecisionModule'de belirlendiği için burada sadece kararı ExpressionGenerator komutuna EŞLEŞTİRİYORUZ.
+            # Karar öncelği DecisionModule'de belirlendiği için burada sadece kararı ExpressionGenerator komutuna EŞLEŞTİRİYORUZ.
 
             if decision == "explore_randomly":
                 expression_command = "explore_randomly_response"
@@ -165,8 +165,8 @@ class MotorControlCore:
             if handled_decision and expression_command is not None:
                  # ExpressionGenerator varsa onu kullan, yoksa varsayılan metni üret (ExpressionGenerator'da tanımlı fallback).
                  if self.expression_generator:
-                      # ExpressionGenerator'ın generate metodu None döndürürse, bu None olarak iletilir.
                       output_data = self.expression_generator.generate(expression_command)
+                      # generate None döndürürse output_data None kalır, bu kabul edilebilir (örn: ExpressionGenerator o komutu bilmiyorsa).
                  # else: ExpressionGenerator yoksa veya generate None döndürdüyse output_data None kalır.
 
             # Eğer gelen karar None ise VEYA bilinen bir komuta eşleşmediyse/işlenirken hata olduysa
@@ -192,7 +192,7 @@ class MotorControlCore:
         except Exception as e:
             # Tepki üretme veya eylem başlatma işlemi sırasında beklenmedik bir hata olursa logla.
             logger.error(f"MotorControlCore.generate_response: Tepki üretme/Eylem başlatma sırasında beklenmedek hata: {e}", exc_info=True)
-            return None # Hata durumunda None döndürerek main loop'un çökmesini engelle.
+            return None # Hata durumında None döndürerek main loop'un çökmesini engelle.
 
         # Başarılı durumda üretilen tepkiyi veya eylem başlatıldıysa (çıktı None ise) None'ı döndür.
         # output_data, üretilen string yanıt veya None olabilir.

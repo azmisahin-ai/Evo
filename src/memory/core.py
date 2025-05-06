@@ -82,7 +82,7 @@ class Memory:
         self._load_from_storage()
 
 
-        # Alt bellek modülleri başlatmayı dene (Gelecek TODO).
+        # Alt bellek modüllerini başlatmayı dene (Gelecek TODO).
         # Başlatma hataları kendi içlerinde veya _initialize_single_module gibi bir utility ile yönetilmeli.
         # TODO: Alt bellek modüllerini burada başlatma mantığı eklenecek.
         # try:
@@ -277,7 +277,7 @@ class Memory:
         except Exception as e:
             # Saklama işlemi sırasında beklenmedik bir hata oluşursa logla.
             logger.error(f"Memory.store: Belleğe kaydetme sırasında beklenmedik hata: {e}", exc_info=True)
-            # Hata durumunda programın çökmesini engelle, sadece logla ve devam et.
+            # Hata durumında programın çökmesini engelle, sadece logla ve devam et.
 
 
     def retrieve(self, query_representation, num_results=None):
@@ -391,9 +391,9 @@ class Memory:
 
 
         except Exception as e:
-            # Geri çağırma işlemi sırasında beklenmedik bir hata olursa logla.
+            # Geri çağırma işlemi sırasında beklenmedik bir hata oluşursa logla.
             logger.error(f"Memory.retrieve: Bellekten geri çağırma sırasında beklenmedik hata: {e}", exc_info=True)
-            return [] # Hata durumunda boş liste döndürerek main loop'un devam etmesini sağla.
+            return [] # Hata durumında boş liste döndürerek main loop'un devam etmesini sağla.
 
         # Başarılı durumda geri çağrılan anı listesini döndür.
         # logger.debug(f"Memory.retrieve: Geri çağrılan anı listesi boyutu: {len(retrieved_list)}") # run_evo.py'de loglanıyor
@@ -420,7 +420,7 @@ class Memory:
         Memory modülü kaynaklarını temizler.
 
         Temel (core) bellek listesini kalıcı depolamaya kaydeder
-        ve alt bellek modüllerinin (EpisodicMemory, SemantikMemory)
+        ve alt bellek modüllerinin (EpisodicMemory, SemanticMemory)
         cleanup metotlarını (varsa) çağırır.
         module_loader.py bu metotu program sonlanırken çağrır (varsa).
         """

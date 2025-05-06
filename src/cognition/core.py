@@ -26,7 +26,7 @@ class CognitionCore:
     """
     Evo'nın bilişsel çekirdek sınıfı.
 
-    Bilgi akışını (işlenmiş girdiler, Representation, bellek) alır.
+    Bil bilgi akışını (işlenmiş girdiler, Representation, bellek) alır.
     Bu bilgileri Anlama modülüne ileterek anlama çıktısını alır (dictionary sinyaller).
     Anlama çıktısını ve bellek girdilerini Karar Alma modülüne ileterek bir karar alır.
     Bellekteki Representationları kullanarak periyodik olarak Kavramları (LearningModule) öğrenir.
@@ -149,25 +149,26 @@ class CognitionCore:
                   # Memory modülünde get_all_representations metodu olmalı.
                   if hasattr(self.memory_instance, 'get_all_representations'):
                       # get_all_representations Representation vektörlerinin listesini döndürür.
+                      # Bu metodun içinde np.issubtype hatası olabilir, Memory modülünde düzeltildi.
                       all_memory_representations = self.memory_instance.get_all_representations()
+
+                      # Alınan Representation listesinin numpy array listesi olduğundan emin olalım.
+                      # LearningModule'ün beklediği boyutta olanları alalım.
+                      # issubtype yerine isinstance kullan (Hata düzeltme LearningModule'de yapıldı).
+                      # Sadece geçerli numpy array Representationları alalım.
+                      valid_representations_for_learning = [rep for rep in all_memory_representations if rep is not None and isinstance(rep, np.ndarray) and isinstance(rep.dtype, np.number) and rep.ndim == 1 and self.learning_module is not None and rep.shape[0] == self.learning_module.representation_dim]
+
+
+                      if valid_representations_for_learning:
+                           # Öğrenme için rastgele bir örneklem alalım (eğer bellek çok büyükse).
+                           learning_sample = random.sample(valid_representations_for_learning, min(self.learning_memory_sample_size, len(valid_representations_for_learning)))
+                           logger.debug(f"CognitionCore: Memory'den öğrenme için {len(learning_sample)} representation örneği alındı.")
+                           # LearningModule'ü Representation örneklemi ile çağır.
+                           self.learning_module.learn_concepts(learning_sample)
+                      else:
+                           logger.debug("CognitionCore: Memory'de öğrenme için yeterli geçerli Representation yok.")
                   else:
                       logger.warning("CognitionCore: Memory modülünde 'get_all_representations' metodu bulunamadı. LearningModule için Representation alınamadı.")
-                      all_memory_representations = [] # Metot yoksa boş liste.
-
-                  # Alınan Representation listesinin geçerli numpy array listesi olduğundan emin olalım.
-                  # LearningModule'ün beklediği boyutta olanları alalım.
-                  # issubtype yerine isinstance kullan (Hata düzeltme).
-                  valid_representations_for_learning = [rep for rep in all_memory_representations if rep is not None and isinstance(rep, np.ndarray) and isinstance(rep.dtype, np.number) and rep.ndim == 1 and self.learning_module is not None and rep.shape[0] == self.learning_module.representation_dim]
-
-
-                  if valid_representations_for_learning:
-                       # Öğrenme için rastgele bir örneklem alalım (eğer bellek çok büyükse).
-                       learning_sample = random.sample(valid_representations_for_learning, min(self.learning_memory_sample_size, len(valid_representations_for_learning)))
-                       logger.debug(f"CognitionCore: Memory'den öğrenme için {len(learning_sample)} representation örneği alındı.")
-                       # LearningModule'ü Representation örneklemi ile çağır.
-                       self.learning_module.learn_concepts(learning_sample)
-                  else:
-                       logger.debug("CognitionCore: Memory'de öğrenme için yeterli geçerli Representation yok.")
 
              except Exception as e:
                   logger.error(f"CognitionCore: Öğrenme döngüsü sırasında bellekten veri alınırken veya LearningModule çağrılırken beklenmedik hata: {e}", exc_info=True)
@@ -178,8 +179,8 @@ class CognitionCore:
             return None
 
         # Anlama modülüne iletilecek güncel kavram temsilcileri listesini al.
+        # LearningModule None olsa bile get_concepts None/boş liste döner.
         current_concepts = self.learning_module.get_concepts() if self.learning_module else []
-        # Eğer LearningModule None ise veya get_concepts None/boş liste dönerse current_concepts boş liste olur.
 
 
         understanding_signals = None # Anlama modülünden gelecek sinyaller dictionary'si.
@@ -214,7 +215,7 @@ class CognitionCore:
 
 
         except Exception as e:
-            # Alt modüllerin metotlarını çağırırken veya içlerinde (eğer yakalamadılarsa) beklenmedik hata olursa.
+            # Alt modüllerin metotlarını çağırırken veya içlerinde (eğer yakalamadılarsa) beklenmedek hata olursa.
             logger.error(f"CognitionCore.decide: Anlama veya karar alma sırasında beklenmedik hata: {e}", exc_info=True)
             return None # Hata durumunda None döndür.
 

@@ -22,7 +22,7 @@ class DecisionModule:
     ve içsel durumu (curiosity_level - merak seviyesi) alır. Bu bilgilere dayanarak,
     MotorControl modülüne iletilecek bir eylem kararı alır.
     Mevcut implementasyon: Process çıktısı (enerji/kenar/parlaklık), merak seviyesi,
-    öğrenilmiş kavram tanıma VE bellek benzerlik skorına dayalı öncelikli bir karar verme mantığı uygular.
+    öğrenilmiş kavram tanıma VE bellek benzerlik skoruna dayalı öncelikli bir karar verme mantığı uygular.
     Gelecekte daha karmaşık karar ağaçları, kural tabanlı sistemler veya
     öğrenilmiş karar modelleri implement edilecektir.
     """
