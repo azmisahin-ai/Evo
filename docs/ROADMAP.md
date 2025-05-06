@@ -105,17 +105,17 @@ Aşağıdaki fazlar, Evo'nın doğumundan (temel algı) bilgelik ve ustalığa (
     *   [x] Bu modüllerin temel döngüye entegrasyonu (`run_evo.py` içinde çağrılıyorlar).
     *   [x] Interaction modülünün MotorControl'den gelen tepkileri dış dünyaya iletmesi (Console Çıktısı çalışıyor, WebAPI temel entegrasyonu ve placeholder sınıfı mevcut).
 
-    *   **Faz 3 Gerçek Implementasyon Görevleri (Başlangıç):**
-        *   [ ] Basit karar alma mantığı tasarımı (Input temsili/Process çıktısı ve retrieve edilen belleği kullanarak nasıl bir karar alınacak? - Faz 1 ve 2 çıktılarını kullanma).
-        *   [ ] `CognitionCore.decide` metodunun tasarlanan basit mantığa göre implementasyonu (örn: Representation/Bellek eşleşmesine göre basit yanıt seçimi, If-else kuralları, basit bir durum makinesi).
-        *   [ ] Kararın MotorControl modülüne iletilmesi formatının belirlenmesi ve uygulanması.
-        *   [ ] Yanıt üretme mantığı tasarımı (Cognition'dan gelen karara göre nasıl bir metin/ses/görsel sinyal üretilecek?).
-        *   [ ] `MotorControlCore.generate_response` metodunun tasarlanan basit mantığa göre implementasyonu (örn: Sabit metin yanıtları, basit ses sinyalleri, Cognition çıktısını metne/sinyale dönüştürme).
-        *   [ ] Temel "anlama-yanıtla" döngüsünün (Represent -> Memory -> Cognition -> Motor -> Interact) basit bir senaryo ile test edilmesi.
+    *   **Faz 3 Gerçek Implementasyon Görevleri (İlerleme Kaydedildi):**
+        *   [x] Basit karar alma mantığı tasarımı (Input temsili/Process çıktısı ve retrieve edilen belleği kullanarak nasıl bir karar alınacak? - Faz 1 ve 2 çıktılarını kullanma). (Bellek benzerliğine dayalı basit tanıdık/yeni ayrımı yapıldı).
+        *   [x] `CognitionCore.decide` metodunun tasarlanan basit mantığa göre implementasyonu (örn: Representation/Bellek eşleşmesine göre basit yanıt seçimi, If-else kuralları, basit bir durum makinesi). (DecisionModule'de implemente edildi).
+        *   [x] Kararın MotorControl modülüne iletilmesi formatının belirlenmesi ve uygulanması. (String kararlar (`"familiar_input_detected"`, `"new_input_detected"`) kullanılıyor).
+        *   [x] Yanıt üretme mantığı tasarımı (Cognition'dan gelen karara göre nasıl bir metin/ses/görsel sinyal üretilecek?). (MotorControl -> ExpressionGenerator akışı kullanılıyor).
+        *   [x] `MotorControlCore.generate_response` metodunun tasarlanan basit mantığa göre implementasyonu (örn: Sabit metin yanıtları, basit ses sinyalleri, Cognition çıktısını metne/sinyale dönüştürme). (String kararlara göre sabit metin yanıtları üretildi).
+        *   [x] Temel "anlama-yanıtla" döngüsünün (Represent -> Memory -> Cognition -> Motor -> Interact) basit bir senaryo ile test edilmesi. (Loglar, bellek doldukça "Yeni bir şey algıladım"dan "Bu tanıdık geliyor."a geçişi gösteriyor).
 
-    *   [x] **TODO:** İşlenmiş temsilleri kullanarak basit ayırımlar yapma ("Bu farklı bir şey", "Bu tanıdık") yeteneğinin geliştirilmesi. (Karar alma mantığına entegre ediliyor)
-    *   [ ] **TODO:** Önceden öğretilmiş (denetimli) temel etiketleri/kavramları (örn. "ses var", "ışık var", "hareket var") bazı temsil desenleriyle ilişkilendirme mekanizmasının eklenmesi. (Hala TODO)
-    *   [ ] **TODO:** İçsel durumdan (örn. yeni bir desen fark ettiğinde, bellekten bir şey çağırdığında) basit dışsal tepkiler (rastgele ses çıkarma, ilkel görsel veya basit bir sinyal/metin) üretme mantığı. (Hala TODO)
+    *   [x] **TODO:** İşlenmiş temsilleri kullanarak basit ayırımlar yapma ("Bu farklı bir şey", "Bu tanıdık") yeteneğinin geliştirilmesi. (Bellek benzerliği ile yapıldı).
+    *   [ ] **TODO:** Önceden öğretilmiş (denetimli) temel etiketleri/kavramları (örn. "ses var", "ışık var", "hareket var") bazı temsil desenleriyle ilişkilendirme mekanizmasının eklenmesi. (Hala TODO).
+    *   [ ] **TODO:** İçsel durumdan (örn. yeni bir desen fark ettiğinde, bellekten bir şey çağırdığında) basit dışsal tepkiler (rastgele ses çıkarma, ilkel görsel veya basit bir sinyal/metin) üretme mantığı. (Hala TODO).
 
 ---
 
@@ -123,7 +123,7 @@ Aşağıdaki fazlar, Evo'nın doğumundan (temel algı) bilgelik ve ustalığa (
     *   [ ] Hedef: Daha fazla kavramı kendi kendine (denetimsiz öğrenme ile) keşfetmeye başlama. Denetimli öğrenme ile öğretilen etiket setini genişletme. İçsel temsillerden daha kontrollü dışsal ifadeler üretme (ses sentezi, basit görsel çıktılar).
     *   [x] Odak Modülleri için temel dosyalar/placeholder'lar mevcut (`src/cognition/learning.py`, `src/motor_control/expression.py`).
 
-*   **Faz 5: Çapraz Duyusal Bağlantılar ve Temel İletişim (Duyuların Birleşimi ve Anlamlı Etkileşim)**
+*   **Faz 5: Çapraz Duyusal Bağlantılar ve Temel İletişim (Duyuların Birleşimi ve An anlamlı Etkileşim)**
     *   [x] Interaction modülüne Console ve WebAPI çıktı kanallarının eklenmesi (Temel entegrasyon, WebAPIOutputChannel placeholder durumda).
     *   [ ] **TODO:** WebAPIOutputChannel implementasyonunu tamamlama ve dış arayüz ile çift yönlü (girdi alımını da içerecek şekilde) temel iletişimi sağlama.
     *   [ ] Hedef: Farklı modalitelere ait içsel temsilleri (görsel ve işitsel) birleştirmeye veya birinden diğerine dönüştürmeye başlama ("Bu ses bu görüntüyle ilişkili"). Belirli duyu girdilerine (örn. kullanıcı sesi/yüzü) spesifik ve anlamlı ilk ifadelerle (örn. basit bir metin onayı, ses sinyali) yanıt verme. Temel "anlama-yanıtla" döngüsünün güçlenmesi.
@@ -165,3 +165,4 @@ Aşağıdaki fazlar, Evo'nın doğumundan (temel algı) bilgelik ve ustalığa (
 *   [x] Config dosyasındaki gereksiz bölümlerin temizlenmesi.
 
 ---
+
