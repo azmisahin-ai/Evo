@@ -3,4 +3,5 @@ pyaudio
 numpy
 Flask
 PyYAML
-requests
+requests # for script testing
+pytest # for testing
