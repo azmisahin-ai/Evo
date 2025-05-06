@@ -53,10 +53,10 @@ cognition:
   # familiarity_threshold: Bellek benzerliğine dayalı "tanıdık" kabul etmek için gereken en düşük bellek benzerlik skoru (0.0 ile 1.0 arası float).
   familiarity_threshold: 0.8 # Varsayılan değer
   # Process çıktısı eşikleri (Process çıktı değerlerine göre ayarlanmalı. DEBUG loglarına bakın.)
-  audio_energy_threshold: 1000.0 # Yüksek Ses Enerjisi Eşiği
-  visual_edges_threshold: 50.0 # Yüksek Görsel Kenar Eşiği
-  brightness_threshold_high: 200.0 # Parlak Ortam Eşiği (0-255 ortalama gri değerine göre)
-  brightness_threshold_low: 50.0 # Karanlık Ortam Eşiği (0-255 ortalama gri değerine göre)
+  audio_energy_threshold: 1000.0 # Yüksek Ses Enerjisi Eşiği (Örnek: 1000.0 çok yüksek, ortamınıza göre ayarlayın. DEBUG loglarına bakın.)
+  visual_edges_threshold: 50.0 # Yüksek Görsel Kenar Eşiği (Örnek: 50.0 orta düzeyde, ortamınıza göre ayarlayın. DEBUG loglarına bakın.)
+  brightness_threshold_high: 200.0 # Parlak Ortam Eşiği (0-255 ortalama gri değerine göre. Örn: 200.0 parlak bir oda olabilir.)
+  brightness_threshold_low: 50.0 # Karanlık Ortam Eşiği (0-255 ortalama gri değerine göre. Örn: 50.0 loş veya karanlık bir ortam olabilir.)
   # Öğrenme (Learning) ve Kavram Tanıma ayarları
   learning_frequency: 100 # LearningModule'ün kaç bilişsel döngü adımında bir tetikleneceği
   learning_memory_sample_size: 50 # LearningModule için Memory'den alınacak Representation sayısı
