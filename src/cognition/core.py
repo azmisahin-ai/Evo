@@ -12,12 +12,11 @@ import numpy as np # check_numpy_input için gerekli
 from src.core.utils import check_input_not_none, check_numpy_input, check_input_type # <<< check_input_not_none, check_numpy_input, check_input_type import edildi
 
 # Alt modül sınıflarını import et
-from .understanding import UnderstandingModule # <<< UnderstandingModule import edildi
-from .decision import DecisionModule # <<< DecisionModule import edildi
+from .understanding import UnderstandingModule
+from .decision import DecisionModule
 
 
 # Bu modül için bir logger oluştur
-# 'src.cognition.core' adında bir logger döndürür.
 logger = logging.getLogger(__name__)
 
 
@@ -25,9 +24,9 @@ class CognitionCore:
     """
     Evo'nın bilişsel çekirdek sınıfı.
 
-    Bilgi akışını (temsil, bellek) alır, anlama modülüne iletir,
-    anlama sonucunu ve bellek girdilerini karar alma modülüne iletir
-    ve karar alma modülünden gelen kararı döndürür.
+    Bilgi akışını (temsil, bellek) alır.
+    Bu bilgileri Anlama modülüne ileterek anlama çıktısını alır (şimdilik benzerlik skoru).
+    Anlama çıktısını ve bellek girdilerini Karar Alma modülüne ileterek bir karar alır.
     UnderstandingModule ve DecisionModule alt modüllerini koordine eder.
     Hata durumlarında işlemleri loglar ve programın çökmesini engeller.
     """
@@ -75,6 +74,8 @@ class CognitionCore:
 
         logger.info("Cognition modülü başlatıldı.")
 
+    # run_evo.py bu metodu çağırıyor. processed_inputs da aslında geliyor ama şu anki tanımda yok.
+    # TODO: processed_inputs'u da girdi olarak alacak şekilde güncelleyin: decide(self, processed_inputs, learned_representation, relevant_memory_entries)
     def decide(self, learned_representation, relevant_memory_entries):
         """
         Öğrenilmiş temsil ve ilgili bellek girdilerine dayanarak bir eylem kararı alır.
@@ -92,6 +93,8 @@ class CognitionCore:
             relevant_memory_entries (list): Memory modülünden gelen ilgili bellek girdileri listesi.
                                             Bellek boşsa veya sorgu sırasında hata oluştuysa boş liste `[]` olabilir.
                                             Beklenen format: liste.
+            # processed_inputs (dict, optional): Processor modüllerinden gelen işlenmiş ham veriler. Gelecekte kullanılacak.
+
 
         Returns:
             str or None: Alınan karar (formatı gelecekte belirlenecek, örn: string veya dict)
@@ -102,44 +105,51 @@ class CognitionCore:
             logger.error("CognitionCore.decide: Alt modüller (Understanding/Decision) başlatılmamış. Karar alınamıyor.")
             return None
 
-        # Hata yönetimi: Girdilerin beklenen tiplerde olup olmadığını kontrol et.
-        # check_numpy_input ve check_input_type alt metotlarda da kullanılıyor, ama burada da kontrol edilebilir.
-        # Burada daha çok None olup olmadığını kontrol etmek veya tipleri loglamak yeterli olabilir.
-        # learned_representation: None veya numpy array (sayısal, 1D) beklenir.
-        # relevant_memory_entries: list beklenir.
-
-        # Representation tipi kontrolü (None veya beklenen numpy array)
-        # check_numpy_input(learned_representation, expected_dtype=np.number, expected_ndim=1, input_name="learned_representation", logger_instance=logger) # Loglama utils içinde yapılıyor
-        # Bellek girdileri tipi kontrolü (liste)
-        # check_input_type(relevant_memory_entries, list, input_name="relevant_memory_entries", logger_instance=logger) # Loglama memory içinde yapılıyor.
+        # Hata yönetimi: Girdilerin DecisionModule için geçerli formatta olup olmadığını kontrol et.
+        # DecisionModule sadece understanding_result'ı (float/None) ve relevant_memory_entries'i (list/None) kullanıyor.
+        # learned_representation ve relevant_memory_entries'in tip kontrolleri UnderstandingModule ve DecisionModule içinde zaten yapılıyor.
+        # processed_inputs (gelecekte eklenecek) için de burada veya alt modüllerde kontrol yapılmalı.
 
 
-        understanding_result = None # Anlama modülünden gelecek sonuç.
+        understanding_result = None # Anlama modülünden gelecek sonuç (benzerlik skoru).
         decision = None # Karar alma modülünden gelecek karar.
 
         try:
             # 1. Gelen temsil ve bellek girdilerini anlama modülüne ilet.
-            # Anlama modülünün process metodu None döndürebilir (hata veya anlam çıkmaması).
+            # UnderstandingModule.process artık float (en yüksek benzerlik skoru) veya 0.0/None döndürür.
             understanding_result = self.understanding_module.process(
-                learned_representation,
-                relevant_memory_entries
+                learned_representation, # Learned Representation (Representation module'den)
+                relevant_memory_entries # Memory'den gelen ilgili anılar
+                # processed_inputs # Gelecekte buraya eklenecek.
             )
-            # DEBUG logu: Anlama sonucu (None değilse)
-            # if understanding_result is not None:
-            #      logger.debug(f"CognitionCore.decide: Anlama sonucu alindi (Placeholder): {understanding_result}")
+            # DEBUG logu: Anlama sonucu (benzerlik skoru)
+            # understanding_result float, 0.0 veya None olabilir.
+            if isinstance(understanding_result, float): # Eğer float döndüyse (0.0 dahil)
+                 logger.debug(f"CognitionCore.decide: Anlama sonucu alindi (benzerlik skoru): {understanding_result:.4f}")
+            elif understanding_result is not None: # Float değil ama None da değilse (Beklenmeyen durum)
+                 logger.warning(f"CognitionCore.decide: Anlama sonucu beklenmeyen tipte: {type(understanding_result)}. Float veya None bekleniyordu.")
+            else: # None ise
+                 logger.debug("CognitionCore.decide: Anlama sonucu None.")
 
 
             # 2. Anlama sonucunu ve bellek girdilerini karar alma modülüne ilet.
-            # Karar alma modülünün decide metodu None döndürebilir (hata veya karar alınmaması).
+            # DecisionModule.decide artık understanding_result'ı (float/None) ve relevant_memory_entries'i (list/None) bekler.
             decision = self.decision_module.decide(
-                understanding_result, # Anlama modülünün çıktısı
-                relevant_memory_entries # Bellek girdileri tekrar karar için kullanılabilir
-                # İçsel durum (internal_state) gelecekte buraya eklenecek.
+                understanding_result, # Anlama modülünün çıktısı (benzerlik skoru)
+                relevant_memory_entries # Bellek girdileri (list/None) - Gelecekte bağlamsal karar için
+                # internal_state # Gelecekte eklenecek.
             )
 
-            # DEBUG logu: Karar sonucu (None değilse)
-            # if decision is not None: # Zaten None değilse buraya gelinir.
-            #      logger.debug(f"CognitionCore.decide: Karar sonucu alindi (Placeholder): '{decision}'")
+            # DEBUG logu: Karar sonucu
+            # DecisionModule.decide string veya None döndürür.
+            if decision is not None:
+                 if isinstance(decision, str):
+                     logger.debug(f"CognitionCore.decide: Karar sonucu alindi (string): '{decision}'")
+                 else: # String değilse (Beklenmeyen durum)
+                     logger.warning(f"CognitionCore.decide: Karar sonucu beklenmeyen tipte: {type(decision)}. String veya None bekleniyordu.")
+                     logger.debug(f"CognitionCore.decide: Karar sonucu: {repr(decision)}")
+            else:
+                 logger.debug("CognitionCore.decide: Karar sonucu None.")
 
 
         except Exception as e:
@@ -155,13 +165,13 @@ class CognitionCore:
         CognitionCore modülü kaynaklarını temizler.
 
         Alt modüllerin (UnderstandingModule, DecisionModule) cleanup metotlarını (varsa) çağırır.
-        module_loader.py bu metodu program sonlanırken çağırır (varsa).
+        module_loader.py bu metotu program sonlanırken çağrır (varsa).
         """
         logger.info("Cognition modülü objesi siliniyor...")
         # Alt modüllerin cleanup metotlarını çağır (varsa).
-        if hasattr(self.understanding_module, 'cleanup'):
+        if self.understanding_module and hasattr(self.understanding_module, 'cleanup'):
              self.understanding_module.cleanup()
-        if hasattr(self.decision_module, 'cleanup'):
+        if self.decision_module and hasattr(self.decision_module, 'cleanup'):
              self.decision_module.cleanup()
 
         logger.info("Cognition modülü objesi silindi.")

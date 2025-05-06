@@ -51,6 +51,8 @@ memory:
 cognition:
   # Örneğin, karar eşikleri veya model yolları buraya gelebilir
   # decision_threshold: 0.7
+  # familiarity_threshold: Girdiyi "tanıdık" kabul etmek için gereken en düşük bellek benzerlik skoru (0.0 ile 1.0 arası float).
+  familiarity_threshold: 0.8 # Varsayılan değer
 
 # Motor Control modülleri ayarları
 motor_control:
