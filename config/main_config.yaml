@@ -84,10 +84,37 @@ interaction:
 
 # Loglama Ayarları
 logging:
-  level: DEBUG # Varsayılan loglama seviyesi (DEBUG, INFO, WARNING, ERROR, CRITICAL)
-  # handlers: # Gelecekte farklı çıktı hedefleri tanımlanabilir
-  #   - type: console
-  #     level: DEBUG
-  #   - type: file
-  #     filename: evo.log
-  #     level: INFO
+  level: INFO
+  handlers:
+    - type: console
+      level: DEBUG
+      color: true
+    - type: file
+      filename: logs/evo_all.log
+      level: DEBUG
+      color: false
+    - type: webapi
+      url: http://localhost:5000/log
+      level: ERROR
+    - type: socket
+      host: 127.0.0.1
+      port: 9000
+      udp: true
+      level: WARNING     
+  modules:
+    # SENSORS
+    src.senses.vision: [INFO, DEBUG]
+    src.senses.audio: [INFO, WARNING]
+    # PROCESSORS
+    src.processing.vision: [INFO, DEBUG]
+    src.processing.audio: [INFO]
+    # REPRESENTERS
+    src.representation.models: [INFO, WARNING]
+    # MEMORIES
+    src.memory.core: [INFO, DEBUG]
+    # COGNITION
+    src.cognition.core: [INFO, DEBUG, WARNING]
+    # MOTOR CONTROL
+    src.motor_control.core: [INFO]
+    # INTERACTION
+    src.interaction.api: [INFO, WARNING]
