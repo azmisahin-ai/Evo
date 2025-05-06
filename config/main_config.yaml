@@ -3,7 +3,7 @@
 # Modül ayarları, genel parametreler ve diğer yapılandırmalar burada tanımlanır.
 
 # Genel Ayarlar
-cognitive_loop_interval: 1.0 # Bilişsel döngünün ne sıklıkta çalışacağı (saniye)
+cognitive_loop_interval: 0.1 # Bilişsel döngünün ne sıklıkta çalışacağı (saniye)
 
 # Sense modülleri ayarları
 vision:
@@ -103,18 +103,18 @@ logging:
       level: WARNING     
   modules:
     # SENSORS
-    src.senses.vision: [INFO, DEBUG]
-    src.senses.audio: [INFO, WARNING]
+    src.senses.vision: [INFO, DEBUG, WARNING, ERROR, CRITICAL]
+    src.senses.audio: [INFO, DEBUG, WARNING, ERROR, CRITICAL]
     # PROCESSORS
-    src.processing.vision: [INFO, DEBUG]
-    src.processing.audio: [INFO]
+    src.processing.vision: [INFO, DEBUG, WARNING, ERROR, CRITICAL]
+    src.processing.audio: [INFO, DEBUG, WARNING, ERROR, CRITICAL]
     # REPRESENTERS
-    src.representation.models: [INFO, WARNING]
+    src.representation.models: [INFO, DEBUG, WARNING, ERROR, CRITICAL]
     # MEMORIES
-    src.memory.core: [INFO, DEBUG]
+    src.memory.core: [INFO, DEBUG, WARNING, ERROR, CRITICAL]
     # COGNITION
-    src.cognition.core: [INFO, DEBUG, WARNING]
+    src.cognition.core: [INFO, DEBUG, WARNING, ERROR, CRITICAL]
     # MOTOR CONTROL
-    src.motor_control.core: [INFO]
+    src.motor_control.core: [INFO, DEBUG, WARNING, ERROR, CRITICAL]
     # INTERACTION
-    src.interaction.api: [INFO, WARNING]
+    src.interaction.api: [INFO, DEBUG, WARNING, ERROR, CRITICAL]

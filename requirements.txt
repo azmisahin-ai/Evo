@@ -3,3 +3,4 @@ pyaudio
 numpy
 Flask
 PyYAML
+requests
