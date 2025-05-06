@@ -91,8 +91,8 @@ Aşağıdaki fazlar, Evo'nın doğumundan (temel algı) bilgelik ve ustalığa (
         *   [x] `MotorControlCore.generate_response` metodunun tasarlanan basit mantığına göre implementasyonu.
         *   [x] Temel "anlama-yanıtla" döngüsünün basit bir senaryo ile test edilmesi.
 
-    *   [x] **TODO:** İşlenmiş temsilleri kullanarak basit ayırımlar yapma.
-    *   [x] **TODO:** Önceden öğretilmiş (denetimli) temel etiketleri/kavramları... ilişkilendirme mekanizmasının eklenmesi. (Process çıktısı eşiklerine dayalı basit boolean etiketlerle ilk adımı atıldı).
+    *   [x] **TODO:** İşlenmiş temsilleri kullanarak basit ayırımlar yapma...
+    *   [x] **TODO:** Önceden öğretilmiş (denetimli) temel etiketleri/kavramları... ilişkilendirme mekanizmasının eklenmesi. (Process çıktısı eşiklerine dayalı basit boolean etiketlerle (ses, kenar, parlak, karanlık) ilk adımı atıldı).
     *   [x] **TODO:** İçsel durumdan... basit dışsal tepkiler üretme mantığı.
 
 
@@ -102,24 +102,23 @@ Aşağıdaki fazlar, Evo'nın doğumundan (temel algı) bilgelik ve ustalığa (
     *   [x] Hedef: Daha fazla kavramı kendi kendine (denetimsiz öğrenme ile) keşfetmeye başlama. Denetimli öğrenme ile öğretilen etiket setini genişletme. İçsel temsillerden daha kontrollü dışsal ifadeler üretme (ses sentezi, basit görsel çıktılar).
     *   [x] Odak Modülleri için temel dosyalar/placeholder'lar mevcut (`src/cognition/learning.py`, `src/motor_control/expression.py`).
 
-    *   **Faz 4 Gerçek Implementasyon Görevleri (Başlangıç):**
+    *   **Faz 4 Gerçek Implementasyon Görevleri (TAMAMLANDI):**
         *   [x] Basit denetimsiz kavram keşfi (kümeleme) algoritmasının implementasyonu (`src/cognition/learning.py`).
         *   [x] LearningModule'ün bellekteki Representation vektörlerini kullanarak kavram temsilcilerini periyodik olarak öğrenmesi. (Memory erişim hatası düzeltildi).
         *   [x] UnderstandingModule'ün gelen Representation'ın öğrenilmiş kavramlara olan benzerliğini hesaplaması. (`issubtype` hatası düzeltildi).
-        *   [x] DecisionModule'ün kavram tanıma benzerlik skoruna dayalı yeni kararlar üretmesi. (`issubtype` hatası düzeltildi).
+        *   [x] DecisionModule'ün kavram tanıma benzerlik skorına dayalı yeni kararlar üretmesi. (`issubtype` hatası düzeltildi).
         *   [x] MotorControl ve ExpressionGenerator'ın yeni kavram tanıma kararlarını işlemesi için güncellenmesi.
 
     *   [ ] **TODO:** Denetimli öğrenme ile temel kavram/etiket setini genişletme mekanizmasının eklenmesi. (Hala TODO)
     *   [ ] **TODO:** İçsel temsilleri kullanarak daha karmaşık anlama (nesne takibi, aktivite tanıma vb.). (Hala TODO)
-    *   [ ] **TODO:** İ ifade yeteneklerini çeşitlendirme (ses sentezi entegrasyonu, görsel çıktı üretimi). (Hala TODO)
-    *   [ ] **TODO:** Öğrenilen kavram temsilcilerine kalıcılık eklenmesi (LearningModule). (YENİ TODO)
+    *   [ ] **TODO:** İfade yeteneklerini çeşitlendirme (ses sentezi entegrasyonu, görsel çıktı üretimi). (Hala TODO)
 
 ---
 
 *   **Faz 5: Çapraz Duyusal Bağlantılar ve Temel İletişim (Duyuların Birleşimi ve Anlamlı Etkileşim)**
     *   [x] Interaction modülüne Console ve WebAPI çıktı kanallarının eklenmesi.
     *   [ ] **TODO:** WebAPIOutputChannel implementasyonunu tamamlama ve dış arayüz ile çift yönlü (girdi alımını da içerecek şekilde) temel iletişimi sağlama.
-    *   [x] Hedef: Farklı modalitelere ait içsel temsilleri (görsel ve işitsel) birleştirmeye veya birinden diğerine dönüştürmeye başlama ("Bu ses bu görüntüyle ilişkili"). Belirli duyu girdilerine (örn. kullanıcı sesi/yüzü) spesifik ve anlamlı ilk ifadelerle (örn. basit bir metin onayı, ses sinyali) yanıt verme. Temel "anlama-yanıtla" döngüsünün güçlenmesi. (Temel adımlar atıldı, çapraz modalite işleme/birleştirme/dönüşüm hala TODO).
+    *   [x] Hedef: Farklı modalitelere ait içsel temsilleri (görsel ve işitsel) birleştirmeye veya birinden diğerine dönüştürmeye başlama ("Bu ses bu görüntüyle ilişkili"). Belirli duyu girdilerine (örn. kullanıcı sesi/yüzü) spesifik ve anlamlı ilk ifadelerle (örn. basit bir metin onayı, ses sinyali) yanıt verme. Temel "anlama-yanıtla" döngüsünün güçlenmesi. (Bu hedefin temel adımları Faz 3/4'te atıldı, çapraz modalite birleştirme/dönüşüm hala TODO).
     *   [ ] Odak Modülleri için temel dosyalar/placeholder'lar mevcut veya tanımlanacak.
 
 *   **Faz 6: Sekans Anlama ve Üretme (Hikaye Anlama Başlangıcı)**
@@ -156,7 +155,8 @@ Aşağıdaki fazlar, Evo'nın doğumundan (temel algı) bilgelik ve ustalığa (
 *   [ ] Performans optimizasyonları. (Hala TODO)
     *   [ ] **TODO:** Merak seviyesi update mantığı (artış, azalış, decay) DecisionModule'den ayrı bir İçsel Durum (Internal State) modülüne taşınabilir/yönetilebilir.
 *   [ ] Bağımlılıkların yönetimi ve güncellenmesi. (Hala TODO)
-*   [ ] **TODO:** Modülleri tek başına girdi/çıktı ile test etme altyapısı oluşturulması. (YENİ TODO - Öncelik Artırılacak)
+*   [x] Config dosyasındaki gereksiz bölümlerin temizlenmesi.
+*   [x] **TODO:** Modülleri tek başına girdi/çıktı ile test etme altyapısı oluşturulması. (YENİ TODO - Öncelik Artırılacak)
 *   [ ] **TODO:** Temel Process/Representation/Cognition çıktı değerlerinin log detaylarının artırılması. (YENİ TODO - Öncelik Artırılacak)
 *   [ ] **TODO:** Ses duyu verisinden uzamsal (spatial) konum bilgisinin çıkarılması ve işlenmesi. (YENİ TODO)
 *   [ ] **TODO:** Farklı canlılarla (örn: kedi) ve doğal ortamlarla etkileşim kurma yeteneklerinin planlanması ve implementasyonu. (YENİ TODO)
@@ -166,3 +166,17 @@ Aşağıdaki fazlar, Evo'nın doğumundan (temel algı) bilgelik ve ustalığa (
 
 
 ---
+
+**Sıradaki Implementasyon Görevleri (Test ve Loglama Altyapısı Geliştirme):**
+
+Faz 3'ün tüm temel implementasyon görevleri tamamlandı. Evo artık duyularına, belleğine ve içsel durumuna göre farklı tepkiler verebiliyor. Şimdi Faz 4'e adım atıyoruz ve "Kavramsal Genişleme"nin ilk adımı olarak basit bir etiketleme mekanizması ekliyoruz.
+
+**Sıradaki Implementasyon Görevleri (Blok):**
+
+Bu görev bloğu, modül test altyapısını kuracak ve loglama detaylarını artıracaktır.
+
+1.  **Modülleri Tek Başına Test Etme Altyapısı Kurulumu:** `scripts` dizini altına `test_module.py` gibi bir script oluşturulacak. Bu script, config dosyasını yükleyebilecek, belirli bir modülü (örn. `VisionProcessor`, `DecisionModule`) config ayarlarıyla başlatabilecek, test senaryolarına göre sahte girdi verileri üretebilecek (örn. sahte görüntü/ses chunk'ı, sahte Representation vektörü, sahte anlama sinyalleri dictionary'si) ve bu modülün çıktısını çalıştırıp loglayabilecektir. Bu script, farklı modüllerin beklenen girdi/çıktı formatlarını ve temel mantıklarını izole bir şekilde test etmek için kullanılacaktır. Basit test senaryoları (örn. geçerli girdi, geçersiz girdi, None girdi) ile başlanacaktır.
+2.  **Temel Process/Representation/Cognition Çıktı Log Detaylarının Artırılması:** Process (Enerji, Centroid, Ortalama Parlaklık/Kenar), UnderstandingModule (Benzerlik Skoru, Flag Değerleri, Kavram Benzerliği/ID), DecisionModule (Anlama sinyalleri, Karar, Merak Seviyesi) gibi kritik ara çıktı değerlerinin DEBUG loglarında daha anlaşılır ve formatlı bir şekilde gösterilmesi sağlanacaktır. Özellikle Process çıktı değerlerinin eşiklerle karşılaştırılmasını kolaylaştıracak formatlama (örn: `Audio Energy: 0.4677 (< 1000.0 threshold)`) eklenecektir.
+3.  **Örnek Birkaç Modül Testi Ekleme:** Kurulan altyapıyı kullanarak, Processor modülleri ve belki DecisionModule için basit örnek test senaryoları `test_module.py` scripti içine veya ayrı test dosyalarına eklenecektir.
+
+Bu görev bloğu, doğrudan Evo'ya yeni bilişsel yetenekler kazandırmasa da, projenin teknik temelini güçlendirecek, hata ayıklamayı kolaylaştıracak ve gelecekteki karmaşık yeteneklerin implementasyonu için zemin hazırlayacaktır. Bu, "Genel Proje Görevleri" altındaki ilgili TODO'ları karşılayacaktır.
