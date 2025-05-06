@@ -34,9 +34,6 @@ class MotorControlCore:
         """
         MotorControlCore modülünü başlatır.
 
-        Alt modülleri (ExpressionGenerator, Manipulator, LocomotionController) başlatmayı dener.
-        Başlatma sırasında hata oluşursa alt modüllerin objeleri None kalabilir.
-
         Args:
             config (dict): Motor control çekirdek yapılandırma ayarları.
                            Alt modüllere ait ayarlar kendi adları altında beklenir
@@ -90,8 +87,8 @@ class MotorControlCore:
         Bu karara göre, ExpressionGenerator gibi alt modülleri kullanarak
         dışarıya gönderilecek bir tepki (output_data) üretir.
         Mevcut implementasyon: Karar stringlerine göre farklı metin tepkileri üretir.
-        Karar None ise veya işlenemeyen bir karar ise None döndürür.
-        Tepki üretme veya eylem başlatma sırasında hata oluşursa None döndürür.
+        Karar None ise veya işlenmeyen bir karar ise None döndürür.
+        Tepki üretme veya eylem başlatma sırasında hata oluşarsa None döndürür.
 
         Args:
             decision (str or any): Cognition modülünden gelen karar.
@@ -138,7 +135,7 @@ class MotorControlCore:
             elif decision == "dark_environment_detected": # Yeni karar
                 expression_command = "dark_environment_response"
                 handled_decision = True
-            elif isinstance(decision, str) and decision.startswith("recognized_concept_"): # Yeni karar formatı "recognized_concept_X"
+            elif isinstance(decision, str) and decision.startswith("recognized_concept_"): # Yeni kavram tanıma kararı "recognized_concept_X"
                  # Kavram tanıma kararı. ExpressionGenerator'a özel bir komut ve kavram ID'sini ilet.
                  concept_id_str = decision.split("_")[-1] # Kararın son kısmı ID
                  # ID'nin sayısal olduğundan emin ol.
@@ -168,8 +165,8 @@ class MotorControlCore:
             if handled_decision and expression_command is not None:
                  # ExpressionGenerator varsa onu kullan, yoksa varsayılan metni üret (ExpressionGenerator'da tanımlı fallback).
                  if self.expression_generator:
+                      # ExpressionGenerator'ın generate metodu None döndürürse, bu None olarak iletilir.
                       output_data = self.expression_generator.generate(expression_command)
-                      # generate None döndürürse output_data None kalır, bu kabul edilebilir (örn: ExpressionGenerator o komutu bilmiyorsa).
                  # else: ExpressionGenerator yoksa veya generate None döndürdüyse output_data None kalır.
 
             # Eğer gelen karar None ise VEYA bilinen bir komuta eşleşmediyse/işlenirken hata olduysa
@@ -181,20 +178,20 @@ class MotorControlCore:
                  # Varsayılan fallback metin yanıtını üret.
                  # ExpressionGenerator varsa varsayılan yanıt için onu kullanmayı dene.
                  if self.expression_generator:
-                      output_data = self.expressionGenerator.generate("default_response") # Varsayılan yanıt için komut
+                      output_data = self.expression_generator.generate("default_response") # Varsayılan yanıt için komut
                       # generate None döndürürse output_data None kalır, bu kabul edilebilir.
                  else:
                       output_data = "Ne yapacağımı bilemedim." # ExpressionGenerator yoksa sabit fallback metin.
-                 # output_data hala None ise (ExpressionGenerator default_response için None döndürürse), bu döndürülür.
+                 # output_data hala None ise, bu None olarak döndürülür.
 
 
             # TODO: Gelecekte farklı çıktı formatları için (ses, görsel) burada kontrol ve yönlendirme yapılacak.
             # Örneğin, eğer üretilen output_data bir ses array'i ise, bunu Interaction'a 'audio_output' gibi bir anahtarla gönderecek şekilde ayarlama.
-            # Şu an ExpressionGenerator sadece string döndürüyor varsayıyoruz.
+            # Şu an ExpressionGenerator sadece string veya None döndürüyor varsayıyoruz.
 
         except Exception as e:
             # Tepki üretme veya eylem başlatma işlemi sırasında beklenmedik bir hata olursa logla.
-            logger.error(f"MotorControlCore.generate_response: Tepki üretme/Eylem başlatma sırasında beklenmedik hata: {e}", exc_info=True)
+            logger.error(f"MotorControlCore.generate_response: Tepki üretme/Eylem başlatma sırasında beklenmedek hata: {e}", exc_info=True)
             return None # Hata durumunda None döndürerek main loop'un çökmesini engelle.
 
         # Başarılı durumda üretilen tepkiyi veya eylem başlatıldıysa (çıktı None ise) None'ı döndür.
@@ -227,4 +224,4 @@ class MotorControlCore:
              cleanup_safely(self.locomotion_controller.cleanup, logger_instance=logger, error_message="MotorControl: LocomotionController temizlenirken hata")
 
 
-        logger.info("MotorControl modülü objesi siliniyor.")
+        logger.info("MotorControl modülü objesi silindi.")

@@ -29,10 +29,11 @@ from src.interaction.api import InteractionAPI # api.py dosyasındaki Interactio
 logger = logging.getLogger(__name__)
 
 
-def _initialize_single_module(module_name, module_class, config, category_name, is_critical_category):
+def _initialize_single_module(module_name, module_class, config, category_name, is_critical_category, **extra_args):
     """
     Tek bir modülü initialize etmeyi dener ve sonucu döndürür.
     run_safely yardımcı fonksiyonunu kullanarak başlatma sırasında oluşabilecek hataları yönetir.
+    **extra_args parametresi ile alt modül initlerine ekstra argümanlar iletilmesini sağlar (örn: module_objects).
 
     Args:
         module_name (str): Modülün adı (örn: 'vision', 'core_memory').
@@ -40,6 +41,7 @@ def _initialize_single_module(module_name, module_class, config, category_name, 
         config (dict): Genel yapılandırma sözlüğü.
         category_name (str): Modülün ait olduğu kategori adı (örn: 'sensors', 'processors').
         is_critical_category (bool): Bu modülün ait olduğu kategorinin kritik olup olmadığı.
+        **extra_args: Alt modül init metoduna iletilecek ekstra keyword argümanları.
 
     Returns:
         tuple: (instance, critical_error_occurred)
@@ -56,21 +58,21 @@ def _initialize_single_module(module_name, module_class, config, category_name, 
     # _initialize_single_module'deki try-except bloğunu run_safely ile değiştir.
     # run_safely, exception yakalarsa None döner ve loglar.
     # Başlatma sırasında hata oluştuğunda log seviyesi CRITICAL olmalı.
+    # Alt modül init metotlarına config ve **extra_args dictionary'sindeki anahtarları ilet.
     instance = run_safely(
         module_class, # Çalıştırılacak fonksiyon (sınıf __init__ metodu çağrılır)
-        module_config, # Fonksiyonun (init) ilk argümanı
+        module_config, # Fonksiyonun (init) ilk argümanı (config)
+        **extra_args, # Ekstra keyword argümanları (**extra_args dictionary'sini unpack et) <<< BURADA DEĞİŞİKLİK YAPILDI
         logger_instance=logger, # Loglama için bu modülün logger'ını gönder
         error_message=f"Modül '{module_name}' ({module_class.__name__}) başlatılırken kritik hata oluştu", # Log mesajı
         error_level=logging.CRITICAL # Log seviyesi
     )
 
     # run_safely None döndürdüyse (hata olduysa veya init None döndürdüyse) ve kategori kritikse
-    # run_safely exception durumunda None döner. Modül __init__ de None döndürebilir.
     # Eğer instance None ise (hata oldu veya init None döndürdü) ve kategori kritikse, kritik hata oldu.
     if instance is None and is_critical_category:
          critical_error_occurred = True
          # Hata run_safely içinde CRITICAL olarak loglandı.
-         # logger.critical(f"Kritik modül '{module_name}' başlatılamadığı için ana döngü engelleniyor.") # Zaten run_safely içinde loglandı.
 
     # Eğer instance başarıyla oluşturulduysa (None değilse)
     elif instance is not None:
@@ -135,6 +137,8 @@ def initialize_modules(config):
 
     Her modül kategorisi için belirlenen sınıfları config'in ilgili bölümünü
     kullanarak _initialize_single_module yardımcı fonksiyonu aracılığıyla başlatır.
+    Bazı alt modüllere (örn: CognitionCore içindeki LearningModule) diğer modül objelerinin
+    referansları init sırasında iletilmelidir. Bu, burada yönetilir.
     Başlatma sırasında oluşabilecek hataları yönetir ve loglar.
     Kritik kategorideki modüllerin başlatma hatası durumunda ana döngünün çalışmasını engelleyecek
     bir bayrak döndürür.
@@ -154,10 +158,12 @@ def initialize_modules(config):
                                             Eğer temel pipeline için kritik modüllerden (Processing, Represent, Memory, Cognition, MotorControl)
                                             herhangi biri başlatılamazsa (_initialize_single_module False döndürürse), False döner.
                                             Sensörler ve Interaction'ın başlatılamaması (None instance veya exception)
-                                            şimdilik ana döngüyü durdurmaz (Non-kritik başlatma hatası olarak ele alınır).
+                                            şimdilik ana döngüyi durdurmaz (Non-kritik başlatma hatası olarak ele alınır).
     """
     logger.info("Modüller başlatılıyor...")
 
+    # Başlatılan modül objelerini tutacak dictionary.
+    # Bu dictionary, alt modüllerin init metotlarına 'module_objects' keyword argümanı olarak iletilecek.
     module_objects = {
         'sensors': {}, 'processors': {}, 'representers': {},
         'memories': {}, 'cognition': {}, 'motor_control': {}, 'interaction': {},
@@ -169,12 +175,14 @@ def initialize_modules(config):
     # Bu liste başlatma sırasını da belirler.
     # Sözlük anahtarları: module_objects dict'indeki kategori isimleri.
     # Değerler: (bu kategori kritik mi?, {bu kategorideki modül_adı: ModülSınıfı})
+    # initialize_modules artık module_objects'ı alt modül initlerine iletebilir.
     module_definitions = [
         ('sensors', False, {'vision': VisionSensor, 'audio': AudioSensor}),
         ('processors', True, {'vision': VisionProcessor, 'audio': AudioProcessor}), # Kritik kategori
         ('representers', True, {'main_learner': RepresentationLearner}), # Kritik kategori
         ('memories', True, {'core_memory': Memory}), # Kritik kategori
-        ('cognition', True, {'core_cognition': CognitionCore}), # Kritik kategori
+        # Cognition kritik kategoridir ve başlatılırken tüm module_objects dictionary'sine ihtiyaç duyar.
+        ('cognition', True, {'core_cognition': CognitionCore}),
         ('motor_control', True, {'core_motor_control': MotorControlCore}), # Kritik kategori
         ('interaction', False, {'core_interaction': InteractionAPI}), # Non-kritik başlatma hatası
     ]
@@ -188,8 +196,14 @@ def initialize_modules(config):
 
         # Kategori içindeki her modülü _initialize_single_module yardımcı fonksiyonu ile başlatmayı dene
         for module_name, module_class in module_classes_dict.items():
+            # CognitionCore başlatılırken module_objects dictionary'sini argüman olarak iletmemiz gerekiyor.
+            # Diğer modüller şimdilik sadece config argümanı bekliyor.
+            extra_init_args = {}
+            if category_name == 'cognition': # Eğer bu kategori Cognition ise
+                 extra_init_args['module_objects'] = module_objects # module_objects dictionary'sini ilet. <<< BURADA DEĞİŞİKLİK YAPILDI
+
             instance, error_occurred_for_single_module = _initialize_single_module(
-                module_name, module_class, config, category_name, is_critical_category
+                module_name, module_class, config, category_name, is_critical_category, **extra_init_args # Extra argümanları ilet. <<< BURADA DEĞİŞİKLİK YAPILDI
             )
             module_objects[category_name][module_name] = instance # Başlatılan instance'ı veya None'ı kaydet
 
@@ -201,8 +215,6 @@ def initialize_modules(config):
              can_run_main_loop = False
              # Kritik hata _initialize_single_module içinde loglandı.
              # Burada sadece ana döngü bayrağının değiştiğini loglayabiliriz.
-             # logger.critical(f"Kritik modül kategorisi '{category_name}' başlatılamadığı için ana döngü engelleniyor.")
-             # Diğer modül başlatmalarına devam ediyoruz (hata ayıklama için).
 
 
     # Sensör başlatma durumu hakkında özel log (hepsi None olsa bile ana döngü engellenmiyor policy'mize göre)
@@ -261,7 +273,6 @@ def cleanup_modules(module_objects):
             for module_name, module_instance in list(category_dict.items()):
                  # _cleanup_single_module obje None olsa bile güvenli çalışır.
                  _cleanup_single_module(module_name, module_instance, category_name)
-
 
         # Sensörler için stop_stream metotları var, cleanup metotları değil (mevcut kodda).
         # Bunları manuel olarak veya cleanup metodlarına taşımalıyız.

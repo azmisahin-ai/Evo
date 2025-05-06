@@ -2,6 +2,7 @@
 #
 # Evo'nın denetimsiz öğrenme (kavram keşfi) modülünü temsil eder.
 # Bellekteki Representation vektörlerini analiz ederek temel desenleri/kümeleri (kavramları) keşfeder.
+# Basit eşik tabanlı yeni kavram ekleme mantığı kullanır.
 
 import logging
 import numpy as np # Vektör işlemleri ve benzerlik hesaplaması için
@@ -16,9 +17,9 @@ class LearningModule:
     """
     Evo'nın denetimsiz öğrenme (kavram keşfi) yeteneğini sağlayan sınıf (Faz 4 implementasyonu).
 
-    Bellekteki Representation vektörlerini alır ve basit bir kümeleme benzeri mantık uygulayarak
-    temel kavramları (desen gruplarını) keşfeder ve öğrenir. Keşfedilen kavramlar,
-    kavram temsilcisi vektörleri (centroidler gibi) olarak saklanır.
+    Bellekteki Representation vektörlerini alır ve basit bir eşik tabanlı yeni kavram ekleme
+    mantığı uygulayarak temel kavramları (desen gruplarını) keşfeder ve öğrenir. Keşfedilen
+    kavramlar, kavram temsilcisi vektörleri olarak (o kavramı ilk temsil eden vektör) saklanır.
     "From scratch" prensibiyle, karmaşık kütüphaneler olmadan basit bir yaklaşım kullanılır.
     """
     def __init__(self, config):
@@ -34,17 +35,14 @@ class LearningModule:
                                                     0.0'a yakınsa, çoğu şey yeni kavram olur.
                            'representation_dim': İşlenecek Representation vektörlerinin boyutu (int).
                                                   Bu, RepresentationLearner'ın çıktısı ile aynı olmalıdır.
-                                                  Config'ten veya RepresentationLearner'dan alınabilir.
-                                                  Burada RepresentationLearner'ın output_dim'ine göre belirleneceğini varsayalım.
-                                                  Şimdilik config'ten alalım.
+                                                  Config'ten alınır.
         """
         self.config = config
         logger.info("LearningModule başlatılıyor (Faz 4)...")
 
-        # Yapılandırmadan eşikleri alırken get_config_value kullan.
+        # Yapılandırmadan eşiği alırken get_config_value kullan.
         self.new_concept_threshold = get_config_value(config, 'new_concept_threshold', 0.7, expected_type=(float, int), logger_instance=logger)
         # Representation boyutunu config'ten al (RepresentationLearner ile uyumlu olmalı).
-        # Eğer config'te yoksa, varsayılan RepresentationLearner boyutunu (128) kullanalım.
         self.representation_dim = get_config_value(config, 'representation_dim', 128, expected_type=int, logger_instance=logger)
 
 
@@ -57,13 +55,17 @@ class LearningModule:
         if self.representation_dim <= 0:
              logger.error(f"LearningModule: Konfig 'representation_dim' geçersiz ({self.representation_dim}). Pozitif bir değer bekleniyordu. Başlatma başarısız olabilir.")
              # Başlatma sırasında kritik hata vermiyoruz, sadece logluyoruz.
+             # Representation boyutu geçersizse kavram keşfi mantığı çalışmayacaktır.
 
 
         # Öğrenilen kavramların temsilcilerini (vektörlerini) saklayacak liste.
         # Her kavramın bir ID'si (listenin indeksi) ve temsilci vektörü olacak.
         self.concept_representatives = [] # Liste elementleri: numpy array (shape (representation_dim,))
 
-        logger.info(f"LearningModule başlatıldı. Yeni Kavram Eşiği: {self.new_concept_threshold}, Representation Boyutu: {self.representation_dim}. Öğrenilen Kavram Sayısı: {len(self.concept_representatives)}")
+        # TODO: Gelecekte kavramları dosyaya kaydetme/yükleme eklenecek (kalıcılık).
+        # self._load_concepts() # Gelecek TODO
+
+        logger.info(f"LearningModule başlatıldı. Yeni Kavram Eşiği: {self.new_concept_threshold}, Representation Boyutu: {self.representation_dim}. Başlangıç Kavram Sayısı: {len(self.concept_representatives)}")
 
 
     def learn_concepts(self, representation_list):
@@ -71,9 +73,9 @@ class LearningModule:
         Verilen Representation vektör listesini kullanarak yeni kavramları keşfeder veya mevcutları günceller.
 
         "From scratch" basit implementasyon: Listedeki her Representation vektörünü alır.
-        Eğer bu vektör, mevcut kavram temsilcilerinden hiçbirine yeterince benzemiyorsa
-        (benzerlik self.new_concept_threshold eşiğinin altındaysa), bu vektörü
-        yeni bir kavram temsilcisi olarak ekler. Mevcut temsilcileri güncellemez.
+        Eğer bu vektör, mevcut kavram temsilcilerinden hiçbirine self.new_concept_threshold
+        eşik değeri kadar benzemiyorsa, bu vektörü yeni bir kavram temsilcisi olarak ekler.
+        Mevcut temsilcileri güncellemez.
 
         Args:
             representation_list (list or None): Memory'den gelen Representation vektörlerinin listesi.
@@ -97,6 +99,11 @@ class LearningModule:
              logger.debug("LearningModule.learn_concepts: representation_list boş liste. Kavram öğrenme atlandi.")
              return self.concept_representatives # Boş liste ise mevcut listeyi döndür.
 
+        # Representation boyutu geçerli değilse öğrenme yapma.
+        if self.representation_dim <= 0:
+             logger.error("LearningModule.learn_concepts: Representation boyutu geçersiz. Kavram öğrenme atlandi.")
+             return self.concept_representatives
+
 
         logger.debug(f"LearningModule.learn_concepts: {len(representation_list)} representation vektörü öğrenme için alındı. Mevcut {len(self.concept_representatives)} kavram var.")
 
@@ -117,28 +124,32 @@ class LearningModule:
 
                             if self.concept_representatives: # Öğrenilmiş kavram varsa benzerlik hesapla.
                                 for concept_rep in self.concept_representatives:
-                                     # Kavram temsilcisinin de geçerli olduğundan emin ol (teorik olarak her zaman olmalı).
+                                     # Kavram temsilcisinin de geçerli olduğundan emin ol.
                                      concept_norm = np.linalg.norm(concept_rep)
                                      if concept_norm > 1e-8:
+                                          # Kosinüs benzerliği hesapla.
                                           similarity = np.dot(rep_vector, concept_rep) / (rep_norm * concept_norm)
                                           if not np.isnan(similarity):
                                                max_similarity_to_concepts = max(max_similarity_to_concepts, similarity)
-                                     # else: logger.debug("LearningModule.learn_concepts: Concept rep near zero norm, skipping similarity.")
+                                     # else: logger.debug("LM.learn_concepts: Concept rep near zero norm, skipping similarity.")
 
-                                # logger.debug(f"LearningModule.learn_concepts: Vektör için en yüksek kavram benzerliği: {max_similarity_to_concepts:.4f}")
+                                # logger.debug(f"LM.learn_concepts: Vektör için en yüksek kavram benzerliği: {max_similarity_to_concepts:.4f}")
 
                             # Eğer en yüksek benzerlik eşiğin altındaysa, yeni kavram olarak ekle.
-                            if max_similarity_to_concepts < self.new_concept_threshold:
-                                # Yeni kavram temsilcisi olarak mevcut Representation vektörünü ekle.
-                                self.concept_representatives.append(rep_vector) # Numpy array'in kendisini kopyalayarak saklamak daha güvenli olabilir. .copy()
-                                logger.info(f"LearningModule.learn_concepts: Yeni kavram keşfedildi! Toplam kavram: {len(self.concept_representatives)}")
-                                logger.debug(f"LearningModule.learn_concepts: Yeni kavram vektörü shape: {rep_vector.shape}, dtype: {rep_vector.dtype}. En yüksek mevcut benzerlik: {max_similarity_to_concepts:.4f} < Eşik {self.new_concept_threshold:.4f}")
-                            # else: logger.debug(f"LearningModule.learn_concepts: Vektör yeterince tanıdık (benzerlik {max_similarity_to_concepts:.4f} >= eşik {self.new_concept_threshold:.4f}). Yeni kavram eklenmedi.")
+                            # Veya hiç kavram yoksa ilk vektörü ilk kavram yap.
+                            if max_similarity_to_concepts < self.new_concept_threshold or not self.concept_representatives:
+                                # Yeni kavram temsilcisi olarak mevcut Representation vektörünü ekle (kopyası).
+                                self.concept_representatives.append(rep_vector.copy()) # Numpy array'in kopyasını sakla.
+                                logger.info(f"LearningModule.learn_concepts: Yeni kavram keşfedildi! Toplam kavram: {len(self.concept_representatives)}. En yüksek mevcut benzerlik: {max_similarity_to_concepts:.4f} < Eşik {self.new_concept_threshold:.4f}")
+                            # else: logger.debug(f"LM.learn_concepts: Vektör yeterince tanıdık (benzerlik {max_similarity_to_concepts:.4f} >= eşik {self.new_concept_threshold:.4f}). Yeni kavram eklenmedi.")
 
-                        # else: logger.debug("LearningModule.learn_concepts: Representation vektörü sıfır norm, işlenmedi.")
-                    # else: logger.warning(f"LearningModule.learn_concepts: Representation vektörü yanlış boyut ({rep_vector.shape[0]} vs {self.representation_dim}), işlenmedi.")
-                # else: logger.warning("LearningModule.learn_concepts: Listedeki öğe geçerli Representation vektörü değil, işlenmedi.")
+                        # else: logger.debug("LM.learn_concepts: Representation vektörü sıfır norm, işlenmedi.")
+                    # else: logger.warning(f"LM.learn_concepts: Representation vektörü yanlış boyut ({rep_vector.shape[0]} vs {self.representation_dim}), işlenmedi.")
+                # else: logger.warning("LM.learn_concepts: Listedeki öğe geçerli Representation vektörü değil, işlenmedi.")
 
+
+            # TODO: Gelecekte mevcut kavram temsilcilerini güncelleme mantığı eklenecek (örn: küme merkezini ortalama alarak).
+            # Şu an sadece yeni kavramlar ekleniyor.
 
             logger.debug(f"LearningModule.learn_concepts: Kavram öğrenme tamamlandı. Güncel kavram sayısı: {len(self.concept_representatives)}")
 
@@ -158,23 +169,26 @@ class LearningModule:
         Returns:
             list: Öğrenilmiş kavram temsilcileri numpy array listesi.
         """
-        # Güvenlik için listenin bir kopyasını döndürmek daha iyi olabilir. .copy()
-        return self.concept_representatives # Listeyi referans olarak döndürür.
+        # Güvenlik için listenin bir kopyasını döndürmek daha iyi olabilir.
+        return self.concept_representatives[:] # Listenin shallow kopyasını döndürür.
 
 
     def cleanup(self):
         """
         LearningModule kaynaklarını temizler.
 
-        Öğrenilen kavramlar listesini temizler.
-        Gelecekte öğrenilmiş model parametrelerini kaydetme/temizleme gerekebilir.
-        module_loader.py bu metotu program sonlanırken çağırır (varsa).
+        Öğrenilen kavramlar listesini temizler ve kalıcı depolamaya kaydeder.
+        module_loader.py bu metotu program sonlanırken çağrır (varsa).
         """
         logger.info("LearningModule objesi siliniyor...")
-        # Öğrenilen kavramları kaydetme mantığı buraya gelebilir (gelecek TODO).
+        # TODO: Öğrenilen kavramları kaydetme mantığı buraya gelecek (gelecek TODO).
         # self._save_concepts() # Gelecek TODO
 
         # Öğrenilen kavramlar listesini temizle.
         self.concept_representatives = [] # Veya None
         logger.info("LearningModule: Öğrenilen kavramlar temizlendi.")
         pass
+
+    # TODO: Kavramları kaydetme/yükleme metotları eklenecek (gelecek TODO).
+    # def _load_concepts(self): ...
+    # def _save_concepts(self): ...

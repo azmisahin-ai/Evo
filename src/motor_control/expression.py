@@ -97,7 +97,7 @@ class ExpressionGenerator:
 
 
         except Exception as e:
-            logger.error(f"ExpressionGenerator.generate: İ ifade üretme sırasında beklenmedik hata: {e}", exc_info=True)
+            logger.error(f"ExpressionGenerator.generate: İ fade üretme sırasında beklenmedik hata: {e}", exc_info=True)
             return None # Hata durumunda None döndür
 
         return output_data # Üretilen metin stringi veya None döndürülür.
