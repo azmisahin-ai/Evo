@@ -51,10 +51,18 @@ memory:
 cognition:
   # Örneğin, karar eşikleri veya model yolları buraya gelebilir
   # decision_threshold: 0.7
-  # familiarity_threshold: Girdiyi "tanıdık" kabul etmek için gereken en düşük bellek benzerlik skoru (0.0 ile 1.0 arası float).
+  # Anlama (Understanding) ve Karar (Decision) ayarları
+  # familiarity_threshold: Bellek benzerliğine dayalı "tanıdık" kabul etmek için gereken en düşük bellek benzerlik skoru (0.0 ile 1.0 arası float).
   familiarity_threshold: 0.8 # Varsayılan değer
+  # Process çıktısı eşikleri
   audio_energy_threshold: 1000.0 # Ses enerjisi eşiği (Ses algılama için)
   visual_edges_threshold: 50.0 # Görsel kenar algılama eşiği (Canny kenar tespiti için)
+  # İçsel Durum (Merak) ayarları
+  merak_threshold: 5.0 # Merak seviyesinin keşif/sinyal kararı için ulaşması gereken eşik
+  merak_increment_new: 1.0 # "Yeni" input algılandığında merak seviyesi artış miktarı
+  merak_decrement_familiar: 0.5 # "Tanıdık" input algılandığında merak seviyesi azalış miktarı
+  merak_decay: 0.1 # Her döngü adımında merak seviyesinin otomatik azalışı
+
 
 # Motor Control modülleri ayarları
 motor_control:

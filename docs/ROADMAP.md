@@ -36,10 +36,10 @@ Aşağıdaki fazlar, Evo'nın doğumundan (temel algı) bilgelik ve ustalığa (
 
 
 *   **Faz 1: Temel İşleme ve Temsil (Duyusal Veriden Özellik Çıkarma - TAMAMLANDI)**
-    *   [x] Ham duyu akışını işleyecek Processing modüllerinin oluşturulması.
-    *   [x] Öğrenilmiş içsel temsiller oluşturacak RepresentationLearner modülünün oluşturulması.
-    *   [x] RepresentationLearner içinde Dense katmanları gibi temel NN yapı taşlarının eklenmesi.
-    *   [x] Bu modüllerin temel döngüye entegrasyonu.
+    *   [x] Ham duyu akışını işleyecek Processing modüllerinin oluşturulması (`src/processing/audio.py`, `src/processing/vision.py` - şimdilik passthrough/Placeholder).
+    *   [x] Öğrenilmiş içsel temsiller oluşturacak RepresentationLearner modülünün oluşturulması (`src/representation/models.py` - Placeholder/Temel Sınıf).
+    *   [x] RepresentationLearner içinde Dense katmanları gibi temel NN yapı taşlarının eklenmesi (Model iskeleti başlangıcı).
+    *   [x] Bu modüllerin temel döngüye entegrasyonu (`run_evo.py` içinde çağrılıyorlar).
 
     *   **Faz 1 Gerçek Implementasyon Görevleri (TAMAMLANDI):**
         *   [x] Ham **görsel** veriden temel, düşük seviyeli özellikler (renk, basit kenarlar, hareket - gelecekte) çıkarma algoritmalarının `src/processing/vision.py` içine implementasyonu.
@@ -77,7 +77,7 @@ Aşağıdaki fazlar, Evo'nın doğumundan (temel algı) bilgelik ve ustalığa (
 
 ---
 
-*   **Faz 3: İlkel Anlama ve Tepkiler (İlk Anlama ve İfade - ŞU ANKİ ODAK NOKTASI)**
+*   **Faz 3: İlkel Anlama ve Tepkiler (İlk Anlama ve İfade - TAMAMLANDI)**
     *   [x] Cognition modülünün oluşturulması (`src/cognition/core.py`).
     *   [x] MotorControl modülünün oluşturulması (`src/motor_control/core.py`).
     *   [x] Bu modüllerin temel döngüye entegrasyonu.
@@ -89,11 +89,11 @@ Aşağıdaki fazlar, Evo'nın doğumundan (temel algı) bilgelik ve ustalığa (
         *   [x] Kararın MotorControl modülüne iletilmesi formatının belirlenmesi ve uygulanması. (String kararlar kullanılıyor).
         *   [x] Yanıt üretme mantığı tasarımı. (MotorControl -> ExpressionGenerator akışı kullanılıyor).
         *   [x] `MotorControlCore.generate_response` metodunun tasarlanan basit mantığa göre implementasyonu. (Yeni string kararlara göre sabit metin yanıtları üretildi).
-        *   [x] Temel "anlama-yanıtla" döngüsünün basit bir senaryo ile test edilmesi. (Entegrasyon çalışıyor, Process çıktılarına ve bellek benzerliğine göre farklı karar/tepki döngüleri gözlemleniyor).
+        *   [x] Temel "anlama-yanıtla" döngüsünün basit bir senaryo ile test edilmesi. (Entegrasyon çalışıyor, Process çıktılarına, bellek benzerliğine ve merak seviyesine göre farklı karar/tepki döngüleri gözlemlendi).
 
     *   [x] **TODO:** İşlenmiş temsilleri kullanarak basit ayırımlar yapma ("Bu farklı bir şey", "Bu tanıdık") yeteneğinin geliştirilmesi. (Bellek benzerlik eşiği ve Process çıktısı eşikleri ile yapıldı).
     *   [ ] **TODO:** Önceden öğretilmiş (denetimli) temel etiketleri/kavramları (örn. "ses var", "ışık var", "hareket var") bazı temsil desenleriyle ilişkilendirme mekanizmasının eklenmesi. (Hala TODO).
-    *   [ ] **TODO:** İçsel durumdan (örn. yeni bir desen fark ettiğinde, bellekten bir şey çağırdığında) basit dışsal tepkiler (rastgele ses çıkarma, ilkel görsel veya basit bir sinyal/metin) üretme mantığı. (Hala TODO).
+    *   [x] **TODO:** İçsel durumdan (örn. yeni bir desen fark ettiğinde, bellekten bir şey çağırdığında) basit dışsal tepkiler (rastgele ses çıkarma, ilkel görsel veya basit bir sinyal/metin) üretme mantığı. (Merak seviyesi ve merak eşiği ile yapıldı).
 
 ---
 
@@ -139,6 +139,7 @@ Aşağıdaki fazlar, Evo'nın doğumundan (temel algı) bilgelik ve ustalığa (
 *   [ ] Entegrasyon testlerinin yazılması ve çalıştırılması. (Hala TODO)
 *   [ ] Kod kalitesinin ve okunabilirliğinin artırılması (Refactoring). (Hala TODO)
 *   [ ] Performans optimizasyonları. (Hala TODO)
+    *   [ ] **TODO:** Merak seviyesi update mantığı (artış, azalış, decay) DecisionModule'den ayrı bir İçsel Durum (Internal State) modülüne taşınabilir/yönetilebilir.
 *   [ ] Bağımlılıkların yönetimi ve güncellenmesi. (Hala TODO)
 *   [x] Config dosyasındaki gereksiz bölümlerin temizlenmesi.
 

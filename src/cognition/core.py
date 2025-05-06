@@ -5,7 +5,7 @@
 # UnderstandingModule ve DecisionModule gibi alt modülleri koordine eder.
 
 import logging # Loglama için.
-# numpy, temsil ve bellek verileri için gerekli, ancak doğrudan core.py'de her yerde kullanılmıyor.
+# numpy, temsil ve bellek verileri için gerekli, ancak doğrudan core.py'de her yerde kullanılmuyor.
 import numpy as np # check_numpy_input için gerekli
 
 # Yardımcı fonksiyonları import et
@@ -69,12 +69,12 @@ class CognitionCore:
              # Alt modül başlatma sırasında beklenmedik hata olursa
              # Bu hata initialize_modules tarafından yakalanır ve CognitionCore'u kritik olarak işaretler.
              logger.critical(f"CognitionCore: Alt modülleri başlatılırken hata oluştu: {e}", exc_info=True)
-             # Hata durumında alt modül objeleri None kalır.
+             # Hata durumunda alt modül objeleri None kalır.
 
 
         logger.info("Cognition modülü başlatıldı.")
 
-    # run_evo.py bu metodu çağırıyor. processed_inputs'u da girdi olarak alacak şekilde güncelledik.
+    # run_evo.py bu metodu çağırıyor. processed_inputs'u girdi olarak alacak şekilde güncelledik.
     def decide(self, processed_inputs, learned_representation, relevant_memory_entries):
         """
         İşlenmiş girdiler, öğrenilmiş temsil ve ilgili bellek girdilerine dayanarak bir eylem kararı alır.
@@ -90,7 +90,7 @@ class CognitionCore:
                                                          Beklenen format: shape (D,), dtype sayısal, veya None.
             relevant_memory_entries (list or None): Memory modülünden gelen ilgili bellek girdileri listesi.
                                             Bellek boşsa veya sorgu sırasında hata oluştuysa boş liste `[]` olabilir.
-                                            Beklenen format: list veya None.
+                                            Beklenen format: list oder None.
 
         Returns:
             str or None: Alınan karar (string)
@@ -113,21 +113,24 @@ class CognitionCore:
         try:
             # 1. Gelen bilgileri anlama modülüne ilet.
             # UnderstandingModule.process artık dictionary sinyalleri döndürür.
+            # processed_inputs, learned_representation, relevant_memory_entries argümanlarını UnderstandingModule'e iletiyoruz.
             understanding_signals = self.understanding_module.process(
                 processed_inputs, # İşlenmiş anlık duyu girdileri
                 learned_representation, # Learned Representation
                 relevant_memory_entries # Memory'den gelen ilgili anılar
+                # internal_state # Gelecekte buradan da iletilebilir, şimdilik DecisionModule kendi yönetiyor.
             )
             # DEBUG logu: Anlama sinyalleri dictionary'si (UnderstandingModule içinde loglanıyor)
             # if isinstance(understanding_signals, dict): ...
 
 
             # 2. Anlama çıktısını ve bellek girdilerini Karar alma modülüne ilet.
-            # DecisionModule.decide artık understanding_signals'ı (dict/None) ve relevant_memory_entries'i (list/None) bekler.
+            # DecisionModule.decide artık understanding_signals (dict/None) ve relevant_memory_entries (list/None) bekler.
+            # Kendi içsel durumunu (merak) DecisionModule yönetiyor.
             decision = self.decision_module.decide(
                 understanding_signals, # Anlama modülünün çıktısı (dictionary sinyaller)
                 relevant_memory_entries # Bellek girdileri (list/None) - Karar modülü bunu bağlamsal karar için kullanabilir
-                # internal_state # Gelecekte eklenecek.
+                # internal_state # Gelecekte buradan da iletilebilir.
             )
 
             # DEBUG logu: Karar sonucu (DecisionModule içinde loglanıyor)

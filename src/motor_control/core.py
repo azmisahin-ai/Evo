@@ -9,7 +9,7 @@ import logging # Loglama için.
 # Yardımcı fonksiyonları import et
 from src.core.utils import check_input_not_none, check_input_type, cleanup_safely # utils fonksiyonları kullanılmış
 
-# Alt modül sınıflarını import et (Placeholder sınıflar)
+# Alt modül sınıflarını import et
 from .expression import ExpressionGenerator # ExpressionGenerator MotorControl'den gelen komutu alıp çıktı üretiyor.
 # from .manipulation import Manipulator # Gelecekte kullanılacak
 # from .locomotion import LocomotionController # Gelecekte kullanılacak
@@ -95,7 +95,7 @@ class MotorControlCore:
 
         Args:
             decision (str or any): Cognition modülünden gelen karar.
-                                    Beklenen format: "sound_detected", "complex_visual_detected", "familiar_input_detected", "new_input_detected" stringleri veya None.
+                                    Beklenen format: "sound_detected", "complex_visual_detected", "familiar_input_detected", "new_input_detected", "explore_randomly", "make_noise" stringleri veya None.
                                     Gelecekte daha yapısal bir format (örn: dict {'action': '...', 'params': {...}}) beklenir.
 
         Returns:
@@ -119,9 +119,16 @@ class MotorControlCore:
             # Karar Yönlendirme ve Tepki Üretme Mantığı (Faz 3):
             # Gelen karar stringine göre ExpressionGenerator'a gönderilecek komutu belirle.
             # Öncelik sırası burada MotorControl'de yönetiliyor:
-            # sound_detected > complex_visual_detected > familiar_input_detected > new_input_detected > diğer/None
+            # explore_randomly/make_noise > sound_detected > complex_visual_detected > familiar_input_detected > new_input_detected > diğer/None
+            # Ancak karar önceliği DecisionModule'de belirlendiği için burada sadece kararı ExpressionGenerator komutuna EŞLEŞTİRİYORUZ.
 
-            if decision == "sound_detected":
+            if decision == "explore_randomly":
+                expression_command = "explore_randomly_response"
+                handled_decision = True
+            elif decision == "make_noise":
+                expression_command = "make_noise_response"
+                handled_decision = True
+            elif decision == "sound_detected":
                 expression_command = "sound_detected_response"
                 handled_decision = True
             elif decision == "complex_visual_detected":

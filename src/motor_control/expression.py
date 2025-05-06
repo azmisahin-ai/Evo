@@ -41,7 +41,7 @@ class ExpressionGenerator:
 
         Args:
             command (str or any): MotorControlCore'dan gelen komut.
-                                  Beklenen format: "familiar_response", "new_response", "sound_detected_response", "complex_visual_response", "default_response" stringleri veya None.
+                                  Beklenen format: "familiar_response", "new_response", "sound_detected_response", "complex_visual_response", "explore_randomly_response", "make_noise_response", "default_response" stringleri veya None.
 
         Returns:
             str or None: Üretilen metin stringi veya hata durumunda None.
@@ -66,6 +66,10 @@ class ExpressionGenerator:
                  output_data = "Bir ses duyuyorum." # Ses algılama için yanıt
             elif command == "complex_visual_response":
                  output_data = "Detaylı bir şey görüyorum." # Detaylı görsel algılama için yanıt
+            elif command == "explore_randomly_response":
+                 output_data = "Etrafı keşfetmek istiyorum." # Keşif kararı için yanıt
+            elif command == "make_noise_response":
+                 output_data = "Rastgele bir ses çıkarıyorum." # Gürültü yapma kararı için yanıt
             elif command == "default_response":
                  output_data = "Ne yapacağımı bilemedim." # Varsayılan yanıt
             # Gelecekte eklenecek diğer komutlar (örn: ses çalma komutu, görsel çizim komutu) buraya eklenecek.
@@ -94,7 +98,7 @@ class ExpressionGenerator:
         ExpressionGenerator kaynaklarını temizler.
 
         Gelecekte sentezleyici model temizliği gerekebilir.
-        module_loader.py bu metotu program sonlanırken çağırır (varsa).
+        module_loader.py bu metotu program sonlanırken çağrır (varsa).
         """
         logger.info("ExpressionGenerator objesi temizleniyor.")
         # Kaynak temizleme mantığı buraya gelecek
