@@ -23,8 +23,8 @@ class MotorControlCore:
     """
     Evo'nın motor control çekirdek sınıfı (Koordinatör/Yönetici).
 
-    CognitionCore'dan gelen bir eylem kararını girdi olarak alır.
-    Bu karara dayanarak, ExpressionGenerator (metin/ses/görsel çıktı) gibi alt modüller
+    CognitionCore'dan gelen bir eylem kararıni girdi olarak alır.
+    Bu karara dayanarak, ExpressionGenerator (metin/ses/görsel çıktı) gibi alt modülleri
     kullanarak dışarıya gönderilecek bir tepki (response) üretir veya
     fiziksel bir eylem (manipülasyon, lokomosyon) gerçekleştirir.
     Mevcut implementasyon: Basit karar stringlerine göre farklı metin tepkileri üretir.
@@ -33,6 +33,9 @@ class MotorControlCore:
     def __init__(self, config):
         """
         MotorControlCore modülünü başlatır.
+
+        Alt modülleri (ExpressionGenerator, Manipulator, LocomotionController) başlatmayı dener.
+        Başlatma sırasında hata oluşursa alt modüllerin objeleri None kalabilir.
 
         Args:
             config (dict): Motor control çekirdek yapılandırma ayarları.
@@ -92,7 +95,7 @@ class MotorControlCore:
 
         Args:
             decision (str or any): Cognition modülünden gelen karar.
-                                    Beklenen format: "sound_detected", "complex_visual_detected", "bright_light_detected", "dark_environment_detected", "familiar_input_detected", "new_input_detected", "explore_randomly", "make_noise" stringleri veya None.
+                                    Beklenen format: "sound_detected", "complex_visual_detected", "bright_light_detected", "dark_environment_detected", "recognized_concept_X", "familiar_input_detected", "new_input_detected", "explore_randomly", "make_noise" stringleri veya None.
                                     Gelecekte daha yapısal bir format (örn: dict {'action': '...', 'params': {...}}) beklenir.
 
         Returns:
@@ -113,7 +116,7 @@ class MotorControlCore:
         expression_command = None # ExpressionGenerator'a gönderilecek komut stringi.
 
         try:
-            # Karar Yönlendirme ve Tepki Üretme Mantığı (Faz 3):
+            # Karar Yönlendirme ve Tepki Üretme Mantığı (Faz 3/4):
             # Gelen karar stringine göre ExpressionGenerator'a gönderilecek komutu belirle.
             # Karar önceliği DecisionModule'de belirlendiği için burada sadece kararı ExpressionGenerator komutuna EŞLEŞTİRİYORUZ.
 
@@ -135,6 +138,17 @@ class MotorControlCore:
             elif decision == "dark_environment_detected": # Yeni karar
                 expression_command = "dark_environment_response"
                 handled_decision = True
+            elif isinstance(decision, str) and decision.startswith("recognized_concept_"): # Yeni karar formatı "recognized_concept_X"
+                 # Kavram tanıma kararı. ExpressionGenerator'a özel bir komut ve kavram ID'sini ilet.
+                 concept_id_str = decision.split("_")[-1] # Kararın son kısmı ID
+                 # ID'nin sayısal olduğundan emin ol.
+                 if concept_id_str.isdigit():
+                     expression_command = f"recognized_concept_response_{concept_id_str}" # Komut örn: "recognized_concept_response_0"
+                     handled_decision = True
+                 else:
+                      logger.warning(f"MotorControlCore.generate_response: 'recognized_concept_' kararı beklenmeyen formatta: '{decision}'. Sayısal ID bekleniyordu.")
+                      handled_decision = False # İşlenemedi olarak işaretle.
+
             elif decision == "familiar_input_detected":
                 expression_command = "familiar_response"
                 handled_decision = True
@@ -167,7 +181,7 @@ class MotorControlCore:
                  # Varsayılan fallback metin yanıtını üret.
                  # ExpressionGenerator varsa varsayılan yanıt için onu kullanmayı dene.
                  if self.expression_generator:
-                      output_data = self.expression_generator.generate("default_response") # Varsayılan yanıt için komut
+                      output_data = self.expressionGenerator.generate("default_response") # Varsayılan yanıt için komut
                       # generate None döndürürse output_data None kalır, bu kabul edilebilir.
                  else:
                       output_data = "Ne yapacağımı bilemedim." # ExpressionGenerator yoksa sabit fallback metin.
@@ -213,4 +227,4 @@ class MotorControlCore:
              cleanup_safely(self.locomotion_controller.cleanup, logger_instance=logger, error_message="MotorControl: LocomotionController temizlenirken hata")
 
 
-        logger.info("MotorControl modülü objesi silindi.")
+        logger.info("MotorControl modülü objesi siliniyor.")

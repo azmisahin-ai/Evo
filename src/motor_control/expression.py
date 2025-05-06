@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 
 class ExpressionGenerator:
     """
-    Evo'nın dışsal ifade yeteneğini sağlayan sınıf (Faz 3 implementasyonu).
+    Evo'nın dışsal ifade yeteneğini sağlayan sınıf (Faz 3/4 implementasyonu).
 
     MotorControl modülünden gelen komutları alır.
     Mevcut implementasyon: Belirli metin komutlarına göre sabit stringler döndürür.
@@ -29,7 +29,7 @@ class ExpressionGenerator:
                            Gelecekte sentezleyici ayarları, çıktı formatları gibi ayarlar gelebilir.
         """
         self.config = config
-        logger.info("ExpressionGenerator başlatılıyor (Faz 3)...")
+        logger.info("ExpressionGenerator başlatılıyor (Faz 3/4)...")
         # Modül başlatma mantığı buraya gelebilir (örn: model yükleme)
         logger.info("ExpressionGenerator başlatıldı.")
 
@@ -41,7 +41,7 @@ class ExpressionGenerator:
 
         Args:
             command (str or any): MotorControlCore'dan gelen komut.
-                                  Beklenen format: "familiar_response", "new_response", "sound_detected_response", "complex_visual_response", "bright_light_response", "dark_environment_response", "explore_randomly_response", "make_noise_response", "default_response" stringleri veya None.
+                                  Beklenen format: "familiar_response", "new_response", "sound_detected_response", "complex_visual_response", "bright_light_response", "dark_environment_response", "recognized_concept_X", "explore_randomly_response", "make_noise_response", "default_response" stringleri veya None.
 
         Returns:
             str or None: Üretilen metin stringi veya hata durumunda None.
@@ -56,7 +56,7 @@ class ExpressionGenerator:
         output_data = None # Üretilen çıktıyı tutacak değişken.
 
         try:
-            # İfade Üretme Mantığı (Faz 3):
+            # İfade Üretme Mantığı (Faz 3/4):
             # MotorControl'den gelen spesifik string komutlara göre sabit metin stringleri döndür.
             if command == "familiar_response":
                  output_data = "Bu tanıdık geliyor." # Tanıdık input için yanıt
@@ -74,6 +74,11 @@ class ExpressionGenerator:
                  output_data = "Etrafı keşfetmek istiyorum." # Keşif kararı için yanıt
             elif command == "make_noise_response": # Yeni yanıt
                  output_data = "Rastgele bir ses çıkarıyorum." # Gürültü yapma kararı için yanıt
+            elif isinstance(command, str) and command.startswith("recognized_concept_response_"): # Yeni kavram tanıma yanıtı
+                 # Komut örn: "recognized_concept_response_0". ID'yi alalım.
+                 concept_id_str = command.split("_")[-1]
+                 output_data = f"Sanırım bu bir kavram {concept_id_str}." # Kavram ID'sini içeren yanıt.
+                 # TODO: Gelecekte kavram ID'sine göre daha anlamlı/eğitilmiş yanıtlar üretilebilir.
             elif command == "default_response":
                  output_data = "Ne yapacağımı bilemedim." # Varsayılan yanıt
             # Gelecekte eklenecek diğer komutlar (örn: ses çalma komutu, görsel çizim komutu) buraya eklenecek.
@@ -83,7 +88,7 @@ class ExpressionGenerator:
 
 
             if output_data is not None: # Eğer bir çıktı (metin) üretildiyse
-                 logger.debug(f"ExpressionGenerator.generate: İfade üretildi: '{output_data}'")
+                 logger.debug(f"ExpressionGenerator.generate: İ ifade üretildi: '{output_data}'")
             else: # Eğer command bilinen komutlardan biri değilse veya None ise
                  if command is not None: # Komut None değildi ama eşleşmedi
                       logger.warning(f"ExpressionGenerator.generate: Bilinmeyen komut '{command}'. Çıktı üretilemedi.")
@@ -92,7 +97,7 @@ class ExpressionGenerator:
 
 
         except Exception as e:
-            logger.error(f"ExpressionGenerator.generate: İfade üretme sırasında beklenmedik hata: {e}", exc_info=True)
+            logger.error(f"ExpressionGenerator.generate: İ ifade üretme sırasında beklenmedik hata: {e}", exc_info=True)
             return None # Hata durumunda None döndür
 
         return output_data # Üretilen metin stringi veya None döndürülür.
