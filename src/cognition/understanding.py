@@ -4,9 +4,9 @@
 # İşlenmiş temsilleri, bellek girdilerini ve anlık duyu özelliklerini kullanarak dünyayı anlamaya çalışır.
 
 import logging
-import numpy as np # Benzerlik hesaplaması ve array işlemleri için
+import numpy as np # Benzerlik hesaplaması, array işlemleri ve ortalama için
 
-# Yardımcı fonksiyonları import et (girdi kontrolleri için)
+# Yardımcı fonksiyonları import et (girdi kontrolleri ve config için)
 from src.core.utils import check_input_not_none, check_input_type, check_numpy_input, get_config_value # <<< Utils importları
 
 # Bu modül için bir logger oluştur
@@ -20,7 +20,7 @@ class UnderstandingModule:
     ve anlık Process çıktılarını (düşük seviyeli özellikler) alır.
     Bu girdileri kullanarak ilkel bir "anlama" çıktısı (şimdilik bir dictionary) üretir.
     Mevcut implementasyon: En yüksek bellek benzerlik skorunu hesaplar VE anlık
-    ses enerjisi/görsel kenar yoğunluğuna dayalı basit boolean flag'ler üretir.
+    ses enerjisi/görsel kenar yoğunluğuna VE görsel parlaklığına dayalı basit boolean flag'ler üretir.
     Gelecekte daha karmaşık anlama algoritmaları implement edilecektir.
     """
     def __init__(self, config):
@@ -31,34 +31,47 @@ class UnderstandingModule:
             config (dict): Anlama modülü yapılandırma ayarları.
                            'audio_energy_threshold': Yüksek ses enerjisi algılama eşiği (float, varsayılan 1000.0).
                            'visual_edges_threshold': Yüksek görsel kenar yoğunluğu algılama eşiği (float, varsayılan 50.0).
+                           'brightness_threshold_high': Parlak ortam algılama eşiği (float, varsayılan 200.0).
+                           'brightness_threshold_low': Karanlık ortam algılama eşiği (float, varsayılan 50.0).
                            Gelecekte model yolları, anlama stratejileri gibi ayarlar gelebilir.
         """
         self.config = config
         logger.info("UnderstandingModule başlatılıyor (Faz 3)...")
 
-        # Yapılandırmadan Processor özellik eşiklerini alırken get_config_value kullan.
+        # Yapılandırmadan Process özellik eşiklerini alırken get_config_value kullan.
         self.audio_energy_threshold = get_config_value(config, 'audio_energy_threshold', 1000.0, expected_type=(float, int), logger_instance=logger)
         self.visual_edges_threshold = get_config_value(config, 'visual_edges_threshold', 50.0, expected_type=(float, int), logger_instance=logger)
+        self.brightness_threshold_high = get_config_value(config, 'brightness_threshold_high', 200.0, expected_type=(float, int), logger_instance=logger)
+        self.brightness_threshold_low = get_config_value(config, 'brightness_threshold_low', 50.0, expected_type=(float, int), logger_instance=logger)
 
-        # Eşik değerleri için basit değer kontrolü (negatif olmamalı)
+
+        # Eşik değerleri için basit değer kontrolü (negatif olmamalı, yüksek eşik düşük eşikten büyük olmalı vb.)
         if self.audio_energy_threshold < 0.0:
-             logger.warning(f"UnderstandingModule: Konfigurasyonda ses enerji eşiği negatif ({self.audio_energy_threshold}). Varsayılan 1000.0 kullanılıyor.")
+             logger.warning(f"UnderstandingModule: Konfig 'audio_energy_threshold' negatif ({self.audio_energy_threshold}). Varsayılan 1000.0 kullanılıyor.")
              self.audio_energy_threshold = 1000.0
         if self.visual_edges_threshold < 0.0:
-             logger.warning(f"UnderstandingModule: Konfigurasyonda görsel kenar eşiği negatif ({self.visual_edges_threshold}). Varsayılan 50.0 kullanılıyor.")
+             logger.warning(f"UnderstandingModule: Konfig 'visual_edges_threshold' negatif ({self.visual_edges_threshold}). Varsayılan 50.0 kullanılıyor.")
              self.visual_edges_threshold = 50.0
+        if self.brightness_threshold_high < 0.0:
+             logger.warning(f"UnderstandingModule: Konfig 'brightness_threshold_high' negatif ({self.brightness_threshold_high}). Varsayılan 200.0 kullanılıyor.")
+             self.brightness_threshold_high = 200.0
+        if self.brightness_threshold_low < 0.0:
+             logger.warning(f"UnderstandingModule: Konfig 'brightness_threshold_low' negatif ({self.brightness_threshold_low}). Varsayılan 50.0 kullanılıyor.")
+             self.brightness_threshold_low = 50.0
+        if self.brightness_threshold_low >= self.brightness_threshold_high:
+             logger.warning(f"UnderstandingModule: Konfig 'brightness_threshold_low' ({self.brightness_threshold_low}) 'brightness_threshold_high'dan ({self.brightness_threshold_high}) büyük veya eşit. Eşikleri kontrol edin.")
 
-        logger.info(f"UnderstandingModule başlatıldı. Ses Enerji Eşiği: {self.audio_energy_threshold}, Görsel Kenar Eşiği: {self.visual_edges_threshold}")
+
+        logger.info(f"UnderstandingModule başlatıldı. Ses Enerji Eşiği: {self.audio_energy_threshold}, Görsel Kenar Eşiği: {self.visual_edges_threshold}, Parlaklık Eşiği (Yüksek): {self.brightness_threshold_high}, Parlaklık Eşiği (Düşük): {self.brightness_threshold_low}")
 
 
-    # run_evo.py ve CognitionCore.decide'ın processed_inputs'u iletmesi için parametre tanımına ekledik.
     def process(self, processed_inputs, learned_representation, relevant_memory_entries):
         """
         Gelen Representation, ilgili bellek girdileri ve anlık Process çıktılarını kullanarak anlama işlemini yapar.
 
-        Mev mevcut implementasyon: Learned Representation ile ilgili anılar arasındaki en yüksek
-        vektör benzerlik skorunu hesaplar VE anlık ses enerjisi/görsel kenar yoğunluğuna
-        dayalı basit boolean flag'ler üretir. Sonuçları bir dictionary olarak döndürür.
+        Mevcut implementasyon: Learned Representation ile ilgili anılar arasındaki en yüksek
+        vektör benzerlik skorunu hesaplar VE anlık ses enerjisi/görsel kenar yoğunluğu VE
+        görsel parlaklığına dayalı basit boolean flag'ler üretir. Sonuçları bir dictionary olarak döndürür.
 
         Args:
             processed_inputs (dict or None): Processor modüllerinden gelen işlenmiş ham veriler.
@@ -74,13 +87,17 @@ class UnderstandingModule:
                   'similarity_score': float (0.0-1.0 arası, en yüksek bellek benzerliği)
                   'high_audio_energy': bool (Ses enerji eşiği aşıldı mı?)
                   'high_visual_edges': bool (Görsel kenar eşiği aşıldı mı?)
-                  Hata durumunda veya geçerli girdi yoksa varsayılan değerlerle döndürülür (örn: {'similarity_score': 0.0, 'high_audio_energy': False, 'high_visual_edges': False}).
+                  'is_bright': bool (Ortalama parlaklık yüksek eşiği aşıldı mı?)
+                  'is_dark': bool (Ortalama parlaklık düşük eşiğin altında mı?)
+                  Hata durumunda veya geçerli girdi yoksa varsayılan değerlerle döndürülür (örn: {'similarity_score': 0.0, 'high_audio_energy': False, 'high_visual_edges': False, 'is_bright': False, 'is_dark': False}).
         """
         # Varsayılan anlama çıktısı dictionary'si
         understanding_signals = {
             'similarity_score': 0.0,
             'high_audio_energy': False,
             'high_visual_edges': False,
+            'is_bright': False, # Yeni etiket
+            'is_dark': False,   # Yeni etiket
         }
 
         # Girdi kontrolleri.
@@ -128,13 +145,14 @@ class UnderstandingModule:
             if is_valid_processed_inputs:
                  # Ses Enerjisi Kontrolü
                  audio_features = processed_inputs.get('audio') # AudioProcessor'dan (2,) float32 numpy array bekleniyor veya None.
-                 if isinstance(audio_features, np.ndarray) and audio_features.ndim == 1 and audio_features.shape[0] >= 1 and np.issubdtype(audio_features.dtype, np.number):
+                 # check_numpy_input ile genel kontrol, sonra shape[0] >= 1 ve sayısal dtype kontrolü.
+                 if isinstance(audio_features, np.ndarray) and check_numpy_input(audio_features, expected_dtype=np.number, expected_ndim=1, input_name="processed_inputs['audio']", logger_instance=logger) and audio_features.shape[0] >= 1:
                       # İlk elemanın (Enerji) sayısal ve eşik üzerinde olup olmadığını kontrol et.
                       audio_energy = float(audio_features[0]) # Enerji float/int olabilir, float'a çevir.
                       if audio_energy >= self.audio_energy_threshold:
                            understanding_signals['high_audio_energy'] = True
-                           logger.debug(f"UnderstandingModule.process: Yüksek ses enerjisi algılandı: {audio_energy:.4f} >= Eşik {self.audio_energy_threshold:.4f}")
-                      # else: logger.debug(f"UnderstandingModule.process: Ses enerjisi eşik altında: {audio_energy:.4f} < Eşik {self.audio_energy_threshold:.4f}")
+                           logger.debug(f"UnderstandingModule.process: Yüksek ses enerjisi: {audio_energy:.4f} >= Eşik {self.audio_energy_threshold:.4f} (Algılandı: True)")
+                      # else: logger.debug(f"UnderstandingModule.process: Ses enerjisi: {audio_energy:.4f} < Eşik {self.audio_energy_threshold:.4f} (Algılandı: False)")
                  # else: logger.debug("UnderstandingModule.process: Geçersiz audio features inputu.")
 
 
@@ -142,18 +160,38 @@ class UnderstandingModule:
                  visual_features = processed_inputs.get('visual') # VisionProcessor'dan dict {'grayscale': array, 'edges': array} bekleniyor veya None/boş dict.
                  if isinstance(visual_features, dict):
                       edges_data = visual_features.get('edges') # 'edges' array'ini al.
-                      if isinstance(edges_data, np.ndarray) and edges_data.ndim >= 1 and np.issubdtype(edges_data.dtype, np.number):
+                      # check_numpy_input ile genel kontrol, sonra size > 0 ve sayısal dtype kontrolü.
+                      if isinstance(edges_data, np.ndarray) and check_numpy_input(edges_data, expected_dtype=np.number, expected_ndim=(1,2), input_name="processed_inputs['visual']['edges']", logger_instance=logger) and edges_data.size > 0:
                            # Kenar array'inin ortalama piksel değerini hesapla (0-255 arası değerler)
-                           # Boş array gelme ihtimaline karşı size kontrolü ekle.
-                           if edges_data.size > 0:
-                                visual_edges_mean = np.mean(edges_data)
-                                if visual_edges_mean >= self.visual_edges_threshold:
-                                     understanding_signals['high_visual_edges'] = True
-                                     logger.debug(f"UnderstandingModule.process: Yüksek görsel kenar yoğunluğu algılandı: {visual_edges_mean:.4f} >= Eşik {self.visual_edges_threshold:.4f}")
-                                # else: logger.debug(f"UnderstandingModule.process: Görsel kenar yoğunluğu eşik altında: {visual_edges_mean:.4f} < Eşik {self.visual_edges_threshold:.4f}")
-                           # else: logger.debug("UnderstandingModule.process: Boş edges array, görsel kenar yoğunluğu hesaplanamadi.")
+                           visual_edges_mean = np.mean(edges_data)
+                           if visual_edges_mean >= self.visual_edges_threshold:
+                                understanding_signals['high_visual_edges'] = True
+                                logger.debug(f"UnderstandingModule.process: Yüksek görsel kenar yoğunluğu: {visual_edges_mean:.4f} >= Eşik {self.visual_edges_threshold:.4f} (Algılandı: True)")
+                           # else: logger.debug(f"UnderstandingModule.process: Görsel kenar yoğunluğu: {visual_edges_mean:.4f} < Eşik {self.visual_edges_threshold:.4f} (Algılandı: False)")
                       # else: logger.debug("UnderstandingModule.process: Geçersiz edges inputu.")
-                 # else: logger.debug("UnderstandingModule.process: Geçersiz visual features inputu.")
+
+
+                 # Görsel Parlaklık/Karanlık Kontrolü (YENİ)
+                 if isinstance(visual_features, dict):
+                      grayscale_data = visual_features.get('grayscale') # 'grayscale' array'ini al.
+                      # check_numpy_input ile genel kontrol, sonra size > 0 ve sayısal dtype kontrolü.
+                      if isinstance(grayscale_data, np.ndarray) and check_numpy_input(grayscale_data, expected_dtype=np.number, expected_ndim=(1,2), input_name="processed_inputs['visual']['grayscale']", logger_instance=logger) and grayscale_data.size > 0:
+                           # Gri resmin ortalama piksel değerini hesapla (0-255 arası değerler)
+                           visual_brightness_mean = np.mean(grayscale_data)
+
+                           # Parlaklık eşiği kontrolü
+                           if visual_brightness_mean >= self.brightness_threshold_high:
+                                understanding_signals['is_bright'] = True
+                                logger.debug(f"UnderstandingModule.process: Ortam Parlak: {visual_brightness_mean:.4f} >= Eşik {self.brightness_threshold_high:.4f} (Algılandı: True)")
+                           # else: logger.debug(f"UnderstandingModule.process: Ortam Parlak eşik altında: {visual_brightness_mean:.4f} < Eşik {self.brightness_threshold_high:.4f} (Algılandı: False)")
+
+                           # Karanlık eşiği kontrolü
+                           elif visual_brightness_mean <= self.brightness_threshold_low: # 'elif' kullan, hem parlak hem karanlık olmasın.
+                                understanding_signals['is_dark'] = True
+                                logger.debug(f"UnderstandingModule.process: Ortam Karanlık: {visual_brightness_mean:.4f} <= Eşik {self.brightness_threshold_low:.4f} (Algılandı: True)")
+                           # else: logger.debug(f"UnderstandingModule.process: Ortam Karanlık eşik üzerinde: {visual_brightness_mean:.4f} > Eşik {self.brightness_threshold_low:.4f} (Algılandı: False)")
+
+                      # else: logger.debug("UnderstandingModule.process: Geçersiz grayscale inputu.")
 
 
             logger.debug(f"UnderstandingModule.process: Anlama sinyalleri üretildi: {understanding_signals}")
@@ -166,6 +204,8 @@ class UnderstandingModule:
                 'similarity_score': 0.0,
                 'high_audio_energy': False,
                 'high_visual_edges': False,
+                'is_bright': False,
+                'is_dark': False,
             }
 
         return understanding_signals # Hesaplanan anlama sinyallerini döndür.
@@ -176,7 +216,7 @@ class UnderstandingModule:
 
         Şimdilik özel bir kaynak kullanmadığı için temizleme adımı içermez.
         Gelecekte model temizliği veya bağlantı kapatma gerekebilir.
-        module_loader.py bu metodu program sonlanırken çağırır (varsa).
+        module_loader.py bu metotu program sonlanırken çağrır (varsa).
         """
         logger.info("UnderstandingModule objesi temizleniyor.")
         pass

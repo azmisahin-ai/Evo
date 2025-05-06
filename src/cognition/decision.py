@@ -5,6 +5,7 @@
 
 import logging
 import numpy as np # Sayısal işlemler ve type checking için
+import random # Merak kararları için
 
 # Yardımcı fonksiyonları import et (girdi kontrolleri ve config için)
 from src.core.utils import check_input_not_none, check_input_type, get_config_value # <<< Utils importları
@@ -18,10 +19,10 @@ class DecisionModule:
     Evo'nın karar alma yeteneğini sağlayan sınıf (Faz 3 implementasyonu).
 
     UnderstandingModule'den gelen anlama sinyallerini (dictionary), bellek girdilerini
-    ve içsel durumu (şimdilik merak seviyesi) alır. Bu bilgilere dayanarak,
+    ve içsel durumu (curiosity_level - merak seviyesi) alır. Bu bilgilere dayanarak,
     MotorControl modülüne iletilecek bir eylem kararı alır.
-    Mevcut implementasyon: Process çıktısı (enerji/kenar), bellek benzerlik skoru ve
-    merak seviyesine dayalı öncelikli bir karar verme mantığı uygular.
+    Mevcut implementasyon: Process çıktısı (enerji/kenar/parlaklık), merak seviyesi ve
+    bellek benzerlik skoruna dayalı öncelikli bir karar verme mantığı uygular.
     Gelecekte daha karmaşık karar ağaçları, kural tabanlı sistemler veya
     öğrenilmiş karar modelleri implement edilecektir.
     """
@@ -34,10 +35,12 @@ class DecisionModule:
                            'familiarity_threshold': Bellek benzerliğine dayalı "tanıdık" eşiği (float, varsayılan 0.8).
                            'audio_energy_threshold': Yüksek ses enerjisine dayalı karar eşiği (float, varsayılan 1000.0).
                            'visual_edges_threshold': Yüksek görsel kenar yoğunluğuna dayalı karar eşiği (float, varsayılan 50.0).
-                           'merak_threshold': Merak seviyesinin keşif/sinyal kararı için ulaşması gereken eşik (float, varsayılan 5.0).
-                           'merak_increment_new': "Yeni" input algılandığında merak seviyesi artış miktarı (float, varsayılan 1.0).
-                           'merak_decrement_familiar': "Tanıdık" input algılandığında merak seviyesi azalış miktarı (float, varsayılan 0.5).
-                           'merak_decay': Her döngü adımında merak seviyesinin otomatik azalışı (float, varsayılan 0.1).
+                           'brightness_threshold_high': Parlak ortam algılama eşiği (float, varsayılan 200.0).
+                           'brightness_threshold_low': Karanlık ortam algılama eşiği (float, varsayılan 50.0).
+                           'curiosity_threshold': Merak seviyesinin keşif/sinyal kararı için ulaşması gereken eşik (float, varsayılan 5.0).
+                           'curiosity_increment_new': "Yeni" input algılandığında merak seviyesi artış miktarı (float, varsayılan 1.0).
+                           'curiosity_decrement_familiar': "Tanıdık" input algılandığında merak seviyesi azalış miktarı (float, varsayılan 0.5).
+                           'curiosity_decay': Her döngü adımında merak seviyesinin otomatik azalışı (float, varsayılan 0.1).
                            Gelecekte karar kuralları, eşikleri veya model yolları gelebilir.
         """
         self.config = config
@@ -47,10 +50,13 @@ class DecisionModule:
         self.familiarity_threshold = get_config_value(config, 'familiarity_threshold', 0.8, expected_type=(float, int), logger_instance=logger)
         self.audio_energy_threshold = get_config_value(config, 'audio_energy_threshold', 1000.0, expected_type=(float, int), logger_instance=logger)
         self.visual_edges_threshold = get_config_value(config, 'visual_edges_threshold', 50.0, expected_type=(float, int), logger_instance=logger)
-        self.merak_threshold = get_config_value(config, 'merak_threshold', 5.0, expected_type=(float, int), logger_instance=logger)
-        self.merak_increment_new = get_config_value(config, 'merak_increment_new', 1.0, expected_type=(float, int), logger_instance=logger)
-        self.merak_decrement_familiar = get_config_value(config, 'merak_decrement_familiar', 0.5, expected_type=(float, int), logger_instance=logger)
-        self.merak_decay = get_config_value(config, 'merak_decay', 0.1, expected_type=(float, int), logger_instance=logger)
+        self.brightness_threshold_high = get_config_value(config, 'brightness_threshold_high', 200.0, expected_type=(float, int), logger_instance=logger)
+        self.brightness_threshold_low = get_config_value(config, 'brightness_threshold_low', 50.0, expected_type=(float, int), logger_instance=logger)
+        # Merak ayarları - İngilizce isimler kullanıldı.
+        self.curiosity_threshold = get_config_value(config, 'curiosity_threshold', 5.0, expected_type=(float, int), logger_instance=logger)
+        self.curiosity_increment_new = get_config_value(config, 'curiosity_increment_new', 1.0, expected_type=(float, int), logger_instance=logger)
+        self.curiosity_decrement_familiar = get_config_value(config, 'curiosity_decrement_familiar', 0.5, expected_type=(float, int), logger_instance=logger)
+        self.curiosity_decay = get_config_value(config, 'curiosity_decay', 0.1, expected_type=(float, int), logger_instance=logger)
 
 
         # Eşik değerleri için basit değer kontrolü (0.0-1.0 arası benzerlik, negatif olmamalı diğerleri)
@@ -63,36 +69,44 @@ class DecisionModule:
         if self.visual_edges_threshold < 0.0:
              logger.warning(f"DecisionModule: Konfig 'visual_edges_threshold' negatif ({self.visual_edges_threshold}). Varsayılan 50.0 kullanılıyor.")
              self.visual_edges_threshold = 50.0
+        if self.brightness_threshold_high < 0.0:
+             logger.warning(f"DecisionModule: Konfig 'brightness_threshold_high' negatif ({self.brightness_threshold_high}). Varsayılan 200.0 kullanılıyor.")
+             self.brightness_threshold_high = 200.0
+        if self.brightness_threshold_low < 0.0:
+             logger.warning(f"DecisionModule: Konfig 'brightness_threshold_low' negatif ({self.brightness_threshold_low}). Varsayılan 50.0 kullanılıyor.")
+             self.brightness_threshold_low = 50.0
+        if self.brightness_threshold_low >= self.brightness_threshold_high:
+             logger.warning(f"DecisionModule: Konfig 'brightness_threshold_low' ({self.brightness_threshold_low}) 'brightness_threshold_high'dan ({self.brightness_threshold_high}) büyük veya eşit. Eşikleri kontrol edin.")
         # Merak eşiği ve güncelleme miktarları negatif olmamalı
-        if self.merak_threshold < 0.0:
-             logger.warning(f"DecisionModule: Konfig 'merak_threshold' negatif ({self.merak_threshold}). Varsayılan 5.0 kullanılıyor.")
-             self.merak_threshold = 5.0
-        if self.merak_increment_new < 0.0:
-             logger.warning(f"DecisionModule: Konfig 'merak_increment_new' negatif ({self.merak_increment_new}). Varsayılan 1.0 kullanılıyor.")
-             self.merak_increment_new = 1.0
-        if self.merak_decrement_familiar < 0.0:
-             logger.warning(f"DecisionModule: Konfig 'merak_decrement_familiar' negatif ({self.merak_decrement_familiar}). Varsayılan 0.5 kullanılıyor.")
-             self.merak_decrement_familiar = 0.5
+        if self.curiosity_threshold < 0.0:
+             logger.warning(f"DecisionModule: Konfig 'curiosity_threshold' negatif ({self.curiosity_threshold}). Varsayılan 5.0 kullanılıyor.")
+             self.curiosity_threshold = 5.0
+        if self.curiosity_increment_new < 0.0:
+             logger.warning(f"DecisionModule: Konfig 'curiosity_increment_new' negatif ({self.curiosity_increment_new}). Varsayılan 1.0 kullanılıyor.")
+             self.curiosity_increment_new = 1.0
+        if self.curiosity_decrement_familiar < 0.0:
+             logger.warning(f"DecisionModule: Konfig 'curiosity_decrement_familiar' negatif ({self.curiosity_decrement_familiar}). Varsayılan 0.5 kullanılıyor.")
+             self.curiosity_decrement_familiar = 0.5
         # Merak decay negatif olmamalı
-        if self.merak_decay < 0.0:
-             logger.warning(f"DecisionModule: Konfig 'merak_decay' negatif ({self.merak_decay}). Varsayılan 0.1 kullanılıyor.")
-             self.merak_decay = 0.1
+        if self.curiosity_decay < 0.0:
+             logger.warning(f"DecisionModule: Konfig 'curiosity_decay' negatif ({self.curiosity_decay}). Varsayılan 0.1 kullanılıyor.")
+             self.curiosity_decay = 0.1
 
 
-        # İçsel durum değişkenleri
-        self.merak_level = 0.0 # Merak seviyesi (0.0 ile başlar)
+        # İçsel durum değişkenleri (şimdilik sadece merak seviyesi)
+        self.curiosity_level = 0.0 # Merak seviyesi (0.0 ile başlar)
         # Diğer içsel durumlar gelecekte buraya eklenecek (örn: energy_level, boredom_level)
 
-        logger.info(f"DecisionModule başlatıldı. Tanıdıklık Eşiği: {self.familiarity_threshold}, Ses Eşiği: {self.audio_energy_threshold}, Görsel Eşiği: {self.visual_edges_threshold}, Merak Eşiği: {self.merak_threshold}")
-        logger.debug(f"DecisionModule: Merak Artış (Yeni): {self.merak_increment_new}, Azalış (Tanıdık): {self.merak_decrement_familiar}, Decay: {self.merak_decay}")
+        logger.info(f"DecisionModule başlatıldı. Tanıdıklık Eşiği: {self.familiarity_threshold}, Ses Eşiği: {self.audio_energy_threshold}, Görsel Eşiği: {self.visual_edges_threshold}, Parlaklık Yüksek Eşiği: {self.brightness_threshold_high}, Parlaklık Düşük Eşiği: {self.brightness_threshold_low}, Merak Eşiği: {self.curiosity_threshold}")
+        logger.debug(f"DecisionModule: Merak Artış (Yeni): {self.curiosity_increment_new}, Azalış (Tanıdık): {self.curiosity_decrement_familiar}, Decay: {self.curiosity_decay}")
 
 
     # relevant_memory_entries hala burada duruyor (CognitionCore'dan geliyor)
-    # internal_state parametresi şimdilik bu sınıfın içindeki self.merak_level'i temsil etmiyor,
-    # genel bir placeholder. self.merak_level doğrudan burada yönetiliyor.
+    # internal_state parametresi şimdilik bu sınıfın içindeki self.curiosity_level'i temsil etmiyor,
+    # genel bir placeholder. self.curiosity_level doğrudan burada yönetiliyor.
     def decide(self, understanding_signals, relevant_memory_entries, internal_state=None):
         """
-        Anlama sinyallerine ve içsel duruma (merak seviyesi) göre bir eylem kararı alır.
+        Anlama sinyallerine ve içsel duruma (curiosity_level) göre bir eylem kararı alır.
 
         UnderstandingModule'den gelen anlama sinyalleri dictionary'sini alır.
         Process çıktısı tabanlı flag'lere, merak seviyesine ve bellek benzerlik skoruna dayalı
@@ -100,15 +114,15 @@ class DecisionModule:
 
         Args:
             understanding_signals (dict or None): Anlama modülünden gelen anlama sinyalleri dictionary'si.
-                                                Beklenen format: {'similarity_score': float, 'high_audio_energy': bool, 'high_visual_edges': bool} veya None.
+                                                Beklenen format: {'similarity_score': float, 'high_audio_energy': bool, 'high_visual_edges': bool, 'is_bright': bool, 'is_dark': bool} veya None.
                                                 UnderstandingModule hata durumunda varsayılan dict döndürmeyi hedefler.
             relevant_memory_entries (list or None): Memory modülünden gelen ilgili bellek girdileri listesi.
                                             Bu metotta doğrudan karar için kullanılmıyor, ama parametre olarak geliyor.
                                             Gelecekte bağlamsal karar için kullanılabilir.
-            internal_state (dict, optional): Evo'nın içsel durumu (örn: enerji seviyesi, merak). GELECEKTE KULLANILACAK. Şu an bu metot kendi içsel merak seviyesini yönetiyor. Varsayılan None.
+            internal_state (dict, optional): Evo'nın içsel durumu (örn: energy_level, boredom_level). GELECEKTE KULLANILACAK. Şu an bu metot kendi içsel merak seviyesini yönetiyor. Varsayılan None.
 
         Returns:
-            str or None: Alınan karar stringi (örn: "sound_detected", "complex_visual_detected", "familiar_input_detected", "new_input_detected", "explore_randomly", "make_noise")
+            str or None: Alınan karar stringi (örn: "sound_detected", "complex_visual_detected", "bright_light_detected", "dark_environment_detected", "familiar_input_detected", "new_input_detected", "explore_randomly", "make_noise")
                          veya girdi (understanding_signals) geçersizse ya da hata durumunda None.
         """
         # Girdi kontrolleri. understanding_signals'ın geçerli bir dictionary mi?
@@ -126,57 +140,68 @@ class DecisionModule:
         # if not check_input_type(relevant_memory_entries, list, ...): ...
         # if internal_state is None: logger.debug("DecisionModule.decide: internal_state None.")
 
-
         decision = None # Alınan kararı tutacak değişken.
-        # Anlama sinyallerini dictionary'den güvenle al. Anahtarlar yoksa default değerler (0.0, False) kullanılır.
+        # Anlama sinyallerini dictionary'den güvenle al. Anahtarlar yoksa default değerler kullanılır.
+        # UnderstandingModule varsayılan dict döndürdüğü için anahtarların var olması beklenir, ama sağlamlık için get() kullanmak iyi.
         similarity_score = understanding_signals.get('similarity_score', 0.0) # Default 0.0
         high_audio_energy = understanding_signals.get('high_audio_energy', False) # Default False
         high_visual_edges = understanding_signals.get('high_visual_edges', False) # Default False
+        is_bright = understanding_signals.get('is_bright', False) # Yeni etiket
+        is_dark = understanding_signals.get('is_dark', False)     # Yeni etiket
 
-        logger.debug(f"DecisionModule.decide: Anlama sinyalleri alindi - Sim:{similarity_score:.4f}, Audio:{high_audio_energy}, Visual:{high_visual_edges}. Mevcut Merak: {self.merak_level:.2f}. Karar veriliyor.")
+
+        logger.debug(f"DecisionModule.decide: Anlama sinyalleri alindi - Sim:{similarity_score:.4f}, Audio:{high_audio_energy}, Visual:{high_visual_edges}, Bright:{is_bright}, Dark:{is_dark}. Mevcut Merak: {self.curiosity_level:.2f}. Karar veriliyor.")
 
         # Hangi temel bellek/benzerlik durumu oluştuğunu belirle (merak güncellemesi için kullanılacak)
         # Bu, process sinyalleri OVERRIDE etmeden önceki temel durumdur.
         is_fundamentally_familiar = False
         is_fundamentally_new = False
-        if float(similarity_score) >= self.familiarity_threshold:
+        # Similarity score'un sayısal olduğunu kontrol etmeden float() çağırmayalım.
+        if np.isscalar(similarity_score) and np.issubdtype(type(similarity_score), np.number) and float(similarity_score) >= self.familiarity_threshold:
              is_fundamentally_familiar = True
              logger.debug("DecisionModule.decide: Temel durum: Tanıdık (Bellek Eşiği Aşıldı).")
         else:
              is_fundamentally_new = True
-             logger.debug("DecisionModule.decide: Temel durum: Yeni (Bellek Eşiği Altında).")
+             logger.debug("DecisionModule.decide: Temel durum: Yeni (Bellek Eşiği Altında veya Skor Geçersiz).")
 
 
         try:
             # Karar Alma Mantığı (Faz 3): Öncelikli Mantık
-            # Öncelik Sırası: Merak > Ses > Görsel Kenar > Bellek Tanıdıklığı > Varsayılan (Yeni)
+            # Öncelik Sırası (Örnek): Merak > Ses > Görsel Kenar > Parlaklık/Karanlık > Bellek Tanıdıklığı > Varsayılan (Yeni)
 
             # 1. Merak Eşiği Aşıldı mı? (En yüksek öncelik)
-            if self.merak_level >= self.merak_threshold:
+            # Merak seviyesinin sayısal olduğunu kontrol etmeden karşılaştırma yapmayalım.
+            if np.isscalar(self.curiosity_level) and np.issubdtype(type(self.curiosity_level), np.number) and float(self.curiosity_level) >= self.curiosity_threshold:
                  # Merak eşiği aşıldıysa rastgele bir keşif/sinyal kararı ver
                  decision = random.choice(["explore_randomly", "make_noise"]) # İki seçenekten birini rastgele seç.
-                 logger.debug(f"DecisionModule.decide: Karar: '{decision}'. Merak eşiği ({self.merak_level:.2f} >= {self.merak_threshold:.2f}) aşıldı.")
+                 logger.debug(f"DecisionModule.decide: Karar: '{decision}'. Merak eşiği ({self.curiosity_level:.2f} >= {self.curiosity_threshold:.2f}) aşıldı.")
 
             # 2. Yüksek ses enerjisi var mı? (İkinci öncelik)
-            elif high_audio_energy:
+            elif high_audio_energy: # high_audio_energy UnderstandingModule'da bool olarak belirlendi.
                  decision = "sound_detected"
-                 # high_audio_energy True ise eşik zaten UnderstandingModule'da aşıldı.
                  logger.debug(f"DecisionModule.decide: Karar: '{decision}'. Yüksek ses enerjisi algılandı.")
 
             # 3. Yüksek görsel kenar yoğunluğu var mı? (Üçüncü öncelik)
-            elif high_visual_edges:
+            elif high_visual_edges: # high_visual_edges UnderstandingModule'da bool olarak belirlendi.
                  decision = "complex_visual_detected"
-                 # high_visual_edges True ise eşik zaten UnderstandingModule'da aşıldı.
                  logger.debug(f"DecisionModule.decide: Karar: '{decision}'. Yüksek görsel kenar yoğunluğu algılandı.")
 
-            # 4. Bellek benzerlik skoru eşiği aşıyor mu? (Dördüncü öncelik)
-            # Bu kontrol, ancak Process tabanlı sinyaller yoksa yapılır.
-            # Sim score float/int olmalı, init'te threshold da float/int yapıldı. float() ile çevirerek karşılaştır.
+            # 4. Ortam Parlak mı veya Karanlık mı? (Dördüncü öncelik)
+            elif is_bright: # is_bright UnderstandingModule'da bool olarak belirlendi.
+                 decision = "bright_light_detected"
+                 logger.debug(f"DecisionModule.decide: Karar: '{decision}'. Ortam parlak algılandı.")
+
+            elif is_dark: # is_dark UnderstandingModule'da bool olarak belirlendi.
+                 decision = "dark_environment_detected"
+                 logger.debug(f"DecisionModule.decide: Karar: '{decision}'. Ortam karanlık algılandı.")
+
+            # 5. Bellek benzerlik skoru eşiği aşıyor mu? (Beşinci öncelik)
+            # Bu kontrol, ancak Process tabanlı sinyaller (ses, kenar, parlaklık) yoksa yapılır.
             elif is_fundamentally_familiar: # float(similarity_score) >= self.familiarity_threshold
                  decision = "familiar_input_detected"
                  # logger.debug(f"DecisionModule.decide: Karar: '{decision}'. Bellek benzerlik skoru ({similarity_score:.4f}) >= Eşik ({self.familiarity_threshold:.4f}).") # Log yukarıda temel durumda yapıldı.
 
-            # 5. Hiçbir öncelikli koşul sağlanmazsa (Varsayılan)
+            # 6. Hiçbir öncelikli koşul sağlanmazsa (Varsayılan)
             else: # is_fundamentally_new # float(similarity_score) < self.familiarity_threshold
                  decision = "new_input_detected"
                  # logger.debug(f"DecisionModule.decide: Karar: '{decision}'. Hiçbir öncelikli durum algılanamadı (Temel Durum: Yeni).") # Log yukarıda temel durumda yapıldı.
@@ -184,7 +209,7 @@ class DecisionModule:
 
             # Gelecekte daha karmaşık mantıklar:
             # - Başka anlama çıktılarından gelen bilgileri karara dahil etme.
-            # - Birden fazla kriteri birleştirme.
+            # - Birden fazla kriteri birleştirme (örn: hem benzerlik yüksek hem de anlama çıktısı spesifik bir nesne algıladı).
             # - Başka içsel durumları karara dahil etme (boredom, hunger vb.).
             # - Farklı karar türleri (örn: "hareket et", "ses çıkar").
 
@@ -198,20 +223,23 @@ class DecisionModule:
             # Karar ne olursa olsun (hata durumu hariç), merak seviyesini güncelle.
             # Güncelleme, inputun temel 'Yeni' veya 'Tanıdık' durumuna göre yapılır.
             try:
-                if is_fundamentally_new: # Eğer input Process sinyalleri veya merak eşiği tarafından override edilmeseydi "Yeni" olacaktı.
-                     self.merak_level += self.merak_increment_new
-                     logger.debug(f"DecisionModule: Merak artışı ({self.merak_increment_new:.2f}). Temel durum 'Yeni'.")
-                elif is_fundamentally_familiar: # Eğer input Process sinyalleri veya merak eşiği tarafından override edilmeseydi "Tanıdık" olacaktı.
-                     self.merak_level = max(0.0, self.merak_level - self.merak_decrement_familiar) # Merak negatif olmasın.
-                     logger.debug(f"DecisionModule: Merak azalışı ({self.merak_decrement_familiar:.2f}). Temel durum 'Tanıdık'.")
-                # else: # Ne yeni ne tanıdık (örn: representation/memory invalid), merak değişmesin veya decay uygula.
+                if np.isscalar(self.curiosity_level) and np.issubdtype(type(self.curiosity_level), np.number):
+                    if is_fundamentally_new: # Eğer input Process sinyalleri veya merak eşiği tarafından override edilmeseydi "Yeni" olacaktı.
+                         self.curiosity_level += self.curiosity_increment_new
+                         logger.debug(f"DecisionModule: Merak artışı ({self.curiosity_increment_new:.2f}). Temel durum 'Yeni'.")
+                    elif is_fundamentally_familiar: # Eğer input Process sinyalleri veya merak eşiği tarafından override edilmeseydi "Tanıdık" olacaktı.
+                         self.curiosity_level = max(0.0, self.curiosity_level - self.curiosity_decrement_familiar) # Merak negatif olmasın.
+                         logger.debug(f"DecisionModule: Merak azalışı ({self.curiosity_decrement_familiar:.2f}). Temel durum 'Tanıdık'.")
+                    # else: # Ne yeni ne tanıdık (örn: representation/memory invalid), merak değişmesin veya sadece decay uygula.
 
-                # Her döngü adımında merak seviyesini azalt (decay).
-                self.merak_level = max(0.0, self.merak_level - self.merak_decay) # Merak negatif olmasın.
-                # logger.debug(f"DecisionModule: Merak decay ({self.merak_decay:.2f}).")
+                    # Her döngü adımında merak seviyesini azalt (decay).
+                    self.curiosity_level = max(0.0, self.curiosity_level - self.curiosity_decay) # Merak negatif olmasın.
+                    # logger.debug(f"DecisionModule: Merak decay ({self.curiosity_decay:.2f}).")
 
-                # Güncel merak seviyesini logla.
-                logger.debug(f"DecisionModule: Güncel Merak Seviyesi: {self.merak_level:.2f}")
+                    # Güncel merak seviyesini logla.
+                    logger.debug(f"DecisionModule: Güncel Merak Seviyesi: {self.curiosity_level:.2f}")
+                # else: # Merak seviyesi sayısal değilse güncelleme yapma, hata logu DecisionModule init'te yapıldı.
+
 
             except Exception as e:
                  logger.error(f"DecisionModule: Merak seviyesi güncellenirken beklenmedik hata: {e}", exc_info=True)
@@ -228,4 +256,5 @@ class DecisionModule:
         """
         logger.info("DecisionModule objesi temizleniyor.")
         # İçsel durumun kaydedilmesi buraya gelebilir (gelecek TODO).
+        # self._save_internal_state() # Gelecek TODO
         pass

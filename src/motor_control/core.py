@@ -24,7 +24,7 @@ class MotorControlCore:
     Evo'nın motor control çekirdek sınıfı (Koordinatör/Yönetici).
 
     CognitionCore'dan gelen bir eylem kararını girdi olarak alır.
-    Bu karara dayanarak, ExpressionGenerator (metin/ses/görsel çıktı) gibi alt modülleri
+    Bu karara dayanarak, ExpressionGenerator (metin/ses/görsel çıktı) gibi alt modüller
     kullanarak dışarıya gönderilecek bir tepki (response) üretir veya
     fiziksel bir eylem (manipülasyon, lokomosyon) gerçekleştirir.
     Mevcut implementasyon: Basit karar stringlerine göre farklı metin tepkileri üretir.
@@ -33,9 +33,6 @@ class MotorControlCore:
     def __init__(self, config):
         """
         MotorControlCore modülünü başlatır.
-
-        Alt modülleri (ExpressionGenerator, Manipulator, LocomotionController) başlatmayı dener.
-        Başlatma sırasında hata oluşursa alt modüllerin objeleri None kalabilir.
 
         Args:
             config (dict): Motor control çekirdek yapılandırma ayarları.
@@ -95,7 +92,7 @@ class MotorControlCore:
 
         Args:
             decision (str or any): Cognition modülünden gelen karar.
-                                    Beklenen format: "sound_detected", "complex_visual_detected", "familiar_input_detected", "new_input_detected", "explore_randomly", "make_noise" stringleri veya None.
+                                    Beklenen format: "sound_detected", "complex_visual_detected", "bright_light_detected", "dark_environment_detected", "familiar_input_detected", "new_input_detected", "explore_randomly", "make_noise" stringleri veya None.
                                     Gelecekte daha yapısal bir format (örn: dict {'action': '...', 'params': {...}}) beklenir.
 
         Returns:
@@ -118,9 +115,7 @@ class MotorControlCore:
         try:
             # Karar Yönlendirme ve Tepki Üretme Mantığı (Faz 3):
             # Gelen karar stringine göre ExpressionGenerator'a gönderilecek komutu belirle.
-            # Öncelik sırası burada MotorControl'de yönetiliyor:
-            # explore_randomly/make_noise > sound_detected > complex_visual_detected > familiar_input_detected > new_input_detected > diğer/None
-            # Ancak karar önceliği DecisionModule'de belirlendiği için burada sadece kararı ExpressionGenerator komutuna EŞLEŞTİRİYORUZ.
+            # Karar önceliği DecisionModule'de belirlendiği için burada sadece kararı ExpressionGenerator komutuna EŞLEŞTİRİYORUZ.
 
             if decision == "explore_randomly":
                 expression_command = "explore_randomly_response"
@@ -133,6 +128,12 @@ class MotorControlCore:
                 handled_decision = True
             elif decision == "complex_visual_detected":
                 expression_command = "complex_visual_response"
+                handled_decision = True
+            elif decision == "bright_light_detected": # Yeni karar
+                expression_command = "bright_light_response"
+                handled_decision = True
+            elif decision == "dark_environment_detected": # Yeni karar
+                expression_command = "dark_environment_response"
                 handled_decision = True
             elif decision == "familiar_input_detected":
                 expression_command = "familiar_response"
