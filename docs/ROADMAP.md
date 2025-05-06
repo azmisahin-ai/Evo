@@ -6,7 +6,7 @@ Aşağıdaki fazlar, Evo'nın doğumundan (temel algı) bilgelik ve ustalığa (
 
 ---
 
-*   **Faz 0: Doğum ve Duyuların Açılması (Temel Algı Akışı)**
+*   **Faz 0: Doğum ve Duyuların Açılması (Temel Algı Akışı - TAMAMLANDI)**
     *   [x] Proje deposunun oluşturulması ve temel dosya/dizin yapısının kurulması (`docs/STRUCTURE.md`).
     *   [x] Proje felsefesi (`PHILOSOPHY.md`) ve temel yol haritası (`ROADMAP.md`) belgelerinin oluşturulması.
     *   [x] Genel README dosyalarının (`README.md`, `docs/README.md`) oluşturulması.
@@ -34,7 +34,7 @@ Aşağıdaki fazlar, Evo'nın doğumundan (temel algı) bilgelik ve ustalığa (
             *   [x] run_evo.py dosyasına docstring ve yorumlar eklendi/güncellendi.
             *   [x] src/core yardımcı modüllerine (logging_utils, config_utils, module_loader) docstring ve yorumlar eklendi.
             *   [x] src/senses modüllerine (vision, audio) docstring ve yorumlar eklendi.
-            *   [x] src/processing modüllerine (vision, audio) docstring ve yorumlar eklendi.
+            *   [x] src/processing modüllere (vision, audio) docstring ve yorumlar eklendi.
             *   [x] Diğer Faz 0 kapsamındaki modüllere (memory/core, cognition/core, motor_control/core, interaction/api, interaction/output_channels) docstring ve yorumlar eklendi.
         *   [x] Genel kod tekrarı azaltma ve isimlendirme/tutarlılık iyileştirmeleri.
             *   [x] Girdi kontrolü yardımcı fonksiyonlarının (`src/core/utils.py`) uygun metotlara uygulanması.
@@ -63,7 +63,7 @@ Aşağıdaki fazlar, Evo'nın doğumundan (temel algı) bilgelik ve ustalığa (
     *   [x] RepresentationLearner içinde Dense katmanları gibi temel NN yapı taşlarının eklenmesi (Model iskeleti başlangıcı).
     *   [x] Bu modüllerin temel döngüye entegrasyonu (`run_evo.py` içinde çağrılıyorlar).
 
-    *   **Faz 1 Gerçek Implementasyon Görevleri (TAMAMLANDI - Loglar Teyit Edildi):**
+    *   **Faz 1 Gerçek Implementasyon Görevleri (TAMAMLANDI):**
         *   [x] Ham **görsel** veriden temel, düşük seviyeli özellikler (renk, basit kenarlar, hareket - gelecekte) çıkarma algoritmalarının `src/processing/vision.py` içine implementasyonu.
         *   [x] Ham **işitsel** veriden temel, düşük seviyeli özellikler (enerji, frekans, MFCC - gelecekte) çıkarma algoritmalarının `src/processing/audio.py` içine implementasyonu.
         *   [x] İşlenmiş **görsel ve işitsel** özelliklerden öğrenilmiş, düşük boyutlu, modality bazlı içsel temsiller (latent vektörler) oluşturma (örn: Basit bir Autoencoder veya VAE prensibi) implementasyonu (`src/representation/models.py`).
@@ -80,10 +80,10 @@ Aşağıdaki fazlar, Evo'nın doğumundan (temel algı) bilgelik ve ustalığa (
     *   [x] Memory modülünün oluşturulması (`src/memory/core.py`).
     *   [x] Memory modülüne `store` ve `retrieve` temel işlevselliğin eklenmesi.
     *   [x] Metadata desteğinin eklenmesi.
-    *   [x] Basit (rastgele) geri çağırma mantığının implementasyonu. (Vektör benzerliği implementasyonu ana mantık oldu, rastgele çağırma yedek).
+    *   [x] Basit (rastgele) geri çağırma mantığının implementasyonu. (Ana mantık vektör benzerliği oldu).
     *   [x] Belleğin temel döngüye entegrasyonu (`run_evo.py` içinde çağrılıyor).
 
-    *   **Faz 2 Gerçek Implementasyon Gö görevleri (TAMAMLANDI):**
+    *   **Faz 2 Gerçek Implementasyon Görevleri (TAMAMLANDI):**
         *   [x] Bellek depolama yöntemleri (basit dosya, veritabanı, vektör veritabanı, grafik veritabanı, vs.) araştırılması. (Dosya tabanlı pickle yöntemi seçildi ve implemente edildi).
         *   [x] Başlangıç için uygun bir bellek depolama yöntemine karar verilmesi. (Dosya tabanlı pickle ile in-memory liste implemente edildi).
         *   [x] `Memory.store` metodunun seçilen depolama yöntemine göre implementasyonu (RepresentationLearner çıktısını saklama).
@@ -113,7 +113,7 @@ Aşağıdaki fazlar, Evo'nın doğumundan (temel algı) bilgelik ve ustalığa (
         *   [ ] `MotorControlCore.generate_response` metodunun tasarlanan basit mantığa göre implementasyonu (örn: Sabit metin yanıtları, basit ses sinyalleri, Cognition çıktısını metne/sinyale dönüştürme).
         *   [ ] Temel "anlama-yanıtla" döngüsünün (Represent -> Memory -> Cognition -> Motor -> Interact) basit bir senaryo ile test edilmesi.
 
-    *   [ ] **TODO:** İşlenmiş temsilleri kullanarak basit ayırımlar yapma ("Bu farklı bir şey", "Bu tanıdık") yeteneğinin geliştirilmesi. (Hala TODO)
+    *   [x] **TODO:** İşlenmiş temsilleri kullanarak basit ayırımlar yapma ("Bu farklı bir şey", "Bu tanıdık") yeteneğinin geliştirilmesi. (Karar alma mantığına entegre ediliyor)
     *   [ ] **TODO:** Önceden öğretilmiş (denetimli) temel etiketleri/kavramları (örn. "ses var", "ışık var", "hareket var") bazı temsil desenleriyle ilişkilendirme mekanizmasının eklenmesi. (Hala TODO)
     *   [ ] **TODO:** İçsel durumdan (örn. yeni bir desen fark ettiğinde, bellekten bir şey çağırdığında) basit dışsal tepkiler (rastgele ses çıkarma, ilkel görsel veya basit bir sinyal/metin) üretme mantığı. (Hala TODO)
 
