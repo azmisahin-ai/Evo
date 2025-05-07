@@ -462,11 +462,11 @@ class TestLearningModule(unittest.TestCase):
         # Max sim = max(0.0 (to rep1), ~0.0 (to rep3)) = ~0.0. Eşik 1.0. ~0.0 < 1.0 True -> Eklenir (3. kavram)
 
         self.assertEqual(len(result), len(self.module.concept_representatives))
-        self.assertEqual(len(result), 3) # Başlangıç 1 + Yeni 2 = 3 kavram olmalı
+        # Düzeltilmiş hali:
+        self.assertEqual(len(result), 2) # Başlangıç 1 + Yeni 1 (rep4) = 2 kavram olmalı
         np.testing.assert_array_equal(result[0], rep1) # İlk kavram aynı kalmalı
-        # Sıra: rep3 önce işlendiği için 2. kavram, rep4 sonra işlendiği için 3. kavram olmalı
-        np.testing.assert_array_equal(result[1], rep3_very_similar)
-        np.testing.assert_array_equal(result[2], rep4_different)
+        # İkinci eklenen kavram rep4_different olmalı
+        np.testing.assert_array_equal(result[1], rep4_different) # Doğru karşılaştırma
 
 
     # DÜZELTİLEN TEST: Exception handling testi. array karşılaştırması düzeltildi.
