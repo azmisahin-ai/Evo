@@ -6,9 +6,8 @@
 import yaml
 import os
 import logging
-import numpy as np # get_config_value'da np.number kontrolü için kullanılıyor
+import numpy as np
 
-# Bu modül için bir logger oluştur. Loglama seviyesi ve handler'lar dışarıdan (setup_logging) ayarlanacak.
 logger = logging.getLogger(__name__)
 
 def load_config_from_yaml(filepath="config/main_config.yaml"):
@@ -26,6 +25,8 @@ def load_config_from_yaml(filepath="config/main_config.yaml"):
         return {}
 
     if not os.path.exists(filepath):
+        # Debug: Çalışma dizinini logla
+        # logger.debug(f"Mevcut çalışma dizini: {os.getcwd()}")
         logger.error(f"Yapılandırma dosyası bulunamadı: {filepath}. Lütfen yolun doğru olduğundan emin olun.")
         return {}
 
@@ -44,17 +45,20 @@ def load_config_from_yaml(filepath="config/main_config.yaml"):
 
 
 # --- get_config_value fonksiyonu (nested anahtar yolu destekler) ---
+# Düzeltildi: Varsayılan değeri positional argüman olarak alan çağıranlara uyum sağlamak için workaround eklendi.
 def get_config_value(config: dict, *keys, default=None, expected_type=None, logger_instance=None):
     """
     İç içe geçmiş bir sözlükten anahtar zinciri (*keys) ile değer alır.
-    Anahtar bulunamazsa veya yol geçersizse None veya belirtilen varsayılan değeri döndürür.
+    Anahtar bulunamazsa, yol geçersizse veya tip uyuşmazsa
+    belirtilen varsayılan değeri döndürür.
     Opsiyonel olarak beklenen tipi kontrol eder ve loglama için logger instance alabilir.
 
     Args:
         config (dict): Bakılacak yapılandırma sözlüğü.
         *keys (str): İç içe geçmiş anahtar adımları.
-        default (any, optional): Anahtar bulunamazsa döndürülecek varsayılan değer.
-                                 Varsayılanı None'dır.
+        default (any, optional): Anahtar bulunamazsa, yol geçersizse veya tip uyuşmazsa
+                                 döndürülecek varsayılan değer. Varsayılanı None'dır.
+                                 Bu varsayılan değer, fonksiyona default=... olarak GİRİLEN değerdir.
         expected_type (type or tuple of types, optional): Beklenen değer tipi veya tipleri tuple'ı. None ise tip kontrolü yapılmaz.
                                                        np.number gibi özel tipler numpy'den alınmalıdır.
         logger_instance (logging.Logger, optional): Loglama için kullanılacak logger instance'ı. None ise modül logger'ı kullanılır.
@@ -63,80 +67,129 @@ def get_config_value(config: dict, *keys, default=None, expected_type=None, logg
         any: Bulunan değer veya varsayılan değer.
     """
     log = logger_instance if logger_instance is not None else logger
-    # Config objesi büyük olabilir, sadece tipini loglayalım
-    #log.debug(f"get_config_value: Başladı. config tip: {type(config)}, keys: {keys}, default: {default}, expected_type: {expected_type}") # Gürültülü olabilir
+
+    # --- WORKAROUND: DecisionModule gibi çağıranların default değeri positional geçmesine uyum sağla ---
+    # Eğer keys tuple'ı birden fazla elemanlıysa ve son eleman bir sayı ise,
+    # o son elemanı default değer olarak ele alalım ve keys listesinden çıkaralım.
+    # Bu çirkin bir çözümdür ve gelecekte çağıranlar düzeltildiğinde kaldırılmalıdır.
+    actual_default = default # Çağrıda default=X şeklinde keyword ile gelen değer
+    actual_keys = list(keys) # Positional olarak gelen keys tuple'ını listeye çevir
+
+    # Log çıktısı 'keys tuple'ı varsayılan değeri içeriyor gibi görünüyor...' mesajı bu if bloğunun çalıştığını gösterir.
+    # Bu, DecisionModule'deki get_config_value çağrılarının get_config_value(config, 'key_name', default_value, ...)
+    # formatında olduğunu doğrular. default_value positional olarak *keys içine dahil edilmiştir.
+    # Bu durumda, keys'in son elemanını "default değeri" olarak kabul edip, actual_default'u override edelim
+    # ve keys listesinden bu elemanı çıkaralım.
+    if len(actual_keys) > 0 and isinstance(actual_keys[-1], (int, float)):
+         # Son eleman default değeri olabilir.
+         # Çağrıda default=X şeklinde keyword argümanı GELDİYSE, o zaten actual_default'a atanmıştır.
+         # Ancak loglar bunun olmadığını, default=None kaldığını ve sayısal değerin keys içine girdiğini gösteriyor.
+         # Dolayısıyla keys'in son elemanını default olarak KULLANMALIYIZ.
+         actual_default = actual_keys.pop() # Son elemanı keys'ten çıkar ve default olarak kullan.
+         log.debug(f"get_config_value WORKAROUND: keys tuple'ı varsayılan değeri içeriyor gibi görünüyor. Default '{actual_default}' olarak ayarlandı, gerçek keys: {tuple(actual_keys)}")
+    # Else durumda, keys normal anahtarları içeriyor olmalı, actual_default ise çağrıda belirtilen default=X değeridir (veya None).
+    else:
+        log.debug(f"get_config_value: keys tuple'ı normal görünüyor: {tuple(actual_keys)}. Default değeri: {actual_default}")
+    # --- WORKAROUND SONU ---
+
+
+    path_str = ' -> '.join(map(str, actual_keys))
 
     current_value = config
-    # Başlangıç config'in sözlük olduğundan emin ol (None veya başka tip gelirse hata vermemeli)
+    final_value = actual_default # Bulunamazsa veya hata olursa dönecek değer, başlangıçta DÜZELTİLMİŞ default olarak ayarlandı.
+
+    # Başlangıç config'in sözlük olduğundan emin ol
     if not isinstance(current_value, dict):
-        log.debug(f"get_config_value: Başlangıç config geçerli bir sözlük değil (tip: {type(current_value)}). Varsayılan ({default}) dönülüyor.")
-        return default
+        log.debug(f"get_config_value: Başlangıç config geçerli bir sözlük değil (tip: {type(current_value)}). '{path_str}' yolu için varsayılan ({actual_default}) dönülüyor.")
+        return actual_default
 
-    # Anahtar yolu boyunca ilerle
     try:
-        for i, key in enumerate(keys):
-            #log.debug(f"get_config_value: Adım {i+1}/{len(keys)}. Mevcut tip: {type(current_value)}, Anahtar: '{key}'") # Gürültülü olabilir
+        # Anahtar yolu boyunca ilerle
+        for i, key in enumerate(actual_keys): # Düzeltilmiş keys listesini kullan!
+            # Eğer mevcut değer bir dict değilse ve hala path'in ortasındaysak, yol geçersiz.
+            is_last_key = (i == len(actual_keys) - 1)
 
-            # Eğer mevcut değer dict değilse, yol takip edilemez.
-            if not isinstance(current_value, dict):
-                 log.debug(f"get_config_value: Adım {i+1}/{len(keys)}. Mevcut değer sözlük değil (tip: {type(current_value)}). Path takip edilemiyor. Varsayılan ({default}) dönülüyor.")
-                 # Path burada kesildi, hata fırlatmadan varsayılan dönmeliyiz.
-                 return default
+            if not isinstance(current_value, dict) and not is_last_key:
+                 log.debug(f"get_config_value: '{path_str}' yolu takip edilirken ara değer sözlük değil (adım {i+1}/{len(actual_keys)}, anahtar '{key}', tip: {type(current_value)}). Varsayılan ({actual_default}) dönülüyor.")
+                 return actual_default # Yolun ortasında dict bekleniyordu, yoktu.
 
-            # Anahtara erişmeyi dene. Anahtar yoksa KeyError fırlayacak.
-            # .get() kullanmak yerine KeyError'i yakalamak, anahtarın gerçekten olmadığını
-            # veya değerin None olup olmadığını ayırt etmemize yardımcı olur.
             try:
+                 # current_value'nun dict olduğunu biliyoruz, key'e güvenle erişebiliriz.
                  current_value = current_value[key]
-                 #log.debug(f"get_config_value: Adım {i+1}/{len(keys)}. Başarılı. Yeni tip: {type(current_value)}") # Gürültülü olabilir
+
             except KeyError:
-                 log.debug(f"get_config_value: Anahtar '{key}' bulunamadı. Yol: {' -> '.join(keys[:i+1])}. Varsayılan ({default}) dönüyor.")
-                 return default
+                 # Anahtar bulunamadı (path'in ortasında veya sonunda)
+                 log.debug(f"get_config_value: Anahtar '{key}' bulunamadı. Yol: '{path_str}'. Varsayılan ({actual_default}) dönüyor.")
+                 return actual_default # Anahtar yoksa varsayılan dön.
+            except TypeError:
+                # current_value dict değilken current[key] erişimi denenirse (örn: current int veya float)
+                log.debug(f"get_config_value: '{path_str}' yolu takip edilirken TypeError (adım {i+1}/{len(actual_keys)}, anahtar '{key}', mevcut tip: {type(current_value)}). Varsayılan ({actual_default}) dönülüyor.")
+                return actual_default
+            except Exception as e:
+                 # Diğer beklenmedik hatalar (örn: anahtar tipi geçerli değilse)
+                 log.error(f"get_config_value: '{path_str}' yolu takip edilirken beklenmedik hata (adım {i+1}/{len(actual_keys)}, anahtar '{key}'): {e}", exc_info=True)
+                 log.debug(f"get_config_value: Hata sonrası varsayılan değer ({actual_default}) dönüyor.")
+                 return actual_default
 
 
-    except (TypeError, AttributeError):
-        # Path boyunca mevcut değer dict değil veya None'dı, veya geçersiz erişim denendi.
-        log.debug(f"get_config_value: Path takip edilirken TypeError/AttributeError yakalandı. Yol: {' -> '.join(keys)}. Varsayılan değer ({default}) dönüyor.")
-        return default
+        # Döngü başarıyla tamamlandı (tüm anahtarlar actual_keys'teydi).
+        # current_value artık bulunan değerdir.
+        # Eğer actual_keys boşsa, döngü hiç çalışmaz ve current_value hala başlangıç config'dir.
+        # Bu durumda config'in kendisi dönülmeli.
+        if not actual_keys:
+             final_value = config
+             # log.debug("get_config_value: Anahtar belirtilmedi, başlangıç config dönülüyor.") # Bu debug logu çok çalışıyor
+        else:
+             final_value = current_value # Bulunan değeri final_value'ya ata
+
+
     except Exception as e:
-        # Diğer tüm beklenmedik hatalar.
-        log.error(f"get_config_value: Beklenmedik hata: {e}", exc_info=True)
-        log.debug(f"get_config_value: Beklenmedik hata sonrası varsayılan değer ({default}) dönüyor.")
-        return default
+        # Genel hata yakalandı (bu blok teorik olarak çok çalışmamalı)
+        log.error(f"get_config_value: Genel hata yakalandı: {e}", exc_info=True)
+        log.debug(f"get_config_value: Genel hata sonrası varsayılan değer ({actual_default}) dönüyor.")
+        return actual_default # Hata durumunda varsayılan döndür.
 
-    # Döngü tamamlandı, değer bulundu. Tip kontrolü yapalım.
+
+    # --- Tip kontrolü yapalım ---
     # None değeri için tip kontrolü yapma (None her zaman None'dır)
-    if current_value is not None and expected_type is not None:
-        # numpy number gibi özel tipler için isinstance yerine np.issubdtype kullan
-        if expected_type == np.number:
-             # Eğer değer numpy array değilse veya sayısal dtype değilse tip uyuşmazlığı.
-             # Not: get_config_value genelde sayılar, stringler vb. alır, numpy array'in kendisini config'e koymak nadirdir.
-             # Bu np.number kontrolü config'teki sayısal değerler içindir (int, float).
-             # isinstance kontrolü burada np.number için doğru değil. Değerin int/float olup olmadığına bakalım.
-             if not isinstance(current_value, (int, float)):
-                  log.warning(f"get_config_value: Config yolu {' -> '.join(keys)} için bulunan değer beklenen sayısal tipte değil (tip: {type(current_value)}). Beklenen tip: np.number (int veya float). Varsayılan değer ({default}) dönülüyor.")
-                  return default # Tip uyuşmazsa varsayılan dön
+    if final_value is not None and expected_type is not None:
+        # isinstance kullanırken tuple da kabul edilir. numpy tipleri için özel kontrol ekleyelim.
+        is_correct_type = False
 
-        elif expected_type == np.ndarray:
-             # Eğer değer numpy array değilse tip uyuşmazlığı.
-             if not isinstance(current_value, np.ndarray):
-                  log.warning(f"get_config_value: Config yolu {' -> '.join(keys)} için bulunan değer beklenen numpy array tipi değil (tip: {type(current_value)}). Beklenen tip: np.ndarray. Varsayılan değer ({default}) dönülüyor.")
-                  return default # Tip uyuşmazsa varsayılan dön
+        # expected_type tuple ise içindeki tipleri tek tek kontrol et
+        if isinstance(expected_type, tuple):
+            for t in expected_type:
+                 if t == np.number:
+                      if isinstance(final_value, (int, float)) or (isinstance(final_value, np.ndarray) and np.issubdtype(final_value.dtype, np.number)) or (np.isscalar(final_value) and np.issubdtype(type(final_value), np.number)):
+                           is_correct_type = True
+                           break # Tuple içinde doğru tip bulundu, döngüyü kır.
+                 elif t == np.ndarray:
+                      if isinstance(final_value, np.ndarray):
+                           is_correct_type = True
+                           break # Tuple içinde doğru tip bulundu, döngüyü kır.
+                 # Normal tip kontrolü (int, float, str, list, dict vb.)
+                 elif isinstance(final_value, t):
+                    is_correct_type = True
+                    break # Tuple içinde doğru tip bulundu, döngüyü kır.
+        # expected_type tuple değil, tek tip ise
+        else:
+             if expected_type == np.number:
+                  if isinstance(final_value, (int, float)) or (isinstance(final_value, np.ndarray) and np.issubdtype(final_value.dtype, np.number)) or (np.isscalar(final_value) and np.issubdtype(type(final_value), np.number)):
+                       is_correct_type = True
+             elif expected_type == np.ndarray:
+                  if isinstance(final_value, np.ndarray):
+                       is_correct_type = True
+             # Normal tip kontrolü
+             elif isinstance(final_value, expected_type):
+                is_correct_type = True
 
-        # Normal tipler için isinstance kontrolü. Tuple of types da desteklenir.
-        # expected_type np.number veya np.ndarray değilse buraya gelir.
-        elif not isinstance(current_value, expected_type):
-             log.warning(f"get_config_value: Config yolu {' -> '.join(keys)} için bulunan değer beklenen tipte değil (beklenen: {expected_type}, geldi: {type(current_value)}). Varsayılan değer ({default}) dönülüyor.")
-             return default # Tip uyuşmazsa varsayılan dön
 
-    # Değer bulundu ve tip kontrolünden geçti (veya tip kontrolü istenmedi). Return the value.
-    # Log the final successful retrieval (handle potentially large values)
-    # value_repr = str(current_value) # Gürültülü olabilir
-    # if len(value_repr) > 200:
-    #      value_repr = value_repr[:100] + "..." + value_repr[-100:]
-    # log.debug(f"get_config_value: Başarılı tamamlandı. Dönüş değeri tipi: {type(current_value)}, Değer: {value_repr}") # Gürültülü olabilir
-
-    return current_value
+        if not is_correct_type:
+             log.warning(f"get_config_value: Config yolu '{path_str}' için bulunan değer beklenen tipte değil (beklenen: {expected_type}, geldi: {type(final_value)}). Varsayılan değer ({actual_default}) dönülüyor.")
+             # TIP UYUSMAZLIGINDA VARSAYILAN DEGER DONDURULMELI.
+             return actual_default # Tip uyuşmazsa varsayılan dön
 
 
-# Gelecekte diğer config ile ilgili yardımcı fonksiyonlar eklenebilir.
+    # Değer bulundu ve tip kontrolünden geçti (veya istenmedi/değer None). Bulunan değeri döndür.
+    # log.debug(f"get_config_value: '{path_str}' için değer başarıyla alındı (tip: {type(final_value)}).") # Gürültülü olabilir
+    return final_value
