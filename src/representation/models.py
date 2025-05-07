@@ -8,7 +8,8 @@ import numpy as np # Sayısal işlemler ve arrayler için.
 import logging # Loglama için.
 
 # Yardımcı fonksiyonları import et
-from src.core.utils import check_input_not_none, check_numpy_input, get_config_value # <<< Utils importları
+from src.core.config_utils import get_config_value
+from src.core.utils import check_input_not_none, check_numpy_input # <<< Utils importları
 
 
 # Bu modül için bir logger oluştur
