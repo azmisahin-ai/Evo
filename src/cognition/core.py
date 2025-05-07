@@ -10,7 +10,9 @@ import numpy as np
 import random # LearningModule için örneklem almak için
 
 # Yardımcı fonksiyonları import et
-from src.core.utils import check_input_not_none, check_numpy_input, check_input_type, get_config_value # <<< Utils importları
+from src.core.config_utils import get_config_value
+# check_input_not_none, check_numpy_input, check_input_type şu an cognition/core'da kullanılmıyor, kaldırılabilir.
+# from src.core.utils import check_input_not_none, check_numpy_input, check_input_type # <<< Utils importları
 
 # Alt modül sınıflarını import et
 from .understanding import UnderstandingModule
@@ -56,7 +58,7 @@ class CognitionCore:
         self.learning_module = None # Öğrenme modülü objesi.
 
         # Memory modülü referansını sakla.
-        # module_objects geçerli bir dict ise içinden Memory objesini al. None olabilir.
+        # module_objects geçerli bir dict ise içından Memory objesini al. None olabilir.
         # run_evo tarafından initialize_modules çağrılırken module_objects dictionary'si CognitiveCore init'ine iletilecektir.
         self.memory_instance = module_objects.get('memories', {}).get('core_memory')
         if self.memory_instance is None:
@@ -65,6 +67,10 @@ class CognitionCore:
 
         # Learning Module'ün çalışma sıklığı ve Memory'den alınacak Representation sayısı.
         # config'ten alırken get_config_value kullan.
+        # get_config_value, anahtarın tuple olarak verilmesini bekleyebilir, burada string veriyoruz.
+        # Ancak current_config_utils implementasyonunda string de çalışıyor gibi görünüyor,
+        # loglardaki "keys tuple'ı varsayılan değeri içeriyor gibi görünüyor" uyarısı buradan kaynaklanıyor olabilir.
+        # Şimdilik mevcut kullanım şeklini koruyalım.
         self.learning_frequency = get_config_value(config, 'learning_frequency', 100, expected_type=int, logger_instance=logger)
         self.learning_memory_sample_size = get_config_value(config, 'learning_memory_sample_size', 50, expected_type=int, logger_instance=logger)
 
@@ -76,25 +82,29 @@ class CognitionCore:
             # Anlama modülünü yapılandırmasından başlat
             understanding_config = config.get('understanding', {})
             self.understanding_module = UnderstandingModule(understanding_config)
-            if self.understanding_module is None:
-                 logger.error("CognitionCore: UnderstandingModule başlatılamadı.")
+            # UnderstandingModule init hata fırlatmazsa ve None döndürmezse başlatılmış kabul edilir.
+            # Alt modüllerin kendi init hatalarını loglaması beklenir.
+            # if self.understanding_module is None: # Bu kontrol kaldırılabilir, __init__ None döndürmemeli.
+            #      logger.error("CognitionCore: UnderstandingModule başlatılamadı.")
+
 
             # Karar alma modülünü yapılandırmasından başlat
             decision_config = config.get('decision', {})
             self.decision_module = DecisionModule(decision_config)
-            if self.decision_module is None:
-                 logger.error("CognitionCore: DecisionModule başlatılamadı.")
+            # if self.decision_module is None: # Bu kontrol kaldırılabilir.
+            #      logger.error("CognitionCore: DecisionModule başlatılamadı.")
+
 
             # Öğrenme modülünü yapılandırmasından başlat
-            learning_config = config.get('learning', {})
+            learning_config = config.get('learning', {}).copy() # copy() yapalım ki orijinal config dict'ini değiştirmeyelim.
             # Learning config'te representation_dim yoksa, üstteki representation anahtarı altındaki boyutu almayı dene.
             representation_config = config.get('representation', {})
-            # get() ile güvenli erişim.
-            learning_config['representation_dim'] = learning_config.get('representation_dim', representation_config.get('representation_dim', 128)) # Varsayılanı RL'den al
+            # get() ile güvenli erişim. Varsayılanı 128 yapalım, RL'den alma mantığı burada CognitiveCore'a ait değil.
+            learning_config['representation_dim'] = learning_config.get('representation_dim', representation_config.get('representation_dim', 128))
 
             self.learning_module = LearningModule(learning_config)
-            if self.learning_module is None:
-                 logger.error("CognitionCore: LearningModule başlatılamadı.")
+            # if self.learning_module is None: # Bu kontrol kaldırılabilir.
+            #      logger.error("CognitionCore: LearningModule başlatılamadı.")
 
 
         except Exception as e:
@@ -141,29 +151,52 @@ class CognitionCore:
         # Döngü sayacını artır.
         self._loop_counter += 1
 
+        # Anlama modülüne ve Karar modülüne iletilecek güncel kavram temsilcileri listesini al.
+        # LearningModule None olsa bile boş liste döner. get_concepts hata fırlatırsa yakalanır.
+        current_concepts = []
+        if self.learning_module:
+             try:
+                 concepts = self.learning_module.get_concepts()
+                 if isinstance(concepts, list): # get_concepts'in liste döndürdüğünden emin ol
+                     current_concepts = concepts
+                 else:
+                     logger.warning("CognitionCore: LearningModule.get_concepts beklenmeyen tip döndürdü. Boş liste kullanılıyor.")
+                     current_concepts = [] # Beklenmeyen tip durumunda boş liste kullan
+             except Exception as e:
+                 # get_concepts çağrılırken hata olursa
+                 logger.error(f"CognitionCore: LearningModule.get_concepts çağrılırken hata: {e}", exc_info=True)
+                 current_concepts = [] # Hata durumunda boş liste kullan
+
+
         # LearningModule'ü tetikleme kontrolü. LearningModule ve Memory modülü varsa ve sıklık zamanı geldiyse.
+        # Learning step'i ana karar akışını kesintiye uğratmamalı, bu yüzden kendi try/except bloğunda çalışır.
+        # Bu try/except bloğu, get_all_representations, random.sample, learn_concepts çağrılarını kapsar.
         if self.learning_module is not None and self.memory_instance is not None and self._loop_counter % self.learning_frequency == 0:
              logger.info(f"CognitionCore: Öğrenme döngüsü tetiklendi (döngü #{self._loop_counter}).")
              try:
                   # Memory'den öğrenme için Representation örneklemi al.
-                  # Memory modülünde get_all_representations metodu olmalı.
                   if hasattr(self.memory_instance, 'get_all_representations'):
-                      # get_all_representations Representation vektörlerinin listesini döndürür.
-                      # Bu metodun içinde np.issubtype hatası olabilir, Memory modülünde düzeltildi.
                       all_memory_representations = self.memory_instance.get_all_representations()
 
                       # Alınan Representation listesinin numpy array listesi olduğundan emin olalım.
                       # LearningModule'ün beklediği boyutta olanları alalım.
-                      # issubtype yerine isinstance kullan (Hata düzeltme LearningModule'de yapıldı).
-                      # Sadece geçerli numpy array Representationları alalım.
-                      valid_representations_for_learning = [rep for rep in all_memory_representations if rep is not None and isinstance(rep, np.ndarray) and isinstance(rep.dtype, np.number) and rep.ndim == 1 and self.learning_module is not None and rep.shape[0] == self.learning_module.representation_dim]
-
+                      valid_representations_for_learning = [
+                          rep for rep in all_memory_representations
+                          if rep is not None
+                          and isinstance(rep, np.ndarray)
+                          and np.issubdtype(rep.dtype, np.number) # Düzeltme burada yapılmıştı
+                          and rep.ndim == 1
+                          and self.learning_module is not None # Zaten üstteki if'te kontrol edildi ama filtrede de olması mantıklı
+                          and hasattr(self.learning_module, 'representation_dim') # representation_dim attribute'u var mı kontrolü
+                          and rep.shape[0] == self.learning_module.representation_dim # Boyut kontrolü
+                      ]
 
                       if valid_representations_for_learning:
                            # Öğrenme için rastgele bir örneklem alalım (eğer bellek çok büyükse).
+                           # random.sample boş liste ile çağrılırsa ValueError fırlatır, bu yüzden valid_representations_for_learning boş değilse çağırıyoruz.
                            learning_sample = random.sample(valid_representations_for_learning, min(self.learning_memory_sample_size, len(valid_representations_for_learning)))
                            logger.debug(f"CognitionCore: Memory'den öğrenme için {len(learning_sample)} representation örneği alındı.")
-                           # LearningModule'ü Representation örneklemi ile çağır.
+                           # LearningModule'ü Representation örneklemi ile çağır. learn_concepts'in hata fırlatması da yakalanır.
                            self.learning_module.learn_concepts(learning_sample)
                       else:
                            logger.debug("CognitionCore: Memory'de öğrenme için yeterli geçerli Representation yok.")
@@ -171,21 +204,22 @@ class CognitionCore:
                       logger.warning("CognitionCore: Memory modülünde 'get_all_representations' metodu bulunamadı. LearningModule için Representation alınamadı.")
 
              except Exception as e:
-                  logger.error(f"CognitionCore: Öğrenme döngüsü sırasında bellekten veri alınırken veya LearningModule çağrılırken beklenmedik hata: {e}", exc_info=True)
+                  # Öğrenme döngüsü sırasındaki hataları yakala ama ana decide akışını kesme.
+                  logger.error(f"CognitionCore: Öğrenme döngüsü sırasında beklenmedik hata: {e}", exc_info=True)
 
-        # CognitionCore'un alt modülleri başlatılamamışsa işlem yapma.
+
+        # CognitionCore'un kritik alt modülleri başlatılamamışsa işlem yapma.
+        # Understanding ve Decision modülleri karar alma için gereklidir. Learning optional.
         if self.understanding_module is None or self.decision_module is None:
-            logger.error("CognitionCore.decide: Alt modüller (Understanding/Decision) başlatılmamış. Karar alınamıyor.")
+            logger.error("CognitionCore.decide: Kritik alt modüller (Understanding/Decision) başlatılmamış veya None. Karar alınamıyor.")
             return None
-
-        # Anlama modülüne iletilecek güncel kavram temsilcileri listesini al.
-        # LearningModule None olsa bile get_concepts None/boş liste döner.
-        current_concepts = self.learning_module.get_concepts() if self.learning_module else []
 
 
         understanding_signals = None # Anlama modülünden gelecek sinyaller dictionary'si.
         decision = None # Karar alma modülünden gelecek karar.
 
+        # Understanding ve Decision modüllerinin çağrılarını ana try/except bloğuna alalım
+        # Bu modüllerdeki hatalar kritik kabul edilir ve karar alınmasını engeller.
         try:
             # 1. Gelen bilgileri anlama modülüne ilet.
             # UnderstandingModule.process dictionary sinyalleri döndürür.
@@ -194,7 +228,7 @@ class CognitionCore:
                 processed_inputs, # İşlenmiş anlık duyu girdileri (dict/None)
                 learned_representation, # Learned Representation (None/array)
                 relevant_memory_entries, # Memory'den gelen ilgili anılar (list/None)
-                current_concepts # LearningModule'den gelen güncel kavramlar (list) - YENİ
+                current_concepts # LearningModule'den gelen güncel kavramlar (list)
             )
             # DEBUG logu: Anlama sinyalleri dictionary'si (UnderstandingModule içinde loglanıyor)
             # if isinstance(understanding_signals, dict): ...
@@ -205,9 +239,8 @@ class CognitionCore:
             # Kendi içsel durumunu (curiosity) DecisionModule yönetiyor. current_concepts burada kullanılmıyor.
             decision = self.decision_module.decide(
                 understanding_signals, # Anlama modülünün çıktısı (dictionary sinyaller)
-                relevant_memory_entries # Bellek girdileri (list/None) - Karar modülü bunu bağlamsal karar için kullanabilir
-                # internal_state # Gelecekte buradan da iletilebilir.
-                # current_concepts # Gelecekte DecisionModule doğrudan kullanabilir.
+                relevant_memory_entries, # Bellek girdileri (list/None)
+                current_concepts # Karar modülü de güncel kavramları kullanabilir
             )
 
             # DEBUG logu: Karar sonucu (DecisionModule içinde loglanıyor)
@@ -215,8 +248,9 @@ class CognitionCore:
 
 
         except Exception as e:
-            # Alt modüllerin metotlarını çağırırken veya içlerinde (eğer yakalamadılarsa) beklenmedek hata olursa.
-            logger.error(f"CognitionCore.decide: Anlama veya karar alma sırasında beklenmedik hata: {e}", exc_info=True)
+            # Anlama veya karar alma modüllerinin metotlarını çağırırken veya içlerinde (eğer yakalamadılarsa) beklenmedek hata olursa.
+            # Bu kritik bir hata, karar alma işlemini durdurur.
+            logger.error(f"CognitionCore.decide: Anlama veya karar alma sırasında kritik hata: {e}", exc_info=True)
             return None # Hata durumunda None döndür.
 
         # Başarılı durumda alınan kararı döndür.
@@ -232,11 +266,22 @@ class CognitionCore:
         logger.info("Cognition modülü objesi siliniyor...")
         # Alt modüllerin cleanup metotlarını çağır (varsa).
         if self.understanding_module and hasattr(self.understanding_module, 'cleanup'):
-             self.understanding_module.cleanup()
+             try:
+                 self.understanding_module.cleanup()
+             except Exception as e:
+                 logger.error(f"CognitionCore Cleanup: UnderstandingModule cleanup sırasında hata: {e}", exc_info=True)
+
         if self.decision_module and hasattr(self.decision_module, 'cleanup'):
-             self.decision_module.cleanup()
+             try:
+                 self.decision_module.cleanup()
+             except Exception as e:
+                 logger.error(f"CognitionCore Cleanup: DecisionModule cleanup sırasında hata: {e}", exc_info=True)
+
         if self.learning_module and hasattr(self.learning_module, 'cleanup'):
-             self.learning_module.cleanup()
+             try:
+                 self.learning_module.cleanup()
+             except Exception as e:
+                  logger.error(f"CognitionCore Cleanup: LearningModule cleanup sırasında hata: {e}", exc_info=True)
 
 
         logger.info("Cognition modülü objesi silindi.")
