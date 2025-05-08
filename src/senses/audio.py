@@ -97,7 +97,7 @@ class AudioSensor:
                      except Exception as e:
                           # Varsayılan cihaz bulunamazsa uyarı logla.
                           logger.warning(f"AudioSensor: Varsayılan ses input cihazı bulunamadı: {e}. Akış başlatma device_index=None ile denenecek.")
-                          # İndeks None kaldığı için PyAudio'nun open stream metodunun hata verme ihtimali yüksektir.
+                          # İndeks None kaldığı için PyAudio'nın open stream metodunun hata verme ihtimali yüksekdir.
                           # Bu durum open stream try-except bloğunda yakalanacaktır.
                           # Eğer config'te audio_input_device_index None ise ve getDefaultInputDeviceInfo hata verirse,
                           # device_index_to_open None kalır. open(input_device_index=None) genellikle varsayılanı dener.
@@ -150,7 +150,7 @@ class AudioSensor:
                 # Bu hata run_module_test tarafından yakalanacak ve test başarısız sayılacak.
                 logger.error(f"AudioSensor başlatılırken hata oluştu: {e}", exc_info=True)
                 self.is_audio_available = False # Hata durumunda ses aktif değil.
-                # Hata durumunda açılmış olabilecek kaynakları temizlemeyi dene.
+                # Hata durumında açılmış olabilecek kaynakları temizlemeyi dene.
                 if self.stream:
                      try:
                           self.stream.stop_stream()
@@ -172,6 +172,7 @@ class AudioSensor:
 
 
     # ... (capture_chunk, stop_stream, terminate_pyaudio, cleanup methods) ...
+
 
     def capture_chunk(self):
         """

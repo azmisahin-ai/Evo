@@ -42,6 +42,8 @@ class Dense:
         self.activation = activation
         # Logger, RepresentationLearner tarafından zaten başlatılmış olmalı, burada tekrar getirmek yerine
         # doğrudan module-level logger'ı kullanabiliriz.
+        # Logging burada RepresentationLearner'ın logger'ını kullanmak yerine kendi logger'ını kullanıyor gibi görünüyor.
+        # RepresentationLearner init'te logger'ı pass etmiyor. Refactoring hedefi.
         logger.info(f"Dense katmanı başlatılıyor: Input={input_dim}, Output={output_dim}, Activation={activation}")
 
         # Ağırlıkları ve bias'ları rastgele başlat.
@@ -55,6 +57,8 @@ class Dense:
         self.bias = np.zeros(output_dim) # Bias'ı genellikle sıfır başlatmak yaygındır.
 
         logger.info("Dense katmanı başlatıldı.")
+
+    # ... (forward and cleanup methods - same as before) ...
 
     def forward(self, inputs):
         """
@@ -177,10 +181,10 @@ class RepresentationLearner:
         logger.info("RepresentationLearner başlatılıyor...")
 
         # Yapılandırmadan input ve representation boyutlarını alırken get_config_value kullan.
-        # get_config_value zaten int tipini kontrol eder ve varsayılan atar.
-        # Varsayılan input_dim artık beklenen toplam özellik boyutu olacak: (64*64) + (64*64) + 2 = 8194
-        self.input_dim = get_config_value(config, 'input_dim', 8194, expected_type=int, logger_instance=logger)
-        self.representation_dim = get_config_value(config, 'representation_dim', 128, expected_type=int, logger_instance=logger)
+        # Düzeltme: get_config_value çağrılarını default=keyword formatına çevir.
+        # Config'e göre bu ayarlar 'representation' anahtarı altında.
+        self.input_dim = get_config_value(config, 'representation', 'input_dim', default=8194, expected_type=int, logger_instance=logger)
+        self.representation_dim = get_config_value(config, 'representation', 'representation_dim', default=128, expected_type=int, logger_instance=logger)
 
         self.encoder = None # Encoder katmanı (şimdilik Dense).
         self.decoder = None # Decoder katmanı (şimdilik Dense).
@@ -188,12 +192,20 @@ class RepresentationLearner:
 
         # TODO: Gelecekte: Farklı modalitelerden gelen girdilerin boyutlarını buradan config'ten alıp,
         # TODO: input_dim değerinin bu boyutların toplamına eşit olduğunu doğrulayabiliriz.
-        # Örn: visual_grayscale_shape = config.get('visual_grayscale_shape', [64, 64])
-        #      visual_edges_shape = config.get('visual_edges_shape', [64, 64])
-        #      audio_features_dim = config.get('audio_features_dim', 2)
-        #      expected_input_dim = visual_grayscale_shape[0] * visual_grayscale_shape[1] + visual_edges_shape[0] * visual_edges_shape[1] + audio_features_dim
-        #      if self.input_dim != expected_input_dim:
-        #           logger.warning(...) # Boyut uyuşmazlığı uyarısı.
+        # Processor çıktı boyutları RepresentationLearner için config'ten alınıyor, bu doğru.
+        # AudioProcessor çıktı boyutu da burada alınıp kullanılabilir.
+        visual_config = config.get('processors', {}).get('vision', {})
+        audio_config = config.get('processors', {}).get('audio', {})
+        visual_gray_size = visual_config.get('output_width', 64) * visual_config.get('output_height', 64)
+        visual_edges_size = visual_config.get('output_width', 64) * visual_config.get('output_height', 64) # Genellikle aynı boyut
+        audio_features_dim = audio_config.get('output_dim', 2)
+        expected_input_dim_calc = visual_gray_size + visual_edges_size + audio_features_dim
+
+        if self.input_dim != expected_input_dim_calc:
+             logger.warning(f"RepresentationLearner: Config'teki input_dim ({self.input_dim}) beklenen hesaplanmış değer ({expected_input_dim_calc}) ile eşleşmiyor. Lütfen config dosyasını kontrol edin. Hesaplanan boyut Processing çıktı boyutlarına göre belirlenir.")
+             # İsteğe bağlı: Bu durumda self.input_dim'i hesaplanan değere set edilebilir
+             # self.input_dim = expected_input_dim_calc
+
 
         try:
             # Encoder katmanı oluştur (Girdi boyutu: self.input_dim, Çıktı boyutu: self.representation_dim).

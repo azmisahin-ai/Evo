@@ -50,6 +50,7 @@ class AudioProcessor:
         logger.info(f"AudioProcessor başlatıldı. Örnekleme Oranı: {self.audio_rate} Hz, Çıktı Boyutu (implemente edilen): {self.output_dim}")
 
     # ... (process and cleanup methods - same as before) ...
+
     def process(self, audio_input):
         """
         Ham işitsel girdiyi işler, temel işitsel özellikleri çıkarır.

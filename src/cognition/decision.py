@@ -98,6 +98,7 @@ class DecisionModule:
         logger.debug(f"DecisionModule: Merak Artış (Yeni): {self.curiosity_increment_new}, Azalış (Tanıdık): {self.curiosity_decrement_familiar}, Decay: {self.curiosity_decay}")
 
     # ... (decide and cleanup methods - same as before) ...
+
     def decide(self, understanding_signals, relevant_memory_entries, internal_state=None):
         """
         Anlama sinyallerine ve içsel duruma (curiosity_level) göre bir eylem kararı alır.

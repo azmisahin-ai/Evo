@@ -62,9 +62,15 @@ class Memory:
 
         # Yapılandırmadan ayarları alırken get_config_value kullan
         # logger_instance=logger'ı her çağrıya ekleyerek get_config_value içindeki logların görünmesini sağla.
-        self.max_memory_size = int(get_config_value(config, 'memory', 'max_memory_size', default=1000, expected_type=(int, float), logger_instance=logger))
-        self.num_retrieved_memories = int(get_config_value(config, 'memory', 'num_retrieved_memories', default=5, expected_type=(int, float), logger_instance=logger))
-        self.representation_dim = int(get_config_value(config, 'memory', 'representation_dim', default=128, expected_type=(int, float), logger_instance=logger))
+        # Düzeltme: get_config_value çağrılarını default=keyword formatına çevir.
+        # Config'e göre bu ayarlar 'memory' anahtarı altında.
+        self.max_memory_size = get_config_value(config, 'memory', 'max_memory_size', default=1000, expected_type=int, logger_instance=logger)
+        self.num_retrieved_memories = get_config_value(config, 'memory', 'num_retrieved_memories', default=5, expected_type=int, logger_instance=logger)
+        # Representation boyutu config'in 'representation' anahtarı altında da olabilir.
+        # Memory modülü kendi config'inden veya genel representation config'inden alabilir.
+        # Config'e göre 'memory' altında 'representation_dim' yok. 'representation' altında var.
+        self.representation_dim = get_config_value(config, 'representation', 'representation_dim', default=128, expected_type=int, logger_instance=logger)
+
         # memory_file_path config'den alınıyor.
         self.memory_file_path = get_config_value(config, 'memory', 'memory_file_path', default='data/core_memory.pkl', expected_type=str, logger_instance=logger)
 

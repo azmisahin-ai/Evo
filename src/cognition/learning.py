@@ -16,7 +16,7 @@ try:
 except ImportError as e:
     # Eğer temel modüller import edilemezse kritik hata logla ve placeholder kullan (geliştirme/debug amaçlı)
     logging.critical(f"Temel yardımcı modüller import edilemedi: {e}. Lütfen src/core/utils.py ve src/core/config_utils.py dosyalarının mevcut olduğundan ve PYTHONPATH'in doğru ayarlandığından emin olun.")
-    # Placeholder fonksiyonlar (yalnızca import hatası durumunda kullanılır)
+    # Placeholder fonksiyonlar (yalnızca import hatası durumında kullanılır)
     def get_config_value(config, *keys, default=None, expected_type=None, logger_instance=None):
          return default
     def check_input_not_none(input_data, input_name="Girdi", logger_instance=None):
@@ -31,7 +31,7 @@ except ImportError as e:
 logger = logging.getLogger(__name__)
 
 class LearningModule:
-    """
+     """
     Evo'nın denetimsiz öğrenme (kavram keşfi) yeteneğini sağlayan sınıf (Faz 4 implementasyonu).
 
     Bellekteki Representation vektörlerini alır ve basit bir eşik tabanlı yeni kavram ekleme
@@ -60,11 +60,18 @@ class LearningModule:
         logger.info("LearningModule başlatılıyor (Faz 4)...")
 
         # Yapılandırmadan eşiği get_config_value (yeni yerden) ile alırken *keys formatını kullan.
-        self.new_concept_threshold = get_config_value(config, 'new_concept_threshold', default=0.7, expected_type=(float, int), logger_instance=logger)
-        # Representation boyutunu config'ten al.
-        self.representation_dim = get_config_value(config, 'representation_dim', default=128, expected_type=int, logger_instance=logger)
+        # Düzeltme: get_config_value çağrılarını default=keyword formatına çevir.
+        # Config'e göre learning ayarları 'cognition.learning' altında olabilir.
+        # Veya new_concept_threshold doğrudan 'cognition' altında da olabilir.
+        # Config'e göre new_concept_threshold 'cognition' altında, learning_memory_sample_size 'cognition.learning' altında.
+        # Bu durum biraz karışık. Config'in daha tutarlı olması gerekebilir.
+        # Şimdilik config'teki yollara göre alalım:
+        self.new_concept_threshold = get_config_value(config, 'cognition', 'new_concept_threshold', default=0.7, expected_type=(float, int), logger_instance=logger)
+        # Representation boyutunu config'ten al. representation.representation_dim altından alalım.
+        self.representation_dim = get_config_value(config, 'representation', 'representation_dim', default=128, expected_type=int, logger_instance=logger)
 
         # ConfigUtils'taki get_config_value int'i float'a otomatik çevirmediği için burada açıkça çevirelim.
+        # expected_type ile zaten tip kontrolü yapıldığı için bu çeviri artık çok gerekli olmayabilir, ama sağlamlık için kalsın.
         self.new_concept_threshold = float(self.new_concept_threshold)
         # representation_dim zaten int bekleniyor, çevirmeye gerek yok.
 
@@ -75,7 +82,9 @@ class LearningModule:
 
         # Representation boyutu pozitif mi kontrol et.
         if self.representation_dim <= 0:
-             logger.error(f"LearningModule: Konfig 'representation_dim' geçersiz ({self.representation_dim}). Pozitif bir değer bekleniyordu. Başlatma sırasında kritik hata vermiyoruz.")
+             # Bu kritik bir hata olabilir ama init sırasında crash etmiyoruz.
+             logger.error(f"LearningModule: Konfig 'representation_dim' geçersiz ({self.representation_dim}). Pozitif bir değer bekleniyordu. Kavram öğrenme çalışmayabilir.")
+             # LearningModule'un sonraki metotları (learn_concepts) bu durumu ele almalı.
 
 
         # Öğrenilen kavramların temsilcilerini (vektörlerini) saklayacak liste.
@@ -84,6 +93,9 @@ class LearningModule:
         # TODO: Gelecekte kavramları dosyaya kaydetme/yükleme eklenecek (kalıcılık).
 
         logger.info(f"LearningModule başlatıldı. Yeni Kavram Eşiği: {self.new_concept_threshold}, Representation Boyutu: {self.representation_dim}. Başlangıç Kavram Sayısı: {len(self.concept_representatives)}")
+
+    # ... (learn_concepts, get_concepts, cleanup methods - same as before) ...
+
 
     def learn_concepts(self, representation_list):
         """

@@ -13,7 +13,7 @@ import numpy as np
 
 # Loglama ve Konfigürasyon yardımcı fonksiyonlarını import et
 from src.core.logging_utils import setup_logging
-from src.core.config_utils import load_config_from_yaml
+from src.core.config_utils import load_config_from_yaml, get_config_value
 # Modül başlatma yardımcı fonksiyonlarını import et
 from src.core.module_loader import initialize_modules, cleanup_modules
 
@@ -87,7 +87,7 @@ def run_evo():
         # cleanup_modules, None objeleri güvenli bir şekilde işleyebilir.
         cleanup_modules(module_objects)
         # sys.exit(1) # Eğer sys import ediliyorsa
-        return # run_evo fonksiyonundan çık - program main bloğunda sonlanır.
+        return # run_evo fonksiyonundan çık - program main bloğında sonlanır.
 
 
     # Modül objelerine kolay erişim için değişkenler atayalım (opsiyonel ama kodu sadeleştirebilir)
@@ -115,9 +115,10 @@ def run_evo():
     if can_run_main_loop: # Bu kontrol zaten yukarıda yapılıyor, ama döngüye giriş şartı olarak tekrar kontrol etmek netlik sağlar.
         logger.info("Evo'nın bilişsel döngüsü başlatıldı...")
         # Bilişsel döngü hızını konfigürasyondan al. Yoksa varsayılan 0.1 saniye kullan.
-        # Config'ten okurken get_config_value kullanılabilir, ama config objesi burada zaten kontrol edildi.
-        # float tipi bekleniyor.
-        loop_interval = config.get('cognitive_loop_interval', 0.1)
+        # Düzeltme: get_config_value çağrısını default=keyword formatına çevir.
+        # Config'e göre bu ayar global olarak config'in kökünde.
+        loop_interval = get_config_value(config, 'cognitive_loop_interval', default=0.1, expected_type=(float, int), logger_instance=logger)
+
         if not isinstance(loop_interval, (int, float)) or loop_interval <= 0:
              logger.warning(f"RUN_EVO: Konfigürasyondan alınan geçersiz cognitive_loop_interval değeri ({loop_interval}). Varsayılan 0.1 kullanılıyor.")
              loop_interval = 0.1
@@ -125,14 +126,17 @@ def run_evo():
              loop_interval = float(loop_interval) # float'a çevir
 
 
-        # Bellekten kaç anı çağrılacağını konfigüraasyon
+        # Bellekten kaç anı çağrılacağını konfigürasyon
         # dan al. Memory config yoksa veya değer yoksa varsayılan 5 kullan.
         # Config dict'inin 'memory' anahtarı altındaki 'num_retrieved_memories' değerini al.
-        # .get('memory', {}) kullanarak memory config'i yoksa boş dict döner ve sonraki .get() hata vermez.
-        num_memories_to_retrieve = config.get('memory', {}).get('num_retrieved_memories', 5)
+        # Düzeltme: get_config_value çağrısını default=keyword formatına çevir.
+        num_memories_to_retrieve = get_config_value(config, 'memory', 'num_retrieved_memories', default=5, expected_type=int, logger_instance=logger)
+
         # Eğer num_memories_to_retrieve hala int değilse veya negatifse varsayılan ata (utils içinde kontrol edildi ama burada da sağlamlık için).
-        if not isinstance(num_memories_to_retrieve, int) or num_memories_to_retrieve < 0:
-             logger.warning(f"RUN_EVO: Konfigürasyondan alınan geçersiz num_retrieved_memories değeri ({num_memories_to_retrieve}). Varsayılan 5 kullanılıyor.")
+        # get_config_value expected_type kontrolü yaptığı için bu kontrol artık gerekmiyordu.
+        # Negatif kontrolü get_config_value yapmıyor, bu kontrol kalabilir.
+        if num_memories_to_retrieve < 0:
+             logger.warning(f"RUN_EVO: Konfigürasyondan alınan negatif num_retrieved_memories değeri ({num_memories_to_retrieve}). Varsayılan 5 kullanılıyor.")
              num_memories_to_retrieve = 5
 
 
@@ -227,7 +231,7 @@ def run_evo():
                 # İşlenmiş Veriden Temsil Öğren (Faz 1 Devamı)
                 # Representation learner objesinin varlığını kontrol ederek güvenli çağrı
                 # representers dict'inin kendisi None değil (get() ile varsayılan {} aldık)
-                # Learn metodu boş processed_inputs dict alabilmeli ve None/numpy array döndürebilmeli (hata durumunda)
+                # Learn metodu boş processed_inputs dict alabilmeli ve None/numpy array döndürebilmeli (hata durumında)
                 learned_representation = None # Başlangıçta temsil yok
                 if representers.get('main_learner'):
                      # RepresentationLearner.learn metodu processed_inputs sözlüğünü bekler.
@@ -243,7 +247,7 @@ def run_evo():
                      logger.debug("RUN_EVO: Learned Representation None.")
 
 
-                # Temsili Hafızaya Kaydet ve/veya Hafızadan Bilgi Al (Faz 2)
+                # Temsili Hafızaya Kaydet ve/ PENSAR /ou Hafızadan Bilgi Al (Faz 2)
                 # Memory objesinin varlığını kontrol ederek güvenli çağrı
                 # memories dict'inin kendisi None değil (get() ile varsayılan {} aldık)
                 # Store/Retrieve metotları Representation (None/array) alabilmeli ve retrieve None/boş liste döndürebilmeli (hata durumunda)
@@ -271,7 +275,7 @@ def run_evo():
                 # relevant_memory_entries boş liste veya None olabilir, bu normaldir.
                 if isinstance(relevant_memory_entries, list):
                      if relevant_memory_entries:
-                          logger.debug(f"RUN_EVO: Hafızadan {len(relevant_memory_entries)} ilgili girdi geri çağrıldı.") # Placeholder kaldırıldı
+                          logger.debug(f"RUN_EVO: Hafızadan {len(relevant_memory_entries)} ilgili girdi geri çağrıldı.")
                      else:
                           logger.debug("RUN_EVO: Hafızadan ilgili girdi geri çağrılamadı (boş liste).")
                 elif relevant_memory_entries is not None: # Liste değil ama None da değilse
@@ -279,11 +283,31 @@ def run_evo():
                 else: # None ise
                      logger.debug("RUN_EVO: Geri çağrılan bellek girdileri None.")
 
+                # Öğrenilmiş kavram temsilcileri listesini al (Cognition decide için)
+                # LearningModule objesi varsa ondan iste. Yoksa boş liste kullan.
+                current_concepts = [] # Başlangıçta boş
+                learning_module_instance = cognition_modules.get('core_cognition', {}).get('learning_module') # CognitionCore içinde tutuluyor olabilir mi? Hayır, CognitionCore init ediyor alt modülleri.
+
+                # Düzeltme: current_concepts bilgisini LearningModule'den alıp decide'a iletelim.
+                learning_module_in_cognition = cognition_modules.get('core_cognition', {}).learning_module # CognitionCore objesinin alt modülü
+                # Eğer CognitionCore objesi ve onun LearningModule'ü varsa kavramları al.
+                if cognition_modules.get('core_cognition') and hasattr(cognition_modules['core_cognition'], 'learning_module') and cognition_modules['core_cognition'].learning_module:
+                    try:
+                        concepts = cognition_modules['core_cognition'].learning_module.get_concepts()
+                        if isinstance(concepts, list):
+                             current_concepts = concepts
+                        else:
+                             logger.warning("RUN_EVO: CognitionCore'dan alınan kavramlar liste değil. Boş liste kullanılıyor.")
+                             current_concepts = []
+                    except Exception as e:
+                         logger.error(f"RUN_EVO: LearningModule.get_concepts çağrılırken hata: {e}", exc_info=True)
+                         current_concepts = []
+
 
                 # Hafıza ve temsile göre Bilişsel işlem yap (Faz 3)
                 # Cognition objesinin varlığını kontrol ederek güvenli çağrı
                 # cognition_modules dict'inin kendisi None değil (get() ile varsayılan {} aldık)
-                # Decide metodu artık processed_inputs, learned_representation ve relevant_memory_entries bekliyor.
+                # Decide metodu artık processed_inputs, learned_representation, relevant_memory_entries, current_concepts bekliyor.
                 # DecisionModule.decide string veya None karar döndürebilmeli (hata durumunda)
                 decision = None # Başlangıçta bir karar yok
 
@@ -291,11 +315,12 @@ def run_evo():
                 core_cognition_instance = cognition_modules.get('core_cognition')
                 if core_cognition_instance:
                      # *** HATA DÜZELTME BURADA YAPILDI ***
-                     # CognitionCore.decide artık processed_inputs, learned_representation ve relevant_memory_entries argümanlarını bekliyor.
+                     # CognitionCore.decide artık processed_inputs, learned_representation, relevant_memory_entries ve current_concepts argümanlarını bekliyor.
                      decision = core_cognition_instance.decide(
                          processed_inputs, # İşlenmiş Processor çıktıları (dict/None)
                          learned_representation, # Temsil (None/array)
-                         relevant_memory_entries # Bellek girdileri (list/None)
+                         relevant_memory_entries, # Bellek girdileri (list/None)
+                         current_concepts # Öğrenilmiş kavramlar (list)
                          # internal_state # Gelecekte eklenecek.
                      )
                      # logger.debug(f"RUN_EVO: Bilişsel karar alma tamamlandı.")

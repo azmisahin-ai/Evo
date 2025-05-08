@@ -51,14 +51,23 @@ class InteractionAPI:
 
         # Yapılandırmadan aktif kanalların listesini alırken get_config_value kullan.
         # enabled_channels için tip kontrolü (liste) yapalım. Varsayılan ['console'].
-        self.enabled_channels = get_config_value(config, 'enabled_channels', ['console'], expected_type=list, logger_instance=logger)
+        # Düzeltme: get_config_value çağrılarını default=keyword formatına çevir.
+        self.enabled_channels = get_config_value(config, 'interaction', 'enabled_channels', default=['console'], expected_type=list, logger_instance=logger)
 
         # Yapılandırmadan kanal bazlı özel ayarları alırken get_config_value kullan.
         # channel_configs için tip kontrolü (sözlük) yapalım. Varsayılan {}.
-        self.channel_configs = get_config_value(config, 'channel_configs', {}, expected_type=dict, logger_instance=logger)
+        # Düzeltme: get_config_value çağrılarını default=keyword formatına çevir.
+        self.channel_configs = get_config_value(config, 'interaction', 'channel_configs', default={}, expected_type=dict, logger_instance=logger)
 
 
         self.output_channels = {} # Başlatılan aktif çıktı kanalı objelerini tutacak sözlük.
+
+        # enabled_channels'ın hala liste olduğundan emin ol (get_config_value expected_type kontrolü yaptı).
+        # Eğer get_config_value None döndürdüyse (hata loglandı), boş bir liste ile devam edelim.
+        if self.enabled_channels is None:
+             logger.error("InteractionAPI: enabled_channels config değeri geçerli bir liste değil veya bulunamadı. Boş kanal listesi kullanılıyor.")
+             self.enabled_channels = []
+
 
         logger.info(f"InteractionAPI: Konfigurasyondan aktif kanallar: {self.enabled_channels}")
 
@@ -71,7 +80,7 @@ class InteractionAPI:
         }
 
         # Yapılandırmada belirtilen her aktif kanalı başlatmayı dene.
-        # enabled_channels listesinin tipi zaten get_config_value ile kontrol edildi.
+        # enabled_channels listesinin tipi zaten get_config_value ile kontrol edildi ve None ise [] yapıldı.
         # Şimdi listedeki her öğenin string olup olmadığını kontrol et.
         for channel_name in self.enabled_channels:
             if not isinstance(channel_name, str):
@@ -113,6 +122,7 @@ class InteractionAPI:
         # Aktif çıktı kanallarının listesini göster.
         logger.info(f"InteractionAPI modülü başlatıldı. Aktif Output Kanalları: {list(self.output_channels.keys())}")
 
+
         # Eğer Web API kanalı aktifse, API sunucusunu başlatma mantığı buraya gelebilir (ayrı bir thread/process?).
         # Bu, InteractionAPI.start() metoduna taşınmıştır.
         # if 'web_api' in self.output_channels and hasattr(self.output_channels['web_api'], 'start_server'):
@@ -122,6 +132,7 @@ class InteractionAPI:
 
         # TODO: Girdi kanallarını başlatma mantığı buraya gelecek (Gelecekte TODO).
         # self._initialize_input_channels() # Gelecekte TODO
+
 
 
     def send_output(self, output_data):

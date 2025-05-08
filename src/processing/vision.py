@@ -52,6 +52,7 @@ class VisionProcessor:
         logger.info(f"VisionProcessor başlatıldı. Çıktı boyutu: {self.output_width}x{self.output_height}, Canny Eşikleri: [{self.canny_low_threshold}, {self.canny_high_threshold}]")
 
     # ... (process and cleanup methods - same as before) ...
+
     def process(self, visual_input):
         """
         Ham görsel girdiyi işler, temel özellikleri çıkarır.

@@ -1,7 +1,7 @@
 # src/interaction/output_channels.py
 #
 # Evo'nın dış dünyaya yönelik çıktı kanallarını tanımlar.
-# Farklı türdeki çıktılar (metin, ses, görsel) belirli kanallara yönlendirilir.
+# Farklı türdeki çıktılar (metin, ses vb.) belirli kanallara yönlendirilir.
 
 import logging # Loglama için.
 # import time # Gerekirse zamanlama için.
@@ -56,6 +56,7 @@ class OutputChannel:
         self.logger.info(f"OutputChannel '{self.name}' başlatılıyor.")
         # Base sınıf başlatma tamamlandı.
 
+
     def send(self, output_data):
         """
         İşlenmiş çıktıyı ilgili kanala gönderme metodu.
@@ -106,6 +107,7 @@ class ConsoleOutputChannel(OutputChannel):
         # Temel sınıfın __init__ metodunu çağır. Kanal adını "console" olarak belirler.
         super().__init__("console", config)
         self.logger.info("ConsoleOutputChannel başlatıldı.")
+
 
     def send(self, output_data):
         """
@@ -184,8 +186,11 @@ class WebAPIOutputChannel(OutputChannel):
         # Temel sınıfın __init__ metodunu çağır. Kanal adını "web_api" olarak belirler.
         super().__init__("web_api", config)
         # Yapılandırmadan ayarları alırken get_config_value kullan.
-        self.port = get_config_value(self.config, 'port', 5000, expected_type=int, logger_instance=self.logger)
-        self.host = get_config_value(self.config, 'host', '127.0.0.1', expected_type=str, logger_instance=self.logger)
+        # Düzeltme: get_config_value çağrılarını default=keyword formatına çevir.
+        # Config'e göre bu ayarlar 'interaction.channel_configs.web_api' altında olmalı.
+        # Base sınıf config'in sadece 'web_api' altındaki dict'i alıyor, bu doğru.
+        self.port = get_config_value(self.config, 'port', default=5000, expected_type=int, logger_instance=self.logger)
+        self.host = get_config_value(self.config, 'host', default='127.0.0.1', expected_type=str, logger_instance=self.logger)
 
 
         self.logger.info(f"WebAPIOutputChannel başlatıldı. Port: {self.port}, Host: {self.host}")

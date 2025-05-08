@@ -69,12 +69,20 @@ class UnderstandingModule:
         logger.info("UnderstandingModule başlatılıyor (Faz 3/4)...")
 
         # get_config_value artık *keys alıyor, tek anahtar için şöyle kullanılır:
+        # Düzeltme: get_config_value çağrılarını default=keyword formatına çevir.
+        # Config'e göre bu eşikler 'cognition' anahtarı altında, Understanding altında değil.
+        # CognitionCore init UnderstandingModule'a config dict'in sadece 'cognition' altını gönderiyor.
+        # Bu durumda aşağıdaki çağrılar sadece tek anahtar ('audio_energy_threshold') ile doğru olur.
+        # Test scriptinde create_dummy_method_inputs da config'i tüm config olarak gönderiyor.
+        # Karar: UnderstandingModule, DecisionModule, LearningModule init'leri T Ü M config'i almalı.
+        # CognitionCore init'i bunu düzeltmeli. config.get('cognition', {}) göndermek yerine sadece config göndermeli.
+        # Şimdilik bu düzeltmeyi CognitionCore init'e bırakıp, burada config'ten tek adımda key'leri alalım.
         self.audio_energy_threshold = get_config_value(config, 'audio_energy_threshold', default=1000.0, expected_type=(float, int), logger_instance=logger)
         self.visual_edges_threshold = get_config_value(config, 'visual_edges_threshold', default=50.0, expected_type=(float, int), logger_instance=logger)
         self.brightness_threshold_high = get_config_value(config, 'brightness_threshold_high', default=200.0, expected_type=(float, int), logger_instance=logger)
         self.brightness_threshold_low = get_config_value(config, 'brightness_threshold_low', default=50.0, expected_type=(float, int), logger_instance=logger)
 
-        # get_config_value int tipini de float'a çevirmeli (ConfigUtils versiyonu çevirmiyor),
+        # get_config_value int tipini de float'a otomatik çevirmeli (ConfigUtils versiyonu çevirmiyor),
         # bu yüzden değerleri float'a çevirelim emin olmak için.
         self.audio_energy_threshold = float(self.audio_energy_threshold)
         self.visual_edges_threshold = float(self.visual_edges_threshold)
@@ -84,6 +92,7 @@ class UnderstandingModule:
 
         logger.info(f"UnderstandingModule başlatıldı. Ses Enerji Eşiği: {self.audio_energy_threshold}, Görsel Kenar Eşiği: {self.visual_edges_threshold}, Parlaklık Yüksek Eşiği: {self.brightness_threshold_high}, Parlaklık Düşük Eşiği: {self.brightness_threshold_low}")
 
+    # ... (process and cleanup methods - same as before) ...
 
     def process(self, processed_inputs, learned_representation, relevant_memory_entries, current_concepts):
         """
