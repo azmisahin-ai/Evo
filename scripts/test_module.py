@@ -79,7 +79,7 @@ def create_dummy_method_inputs(class_name, config):
     Returns:
         tuple: A tuple containing the positional arguments for the module's main method call,
                or None if not supported.
-               Even for methods with a single argument, a tuple should be returned (e.g., (input_data,)).
+               Single-argument methods should still return a tuple (e.g., (input_data,)).
                If the method call should not be tested or requires no arguments, an empty tuple () is returned.
     """
     # Convert class_name to lowercase for consistent internal logic
@@ -451,14 +451,14 @@ def run_module_test(module_path, class_name, config):
                   method_to_test = getattr(module_instance, 'capture_frame', None)
                   method_name = 'capture_frame'
                   # capture methods take no arguments, create_dummy_method_inputs should return an empty tuple ().
-                  if dummy_method_inputs: # Ensure it's an empty tuple if create_dummy_method_inputs returned non-empty
+                  if dummy_method_inputs: # Ensure it's empty tuple if create_dummy_method_inputs returned non-empty
                        logger.warning(f"'{class_name}.capture_frame' method should take no arguments, but dummy input {dummy_method_inputs} was created. Using empty tuple.")
                        dummy_method_inputs = ()
              elif class_name.lower() in ['audiosensor']:
                   method_to_test = getattr(module_instance, 'capture_chunk', None)
                   method_name = 'capture_chunk'
                   # capture methods take no arguments
-                  if dummy_method_inputs: # Ensure it's an empty tuple
+                  if dummy_method_inputs: # Ensure it's empty tuple
                         logger.warning(f"'{class_name}.capture_chunk' method should take no arguments, but dummy input {dummy_method_inputs} was created. Using empty tuple.")
                         dummy_method_inputs = ()
              elif class_name.lower() == 'representationlearner':
@@ -506,7 +506,7 @@ def run_module_test(module_path, class_name, config):
                   # DEBUG: Log the method signature before calling.
                   try:
                       method_signature = inspect.signature(method_to_test)
-                      logger.debug(f"'{class_name}.{method_name}' signature: {method_signature}") # DEBUG: Signature info
+                      logger.debug(f"'{class_name}.{method_name}' signature: {method_signature}") # DEBUG: İmza bilgisi
                   except Exception as sig_e:
                       logger.warning(f"Could not get signature for '{class_name}.{method_name}': {sig_e}")
 

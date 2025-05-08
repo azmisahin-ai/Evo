@@ -123,12 +123,12 @@ def get_config_value(config: dict, *keys: str, default=None, expected_type=None,
                  # Key not found (at the end or in the middle of the path) or current_value was not a dict (TypeError).
                  # The TypeError case should ideally be caught by the isinstance check above, but catching here adds robustness.
                  # Make the log message clearer.
-                 log.debug(f"get_config_value: Key '{key}' not found or intermediate value was not a dictionary along path '{path_str}' (step {i+1}/{len(keys)}, current type: {type(current_value)}). Returning default ({default}).")
+                 log.debug(f"get_config_value: Key '{key}' not found or intermediate value was not a dictionary along path '{path_str}' (step {i+1}/{len(keys)}, current type: {type(current_value)}). Returning default ({default}) dönüyor.")
                  return default # Return default if key is missing or intermediate value is not a dict.
 
             except Exception as e:
                  # Other unexpected errors
-                 log.error(f"get_config_value: Unexpected error during path traversal for '{path_str}' (step {i+1}/{len(keys)}, key '{key}'): {e}", exc_info=True)
+                 log.error(f"get_config_value: Unexpected error during path traversal for '{path_str}' (step {i+1}/{len(keys)}): {e}", exc_info=True)
                  log.debug(f"get_config_value: Returning default value ({default}) after error.")
                  return default
 
@@ -167,7 +167,7 @@ def get_config_value(config: dict, *keys: str, default=None, expected_type=None,
                  # Normal type check (int, float, str, list, dict etc.)
                  elif isinstance(final_value, expected_type): # Use expected_type directly for normal types
                     is_correct_type = True
-                    break # Found correct type in tuple, break the loop.
+                    break # Tuple içinde doğru tip bulundu, döngüyü kır.
         # If expected_type is not a tuple, check against the single type
         else:
              if expected_type == np.number:
