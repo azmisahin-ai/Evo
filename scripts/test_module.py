@@ -113,7 +113,7 @@ def create_dummy_method_inputs(class_name, config):
 
     elif class_name_lower == 'audioprocessor':
         # AudioProcessor.process(audio_input) int16 numpy array bekler.
-        # Config'teki AudioSensor chunk_size'ı kullanalım test için.
+        # Config'teki AudioSensor chunk_size'ı kullanalim test için.
         chunk_size = get_config_value(config, 'audio', 'audio_chunk_size', default=1024, expected_type=int, logger_instance=logger)
         sample_rate = get_config_value(config, 'audio', 'audio_rate', default=44100, expected_type=int, logger_instance=logger) # Config'ten al
         # Sahte int16 ses verisi (ton gibi)
@@ -212,7 +212,7 @@ def create_dummy_method_inputs(class_name, config):
 
          # CognitionCore.decide methodu için args/kwargs'ı tuple olarak döndür.
          # decide(self, processed_inputs, learned_representation, relevant_memory_entries, current_concepts=None)
-         # Argümanları pozisyonel olarak tuple'da döndürüyoruz.
+         # Argümanları pozisyonel olarak tuple'da döndürüyoruz. Tuple uzunluğu 4 olmalı.
          logger.debug("CognitionCore için sahte decide girdi tuple'ı oluşturuldu.")
          return (dummy_processed_inputs, dummy_representation, dummy_memory_entries, dummy_concepts)
 
@@ -396,7 +396,7 @@ def run_module_test(module_path, class_name, config):
         # --- Modülü Başlat ---
         # Çoğu modül sadece config ile başlar. CognitionCore module_objects bekler.
         # Alt modül init argümanlarını hazırlayalım.
-        # Config objesi, bu test scripti içinde get_config_value ile okundığında doğru değerleri döndürececektir.
+        # Config objesi, bu test scripti içinde get_config_value ile okundığında doğru değerleri döndürecektir.
         init_args = [config] # İlk argüman her zaman config
 
         # Eğer CognitionCore ise, dummy_module_objects dictionary'sini de init argümanı olarak ekle.
@@ -440,11 +440,11 @@ def run_module_test(module_path, class_name, config):
 
         if dummy_method_inputs is None:
              logger.warning(f"'{class_name}' modülü için sahte girdi oluşturulamadı veya ana metot çağrısı implemente edilmedi. Sadece başlatma testi yapıldı.")
-             # İşleme testi yapılamadı, ancak başlatma başarılıydı. Başarı init durumuna bağlı.
+             # İşleme testi yapılamadı, ancak başlatma başarılıydı. Baş başarı init durumuna bağlı.
              # test_success True kaldıysa init başarılıdır.
              final_success_status = test_success # Init başarısı test_success'te.
              logger.debug(f"'{class_name}': İşleme metodu testi atlandı. Başlatma Başarılı: {final_success_status}")
-             # Cleanup finally bloğında yapılacak.
+             # Cleanup finally bloğunda yapılacak.
              return final_success_status, None # Metot çağrılmadığı için çıktı yok.
 
         else:
@@ -530,7 +530,7 @@ def run_module_test(module_path, class_name, config):
                   except Exception as e:
                       logger.error(f"'{class_name}.{method_name}' metodu çalıştırılırken beklenmedik hata oluştu: {e}", exc_info=True)
                       method_call_success = False # İşlem sırasında hata olursa çağrı başarısız.
-                      output_data = None # Hata durumunda çıktı None.
+                      output_data = None # Hata durumında çıktı None.
 
 
     except Exception as e:
@@ -655,7 +655,7 @@ def main():
     # Script'in kendi logger'ını al (Loglama setup'ından sonra).
     global logger # Global logger'ı kullanacağımızı belirt
     logger = logging.getLogger(__name__)
-    logger.info("Test scripti başlatıldı (Belirli modüllər test ediliyor).")
+    logger.info("Test scripti başlatıldı (Belirli modüller test ediliyor).")
 
 
     # --- Test Edilecek Modülleri Tanımla ---
