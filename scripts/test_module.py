@@ -13,12 +13,14 @@ import numpy as np
 import time
 import random
 import os # For creating dummy data files if needed
+import json # For logging dict/json outputs
 
 # Evo'nın loglama ve config yardımcılarını import et
 # Assumes: script is run from the Evo root directory.
 from src.core.logging_utils import setup_logging
-from src.core.config_utils import load_config_from_yaml
-from src.core.utils import get_config_value # Import get_config_value
+from src.core.config_utils import load_config_from_yaml, get_config_value # Import get_config_value
+from src.core.utils import cleanup_safely # Import cleanup_safely for robust cleanup
+
 
 # Modül için bir logger oluştur (test scriptinin kendisi için)
 logger = logging.getLogger(__name__)
@@ -67,16 +69,17 @@ def create_dummy_method_inputs(class_name, config):
 
     Args:
         class_name (str): Test edilen sınıfın adı (örn: 'VisionProcessor', 'AudioProcessor').
-                          Bu ad küçük harfli de gelebilir, içinde işlenmelidir.
+                          Bu ad büyük/küçük harf fark etmeden gelebilir.
         config (dict): Genel yapılandırma sözlüğü.
 
     Returns:
         tuple: Modülün ana metot çağrısı için argümanları içeren bir tuple (pozisyonel argümanlar)
                veya desteklenmiyorsa None.
                Tek argümanlı metotlar için bile tuple döndürülmelidir (örn: (input_data,)).
+               Eğer metodun çağrılması test edilmeyecekse veya argüman gerektirmiyorsa boş tuple () döndürülür.
     """
-    # class_name'i küçük harfe çevirerek tutarlılık sağla
-    module_base_name = class_name.lower()
+    # class_name'i küçük harfe çevirerek iç logic'te tutarlılık sağla
+    class_name_lower = class_name.lower()
 
     logger.debug(f"'{class_name}' için sahte metot girdisi oluşturuluyor...")
 
@@ -84,34 +87,32 @@ def create_dummy_method_inputs(class_name, config):
     # Bu kısım, test etmek istediğiniz her modülün ana metodu için özelleştirilmelidir.
     # Döndürülen değerler, metodun beklediği pozisyonel argümanların tuple'ı olmalıdır.
 
-    if module_base_name == 'visionsensor':
-        # VisionSensor.capture_frame() veya .capture_chunk() argüman almaz.
-        # create_dummy_input metodu aslında buraya uygun değil.
-        # Sensorleri test etmek sadece init ve cleanup/stop_stream mantığını kontrol eder.
-        # capture metotları argümansız çağrılır.
-        logger.debug("VisionSensor/AudioSensor için sahte girdi 'üretme' metodu uygun değil.")
+    if class_name_lower in ['visionsensor', 'audiosensor']:
+        # VisionSensor.capture_frame() ve AudioSensor.capture_chunk() argüman almaz.
+        # create_dummy_input metodu aslında buraya uygun değil, sadece metot argümanlarını hazırlar.
+        # Sensörlerin capture metotları test edilecekse argümansız çağrılacak demektir.
+        logger.debug(f"'{class_name}' için capture metodu argüman almaz. Boş girdi tuple'ı döndürülüyor.")
         return () # Boş tuple döndür, çağrı argümansız olacak.
 
-    elif module_base_name == 'audiosensor':
-         logger.debug("VisionSensor/AudioSensor için sahte girdi 'üretme' metodu uygun değil.")
-         return () # Boş tuple döndür.
-
-
-    elif module_base_name == 'visionprocessor':
+    elif class_name_lower == 'visionprocessor':
         # VisionProcessor.process(visual_input) numpy array bekler.
         # Farklı boyut ve kanallarda (BGR veya Gri) sahte veriler test edilebilir.
-        dummy_width = get_config_value(config, 'vision', {}).get('dummy_width', 640) # Config'ten al
-        dummy_height = get_config_value(config, 'vision', {}).get('dummy_height', 480) # Config'ten al
+        # VisionProcessor init'inde dummy_width/height config'i sensör için kullanılır,
+        # processor girdisi VisionSensor capture_frame çıktısıdır (genellikle daha büyük).
+        # Config'teki VisionSensor dummy boyutlarını kullanalım test için.
+        dummy_width = get_config_value(config, 'vision', 'dummy_width', default=640, expected_type=int, logger_instance=logger)
+        dummy_height = get_config_value(config, 'vision', 'dummy_height', default=480, expected_type=int, logger_instance=logger)
         # Sahte renkli BGR görüntüsü (uint8)
         dummy_frame = np.random.randint(0, 256, size=(dummy_height, dummy_width, 3), dtype=np.uint8)
         logger.debug(f"VisionProcessor için sahte process girdi frame ({dummy_frame.shape}, {dummy_frame.dtype}) oluşturuldu.")
         return (dummy_frame,) # Tuple içinde döndür.
 
 
-    elif module_base_name == 'audioprocessor':
+    elif class_name_lower == 'audioprocessor':
         # AudioProcessor.process(audio_input) int16 numpy array bekler.
-        chunk_size = get_config_value(config, 'audio', {}).get('audio_chunk_size', 1024) # Config'ten al
-        sample_rate = get_config_value(config, 'audio', {}).get('audio_rate', 44100) # Config'ten al
+        # Config'teki AudioSensor chunk_size'ı kullanalım test için.
+        chunk_size = get_config_value(config, 'audio', 'audio_chunk_size', default=1024, expected_type=int, logger_instance=logger)
+        sample_rate = get_config_value(config, 'audio', 'audio_rate', default=44100, expected_type=int, logger_instance=logger) # Config'ten al
         # Sahte int16 ses verisi (ton gibi)
         frequency = 880
         amplitude = np.iinfo(np.int16).max * 0.1
@@ -122,20 +123,20 @@ def create_dummy_method_inputs(class_name, config):
         return (dummy_chunk,) # Tuple içinde döndür.
 
 
-    elif module_base_name == 'representationlearner':
+    elif class_name_lower == 'representationlearner':
         # RepresentationLearner.learn(processed_inputs) processed_inputs sözlüğü bekler: {'visual': dict, 'audio': np.ndarray}.
         # Processor modüllerinin çıktı formatında olmalıdır.
 
         # Sahte VisionProcessor çıktısı dictionary'si
-        vis_out_w = get_config_value(config, 'processors', {}).get('vision', {}).get('output_width', 64)
-        vis_out_h = get_config_value(config, 'processors', {}).get('vision', {}).get('output_height', 64)
+        vis_out_w = get_config_value(config, 'processors', 'vision', 'output_width', default=64, expected_type=int, logger_instance=logger)
+        vis_out_h = get_config_value(config, 'processors', 'vision', 'output_height', default=64, expected_type=int, logger_instance=logger)
         # Sahte grayscale ve edges arrayleri
-        dummy_processed_visual_gray = np.random.randint(0, 256, size=(vis_out_h, vis_out_w), dtype=np.uint8)
-        dummy_processed_visual_edges = np.random.randint(0, 256, size=(vis_out_h, vis_out_w), dtype=np.uint8)
+        dummy_processed_visual_gray = np.random.randint(0, 256, size=(vis_out_h, vis_out_h), dtype=np.uint8) # Hata: (h, w) olmalıydı
+        dummy_processed_visual_edges = np.random.randint(0, 256, size=(vis_out_h, vis_out_w), dtype=np.uint8) # Corrected: (h, w)
         dummy_processed_visual_dict = {'grayscale': dummy_processed_visual_gray, 'edges': dummy_processed_visual_edges}
 
         # Sahte AudioProcessor çıktısı array'i
-        audio_out_dim = get_config_value(config, 'processors', {}).get('audio', {}).get('output_dim', 2)
+        audio_out_dim = get_config_value(config, 'processors', 'audio', 'output_dim', default=2, expected_type=int, logger_instance=logger)
         dummy_processed_audio_features = np.random.rand(audio_out_dim).astype(np.float32) # 0-1 arası rastgele floatlar
 
         dummy_processed_inputs = {
@@ -146,30 +147,33 @@ def create_dummy_method_inputs(class_name, config):
         return (dummy_processed_inputs,) # Tuple içinde döndür.
 
 
-    elif module_base_name == 'memory':
+    elif class_name_lower == 'memory':
         # Memory.store(representation, metadata=None) Representation vektörü bekler.
         # Memory.retrieve(query_representation, num_results=None) Representation vektörü ve int bekler.
-        # Hangi metot test edilecekse ona göre girdi üretilmeli.
-        # Test scripti şimdilik sadece store'u çağırıyor gibi davransa da, retrieve girdisi de üretebiliriz.
+        # Varsayılan olarak store metodunu test etmek için girdi üretelim.
         # Store için girdi: Representation vektörü
-        repr_dim = get_config_value(config, 'representation', {}).get('representation_dim', 128)
-        dummy_representation = np.random.rand(repr_dim).astype(np.float64) # RL default float64 döndürüyor
-        logger.debug(f"Memory için sahte store girdi Representation ({dummy_representation.shape}, {dummy_representation.dtype}) oluşturuldu.")
-        return (dummy_representation,) # Tuple içinde döndür (store metodu için).
+        repr_dim = get_config_value(config, 'representation', 'representation_dim', default=128, expected_type=int, logger_instance=logger)
+        dummy_representation = np.random.rand(repr_dim).astype(np.float64) # RL default float64 döndürüyor varsayımı
+        # Metadata da isteğe bağlı.
+        dummy_metadata = {"source": "test_script", "timestamp": time.time()}
+
+        logger.debug(f"Memory için sahte store girdi Representation ({dummy_representation.shape}, {dummy_representation.dtype}) ve Metadata oluşturuldu.")
+        # Store metodunun argümanları (representation, metadata=None)
+        return (dummy_representation, dummy_metadata)
 
 
-    elif module_base_name == 'cognitioncore':
-         # CognitionCore.decide(processed_inputs, learned_representation, relevant_memory_entries) bekler.
-         # Bunlar Processor, RepresentationLearner, Memory çıktısı formatında olmalıdır.
+    elif class_name_lower == 'cognitioncore':
+         # CognitionCore.decide(processed_inputs, learned_representation, relevant_memory_entries, current_concepts=None) bekler.
+         # Bunlar Processor, RepresentationLearner, Memory, LearningModule çıktısı formatında olmalıdır.
 
-         # Sahte processed_inputs (Processor çıktısı)
-         vis_out_w = get_config_value(config, 'processors', {}).get('vision', {}).get('output_width', 64)
-         vis_out_h = get_config_value(config, 'processors', {}).get('vision', {}).get('output_height', 64)
+         # Sahte processed_inputs (Processor çıktısı) - RepresentationLearner girdisi ile aynı mantık
+         vis_out_w = get_config_value(config, 'processors', 'vision', 'output_width', default=64, expected_type=int, logger_instance=logger)
+         vis_out_h = get_config_value(config, 'processors', 'vision', 'output_height', default=64, expected_type=int, logger_instance=logger)
          dummy_processed_visual_gray = np.random.randint(0, 256, size=(vis_out_h, vis_out_w), dtype=np.uint8)
          dummy_processed_visual_edges = np.random.randint(0, 256, size=(vis_out_h, vis_out_w), dtype=np.uint8)
          dummy_processed_visual_dict = {'grayscale': dummy_processed_visual_gray, 'edges': dummy_processed_visual_edges}
 
-         audio_out_dim = get_config_value(config, 'processors', {}).get('audio', {}).get('output_dim', 2)
+         audio_out_dim = get_config_value(config, 'processors', 'audio', 'output_dim', default=2, expected_type=int, logger_instance=logger)
          dummy_processed_audio_features = np.random.rand(audio_out_dim).astype(np.float32)
 
          dummy_processed_inputs = {
@@ -178,33 +182,40 @@ def create_dummy_method_inputs(class_name, config):
          }
 
          # Sahte learned_representation (RepresentationLearner çıktısı)
-         repr_dim = get_config_value(config, 'representation', {}).get('representation_dim', 128)
+         repr_dim = get_config_value(config, 'representation', 'representation_dim', default=128, expected_type=int, logger_instance=logger)
          dummy_representation = np.random.rand(repr_dim).astype(np.float64)
 
          # Sahte relevant_memory_entries (Memory.retrieve çıktısı)
          # Memory.retrieve list of dicts döndürür: [{'representation': array, 'metadata': {}, 'timestamp': float}, ...]
-         num_mem = get_config_value(config, 'memory', {}).get('num_retrieved_memories', 5)
+         num_mem = get_config_value(config, 'memory', 'num_retrieved_memories', default=5, expected_type=int, logger_instance=logger)
          dummy_memory_entries = []
          for i in range(num_mem):
               dummy_mem_rep = np.random.rand(repr_dim).astype(np.float64)
               # İlk anıyı query'ye çok benzer yapalım ki tanıdık algılansın bazen
-              if i == 0: dummy_mem_rep = dummy_representation.copy()
+              if i == 0: dummy_mem_rep = dummy_representation.copy() + np.random.randn(repr_dim).astype(np.float64) * 0.01
               dummy_memory_entries.append({
                   'representation': dummy_mem_rep,
                   'metadata': {'source': 'test', 'index': i},
                   'timestamp': time.time() - i
               })
 
+         # Sahte current_concepts (LearningModule.get_concepts() çıktısı)
+         # LearningModule list of arrays döndürür.
+         num_concepts = 3 # Test için 3 sahte kavram
+         dummy_concepts = []
+         for i in range(num_concepts):
+              dummy_concepts.append(np.random.rand(repr_dim).astype(np.float64))
+
+
          # CognitionCore.decide methodu için args/kwargs'ı tuple olarak döndür.
-         # decide(self, processed_inputs, learned_representation, relevant_memory_entries)
+         # decide(self, processed_inputs, learned_representation, relevant_memory_entries, current_concepts)
          logger.debug("CognitionCore için sahte decide girdi tuple'ı oluşturuldu.")
-         return (dummy_processed_inputs, dummy_representation, dummy_memory_entries)
+         return (dummy_processed_inputs, dummy_representation, dummy_memory_entries, dummy_concepts)
 
 
-    elif module_base_name == 'decisionmodule':
-         # DecisionModule.decide(understanding_signals, relevant_memory_entries) bekler.
-         # UnderstandingModule çıktısı formatında olmalı.
-         # UnderstandingModule çıktısı: {'similarity_score': float, 'high_audio_energy': bool, 'high_visual_edges': bool, 'is_bright': bool, 'is_dark': bool, 'max_concept_similarity': float, 'most_similar_concept_id': int or None}
+    elif class_name_lower == 'decisionmodule':
+         # DecisionModule.decide(understanding_signals, relevant_memory_entries, current_concepts=None) bekler.
+         # UnderstandingModule ve Memory çıktı formatında olmalı.
 
          # Sahte understanding_signals dictionary'si. Farklı senaryoları test etmek için değerler değiştirilebilir.
          dummy_understanding_signals = {
@@ -217,22 +228,26 @@ def create_dummy_method_inputs(class_name, config):
              'most_similar_concept_id': random.choice([None, 0, 1, 2]), # Rastgele kavram ID veya None
          }
          # consistency check: eğer is_bright True ise is_dark False olmalı
-         if dummy_understanding_signals['is_bright'] and dummy_understanding_signals['is_dark']:
+         if dummy_understanding_signals.get('is_bright', False) and dummy_understanding_signals.get('is_dark', False):
              dummy_understanding_signals['is_dark'] = False
 
-         # Sahte relevant_memory_entries (DecisionModule içinde doğrudan kullanılmıyor ama parametre olarak geliyor)
+         # Sahte relevant_memory_entries (DecisionModule içinde doğrudan anı içeriği kullanılmıyor ama parametre olarak geliyor)
          # Boş liste göndermek yeterli.
          dummy_memory_entries = []
 
+         # Sahte current_concepts (DecisionModule içinde kavram temsilleri değil, sadece ID'ler kullanılıyor olabilir?)
+         # DecisionModule artık `current_concepts` parametresini alıyor. Boş liste gönderelim.
+         dummy_concepts = []
+
          # DecisionModule.decide methodu için args/kwargs'ı tuple olarak döndür.
-         # decide(self, understanding_signals, relevant_memory_entries, internal_state=None)
+         # decide(self, understanding_signals, relevant_memory_entries, current_concepts)
          logger.debug("DecisionModule için sahte decide girdi tuple'ı oluşturuldu.")
-         return (dummy_understanding_signals, dummy_memory_entries)
+         return (dummy_understanding_signals, dummy_memory_entries, dummy_concepts)
 
 
-    elif module_base_name == 'motorcontrolcore':
+    elif class_name_lower == 'motorcontrolcore':
          # MotorControlCore.generate_response(decision) string veya any bekler.
-         # DecisionModule çıktısı formatında olmalı.
+         # DecisionModule çıktısı formatında olmalı (karar stringi).
 
          # Sahte karar stringi. Farklı senaryoları test etmek için değiştirilebilir.
          # Örneğin, tüm olası karar stringlerini test edebiliriz.
@@ -251,7 +266,7 @@ def create_dummy_method_inputs(class_name, config):
          return (dummy_decision,) # Tuple içinde döndür.
 
 
-    elif module_base_name == 'expressiongenerator':
+    elif class_name_lower == 'expressiongenerator':
          # ExpressionGenerator.generate(command) string veya any bekler.
          # MotorControlCore çıktısı formatında olmalı (ExpressionGenerator komut stringi).
 
@@ -272,7 +287,7 @@ def create_dummy_method_inputs(class_name, config):
          return (dummy_command,) # Tuple içinde döndür.
 
 
-    elif module_base_name == 'interactionapi':
+    elif class_name_lower == 'interactionapi':
          # InteractionAPI.send_output(output_data) any bekler.
          # MotorControlCore çıktısı formatında olmalı (ExpressionGenerator'dan gelen metin stringi veya None).
 
@@ -283,20 +298,20 @@ def create_dummy_method_inputs(class_name, config):
              "Bir ses duyuyorum.",
              "Sanırım bu bir kavram 0.",
              None, # None çıktı testi
-             {"status": "ok", "message": "API response"}, # Başka tipte çıktı
+             {"status": "ok", "message": "API response"}, # Başka tipte çıktı (WebAPI kanal test eder)
          ]
          dummy_output_data = random.choice(possible_outputs)
 
          logger.debug(f"InteractionAPI için sahte send_output girdi tuple'ı '{dummy_output_data}' oluşturuldu.")
          return (dummy_output_data,) # Tuple içinde döndür.
 
-    elif module_base_name == 'learningmodule':
+    elif class_name_lower == 'learningmodule':
          # LearningModule.learn_concepts(representation_list) Representation vektör listesi bekler.
          # Memory'den Representation örneklemi formatında olmalı.
          # Memory'de depolanan Representationlar RepresentationLearner çıktısı formatındadır (shape (repr_dim,), dtype numerical).
 
-         repr_dim = get_config_value(config, 'representation', {}).get('representation_dim', 128)
-         num_samples = get_config_value(config, 'cognition', {}).get('learning_memory_sample_size', 50) # Learning sample size
+         repr_dim = get_config_value(config, 'representation', 'representation_dim', default=128, expected_type=int, logger_instance=logger)
+         num_samples = get_config_value(config, 'cognition', 'learning_memory_sample_size', default=50, expected_type=int, logger_instance=logger) # Learning sample size
 
          # Sahte Representation listesi oluştur.
          dummy_rep_list = []
@@ -305,19 +320,45 @@ def create_dummy_method_inputs(class_name, config):
 
          # Bazı vektörleri birbirine benzer yapalım ki kavram keşfedilebilsin.
          if num_samples > 5:
-              dummy_rep_list[1] = dummy_rep_list[0].copy() + np.random.randn(repr_dim) * 0.01 # Çok benzer
-              dummy_rep_list[2] = dummy_rep_list[0].copy() + np.random.randn(repr_dim) * 0.02 # Biraz benzer
-              dummy_rep_list[4] = dummy_rep_list[3].copy() + np.random.randn(repr_dim) * 0.01
+              # Çok benzer (sim ~1.0)
+              dummy_rep_list[1] = dummy_rep_list[0].copy() + np.random.randn(repr_dim).astype(np.float64) * 0.01
+              # Biraz benzer (sim < 1.0, >= threshold)
+              # Sim 0.7 olacak şekilde bir vektör
+              sim_threshold = get_config_value(config, 'cognition', 'new_concept_threshold', default=0.7, expected_type=(int, float), logger_instance=logger)
+              vec_similar_to_0 = dummy_rep_list[0].copy()
+              norm_vec_similar = np.linalg.norm(vec_similar_to_0)
+              if norm_vec_similar > 1e-8:
+                   vec_similar_to_0 /= norm_vec_similar # Normalize
+              else:
+                   vec_similar_to_0 = np.zeros(repr_dim, dtype=np.float64) # Handle zero norm
+
+
+              # Hedef benzerlik: sim_threshold. Dot product = norm * norm * sim = 1.0 * 1.0 * sim_threshold = sim_threshold
+              # Vektör V = [a, b, ...] ve V_ref = [1, 0, ...]. Dot(V, V_ref) = a. Norm(V)=1. Norm(V_ref)=1. Sim = a.
+              # Yani ilk eleman a = sim_threshold olursa, diğer elemanlar sqrt(1-a^2) gibi ayarlanırsa sim threshold olur.
+              # Burada V_ref random olduğu için tam sim_threshold ayarlamak zor. Rastgele yeterince benzer yapalım.
+              dummy_rep_list[2] = dummy_rep_list[0].copy() + np.random.randn(repr_dim).astype(np.float64) * 0.2 # Biraz daha farklı (sim < threshold, > 0)
+
+              dummy_rep_list[4] = dummy_rep_list[3].copy() + np.random.randn(repr_dim).astype(np.float64) * 0.01 # Başka bir kümeye benzer
+
 
          logger.debug(f"LearningModule için sahte learn_concepts girdi listesi ({len(dummy_rep_list)} eleman) oluşturuldu.")
          return (dummy_rep_list,) # Tuple içinde döndür.
 
+    elif class_name_lower in ['episodicmemory', 'semanticmemory', 'manipulator', 'locomotioncontroller']:
+         # Placeholder veya unimplemented modüller.
+         # Bu modüllerin ana metodları henüz net değil.
+         # Şimdilik bu modüller için sahte girdi oluşturmayı desteklemediğimizi belirtelim.
+         logger.warning(f"'{class_name}' modülü placeholder veya tam implemente edilmemiş. Sahte girdi oluşturma desteklenmiyor.")
+         return None # Desteklenmeyen modül için None döndür.
 
-    # TODO: Diğer modüller için sahte girdi oluşturma mantığı buraya eklenecek.
+
+    # TODO: Diğer implemente edildikçe buraya eklenecek modüller için sahte girdi oluşturma mantığı.
 
 
-    logger.error(f"Sahte girdi oluşturma '{class_name}' modülü için implemente edilmedi veya desteklenmiyor.")
-    return None # Desteklenmeyen modül için None döndür.
+    # Eğer buraya gelinirse, isim eşleşmedi demektir.
+    logger.error(f"Sahte girdi oluşturma '{class_name}' modülü için implemente edilmedi veya bilinmiyor.")
+    return None # Bilinmeyen modül adı için None döndür.
 
 
 # Refactored run_module_test function
@@ -332,8 +373,8 @@ def run_module_test(module_path, class_name, config):
 
     Returns:
         tuple: (success, output_data)
-               success (bool): Test başarılı mı?
-               output_data (any): Modülün işleme metodundan dönen çıktı veya hata durumunda None.
+               success (bool): Test başarılı mı? (Modül başlatıldı mı ve metot hata fırlatmadan çalıştı mı?)
+               output_data (any): Modülün işleme metodundan dönen çıktı veya metot çağrılamadıysa/hata durumunda None.
     """
     logger.info(f"--- Modül Testi Başlatılıyor: {class_name} ({module_path}) ---")
     module_class = load_module_class(module_path, class_name)
@@ -349,111 +390,119 @@ def run_module_test(module_path, class_name, config):
     try:
         # --- Modülü Başlat ---
         # Çoğu modül sadece config ile başlar. CognitionCore module_objects bekler.
-        # LearningModule representation_dim'i config'ten alabilir.
         # Alt modül init argümanlarını hazırlayalım.
+        # Config objesi, bu test scripti içinde get_config_value ile okunduğunda doğru değerleri döndürecektir.
         init_args = [config] # İlk argüman her zaman config
 
         # Eğer CognitionCore ise, dummy_module_objects dictionary'sini de init argümanı olarak ekle.
-        if class_name == 'CognitionCore':
+        # Bu dummy objeler, CognitionCore'un init sırasında null reference hatası almasını engeller.
+        # Bu mock benzeri yapı sadece init için geçerlidir.
+        if class_name.lower() == 'cognitioncore':
             # Sahte module_objects dictionary'si oluştur.
             # Memory, Learning gibi alt modül referanslarını içerebilir (şimdilik None).
-            # Bu sadece CognitionCore'un init sırasında hata almaması için.
             dummy_module_objects = {
                 'memories': {'core_memory': None}, # Memory None olabilir
-                'cognition': {}, # Kendisi
+                'cognition': {}, # Kendisi (CognitionCore)
                 'motor_control': {'core_motor_control': None}, # MotorControl None olabilir (alt modülü ExpressionGenerator init'te başlatılır)
                 'interaction': {'core_interaction': None}, # Interaction None olabilir
                 'representers': {'main_learner': None}, # RepresentationLearner None olabilir
+                # Sensör ve Processor objeleri CognitionCore init'i için gerekli değildir.
             }
             init_args.append(dummy_module_objects) # İkinci argüman olarak module_objects ekle.
 
 
-        # Modül objesini başlat.
+        logger.debug(f"'{class_name}' modülü başlatılıyor...")
+        # Modül objesini başlat. Hata oluşursa exception fırlatılır.
         module_instance = module_class(*init_args) # Argümanları unpack ederek init'i çağır.
 
-        if module_instance is None:
-             logger.error("Modül objesi başlatılamadı.")
-             return False, None
+        if module_instance is None: # __init__ metodunun None döndürmesi beklenmez, exception fırlatması beklenir.
+             logger.error("Modül objesi başlatılırken hata oluştu (init None döndürdü).") # Bu log teorik olarak çalışmamalı.
+             test_success = False # Başlatma başarısızsa test başarısız.
+             return False, None # Başlatma başarısız.
 
 
         # --- Modülün Ana İşleme Metodunu Bul ve Çağır ---
         # Hangi metodun çağrılacağı test edilen sınıfa göre belirlenmelidir.
-        # create_dummy_method_inputs fonksiyonu, metodun beklediği argümanları tuple olarak döndürmelidir.
-        # Bu argümanlar, modül başlatıldıktan sonra metoda iletilecektir.
-
-        # Sahte girdi oluşturma ve metod çağırma için ayrı bir fonksiyon yapısı daha temiz olabilir.
-        # Şimdilik burada devam edelim ama gelecekte refactoring hedefi olsun.
+        # create_dummy_method_inputs fonksiyonu, metodun beklediği argümanları tuple olarak döndürür.
 
         # Sahte girdi argümanlarını al
+        # create_dummy_method_inputs None döndürürse, o modülün ana metodunu test etmek desteklenmiyor demektir.
         dummy_method_inputs = create_dummy_method_inputs(class_name, config)
 
         if dummy_method_inputs is None:
-             logger.warning(f"'{class_name}' modülü için sahte girdi oluşturulamadı veya metot çağrısı implemente edilmedi.")
-             # İşleme testi yapılamadı, ancak başlatma başarılıydı. Testi kısmen başarılı sayabiliriz.
+             logger.warning(f"'{class_name}' modülü için sahte girdi oluşturulamadı veya ana metot çağrısı implemente edilmedi. Sadece başlatma testi yapıldı.")
+             # İşleme testi yapılamadı, ancak başlatma başarılıydı. Testi kısmen başarılı sayabiliriz (başlatma başarılı).
              test_success = True # Başlatma başarılıydı
-             output_data = None
+             output_data = None # Metot çağrılmadığı için çıktı yok.
         else:
-             logger.debug(f"'{class_name}' için sahte girdi oluşturuldu.")
+             logger.debug(f"'{class_name}' için sahte girdi oluşturuldu. Argümanlar: {dummy_method_inputs}")
 
              # Test edilecek metodu belirle ve çağır.
-             # Hangi metodun çağrılacağı test edilen sınıfa bağlıdır.
              method_to_test = None # Çağrılacak metot objesi
 
-             if class_name in ['VisionProcessor', 'AudioProcessor', 'UnderstandingModule']:
-                  method_to_test = module_instance.process
-             elif class_name in ['VisionSensor', 'AudioSensor']:
-                  # Sensörlerin capture metotları test ediliyor. Argüman almazlar.
-                  method_to_test = module_instance.capture_frame if class_name == 'VisionSensor' else module_instance.capture_chunk
-                  dummy_method_inputs = () # Argüman almadıkları için dummy input tuple'ı boş olmalı.
-                  logger.debug(f"Sensor modülü ('{class_name}') testi: capture metodu çağrılıyor.")
-
-             elif class_name == 'RepresentationLearner':
-                  method_to_test = module_instance.learn
-             elif class_name == 'Memory':
-                  # Memory'nin store veya retrieve metodu test edilebilir. Şimdilik sadece store'u test edelim.
-                  method_to_test = module_instance.store
-                  # create_dummy_method_inputs Memory için store girdisini döndürüyor.
-                  logger.debug(f"Memory modülü ('{class_name}') testi: store metodu çağrılıyor.")
-                  # Retrieve test edilecekse, create_dummy_method_inputs retrieve girdilerini döndürmeli.
-                  # method_to_test = module_instance.retrieve
-                  # num_results config'ten alınmalı retrieve için.
-
-
-             elif class_name == 'CognitionCore':
-                  method_to_test = module_instance.decide
-             elif class_name == 'DecisionModule':
-                  method_to_test = module_instance.decide
-             elif class_name == 'MotorControlCore':
-                  method_to_test = module_instance.generate_response
-             elif class_name == 'ExpressionGenerator':
-                  method_to_test = module_instance.generate
-             elif class_name == 'InteractionAPI':
-                  method_to_test = module_instance.send_output
+             if class_name.lower() in ['visionprocessor', 'audioprocessor', 'understandingmodule']:
+                  method_to_test = getattr(module_instance, 'process', None)
+                  method_name = 'process'
+             elif class_name.lower() in ['visionsensor']:
+                  method_to_test = getattr(module_instance, 'capture_frame', None)
+                  method_name = 'capture_frame'
+                  dummy_method_inputs = () # Sensör capture metotları argüman almaz.
+             elif class_name.lower() in ['audiosensor']:
+                  method_to_test = getattr(module_instance, 'capture_chunk', None)
+                  method_name = 'capture_chunk'
+                  dummy_method_inputs = () # Sensör capture metotları argüman almaz.
+             elif class_name.lower() == 'representationlearner':
+                  method_to_test = getattr(module_instance, 'learn', None)
+                  method_name = 'learn'
+             elif class_name.lower() == 'memory':
+                  # Memory için store veya retrieve test edilebilir. create_dummy_method_inputs varsayılan olarak store için girdi üretiyor.
+                  # Bu scriptin basitliği için sadece store'u test edelim.
+                  method_to_test = getattr(module_instance, 'store', None)
+                  method_name = 'store'
+                  # retrieve test edilecekse, create_dummy_method_inputs retrieve girdilerini döndürmeli ve burası güncellenmeli.
+             elif class_name.lower() == 'cognitioncore':
+                  method_to_test = getattr(module_instance, 'decide', None)
+                  method_name = 'decide'
+             elif class_name.lower() == 'decisionmodule':
+                  method_to_test = getattr(module_instance, 'decide', None)
+                  method_name = 'decide'
+             elif class_name.lower() == 'motorcontrolcore':
+                  method_to_test = getattr(module_instance, 'generate_response', None)
+                  method_name = 'generate_response'
+             elif class_name.lower() == 'expressiongenerator':
+                  method_to_test = getattr(module_instance, 'generate', None)
+                  method_name = 'generate'
+             elif class_name.lower() == 'interactionapi':
+                  method_to_test = getattr(module_instance, 'send_output', None)
+                  method_name = 'send_output'
+             elif class_name.lower() == 'learningmodule':
+                  method_to_test = getattr(module_instance, 'learn_concepts', None)
+                  method_name = 'learn_concepts'
 
 
              # TODO: Diğer modüllerin ana işleme metotları buraya eklenecek.
 
 
              if method_to_test is None:
-                  logger.error(f"Modül '{class_name}' için test edilecek ana işleme metodu belirlenemedi.")
-                  test_success = False
-                  output_data = None
+                  logger.error(f"Modül '{class_name}' için test edilecek ana işleme metodu ('{method_name}') bulunamadı.")
+                  test_success = False # Metot yoksa test başarısız.
+                  output_data = None # Metot çağrılamadı.
              else:
+                  logger.debug(f"'{class_name}.{method_name}' metodu çağrılıyor...")
                   try:
                       # Metodu sahte girdi argümanlarıyla çağır.
                       output_data = method_to_test(*dummy_method_inputs) # Tuple'ı unpack ederek argümanları ilet.
 
                       # Eğer buraya kadar hata olmadıysa, temel işlem başarılı.
                       test_success = True
-                      logger.debug(f"'{class_name}' modülünün işleme metodu başarıyla çalıştı.")
-                      # Eğer çıktı None değilse logla.
-                      if output_data is not None:
-                           logger.debug(f"'{class_name}' modülünden çıktı alındı: {output_data}")
-                      # else: Çıktı None ise (bazı metotlar için normaldir) loga gerek yok.
+                      logger.debug(f"'{class_name}.{method_name}' metodu başarıyla çalıştı.")
 
+                      # Çıktıyı daha detaylı logla
+                      logger.debug(f"'{class_name}.{method_name}' çıktısı:")
+                      log_output_data(output_data) # Yeni yardımcı fonksiyonu kullan
 
                   except Exception as e:
-                      logger.error(f"'{class_name}' modülünün işleme metodu çalıştırılırken beklenmedik hata oluştu: {e}", exc_info=True)
+                      logger.error(f"'{class_name}.{method_name}' metodu çalıştırılırken beklenmedik hata oluştu: {e}", exc_info=True)
                       test_success = False # İşlem sırasında hata olursa test başarısız.
                       output_data = None # Hata durumunda çıktı None.
 
@@ -468,41 +517,66 @@ def run_module_test(module_path, class_name, config):
         # Kaynakları temizle (cleanup metodu varsa).
         if module_instance and hasattr(module_instance, 'cleanup'):
             logger.debug(f"'{class_name}' modülü cleanup çağrılıyor.")
-            try:
-                 module_instance.cleanup()
-                 logger.debug(f"'{class_name}' modülü temizlendi.")
-            except Exception as e:
-                 logger.error(f"'{class_name}' modülü temizlenirken hata oluştu: {e}", exc_info=True)
+            # cleanup_safely kullanarak temizleme sırasındaki hataları yakala
+            cleanup_safely(module_instance.cleanup, logger_instance=logger, error_message=f"'{class_name}' modülü temizlenirken hata")
+            logger.debug(f"'{class_name}' modülü temizlendi.")
 
 
     logger.info(f"--- Modül Testi Tamamlandı: {class_name} ({module_path}). Başarılı: {test_success} ---")
 
     return test_success, output_data
 
+def log_output_data(data):
+    """
+    Farklı tiplerdeki çıktı verisini anlamlı bir şekilde loglar.
+    """
+    if data is None:
+        logger.debug("  Output: None")
+    elif isinstance(data, np.ndarray):
+        logger.debug(f"  Output: numpy.ndarray, Shape: {data.shape}, Dtype: {data.dtype}")
+        # Küçük arrayler için değerleri de logla
+        if data.size < 20: # Rastgele eşik, çok büyük arraylerin değerlerini basmasın
+             logger.debug(f"  Output Values: {data}")
+        elif data.ndim == 1: # 1D arrayler için min/max/mean logla
+             logger.debug(f"  Output Stats (min/max/mean): {data.min():.4f}/{data.max():.4f}/{data.mean():.4f}")
+        elif data.ndim == 2: # 2D arrayler için min/max/mean logla
+             logger.debug(f"  Output Stats (min/max/mean): {data.min():.4f}/{data.max():.4f}/{data.mean():.4f}")
+    elif isinstance(data, dict):
+        logger.debug(f"  Output: dict, Keys: {list(data.keys())}")
+        # Dict içeriğini JSON formatında logla (daha okunabilir)
+        try:
+             # NumPy arrayları JSON'a çevirirken hata olabilir, özel encoder gerekebilir.
+             # Şimdilik basit json.dumps kullanalım, hata verirse yakalarız.
+             logger.debug(f"  Output Content: {json.dumps(data, indent=2, sort_keys=True, default=lambda o: '<not serializable>')}")
+        except Exception:
+             # JSON'a çevrilemezse raw dict gösterelim.
+             logger.debug(f"  Output Content (raw): {data}")
+    elif isinstance(data, list):
+        logger.debug(f"  Output: list, Length: {len(data)}")
+        if len(data) > 0:
+            logger.debug(f"  First element type: {type(data[0])}")
+            # Listenin ilk birkaç öğesini logla (numpy array veya dict ise)
+            for i, item in enumerate(data[:3]): # İlk 3 öğeyi logla
+                 logger.debug(f"  Element {i}:")
+                 log_output_data(item) # Rekürsif çağrı (basit nested yapılar için)
+    else:
+        logger.debug(f"  Output: type {type(data)}, Value: {data}")
+
 
 def main():
     """
     Script'in ana çalıştırma fonksiyonu. Argümanları ayrıştırır ve modül testini başlatır.
     """
-    parser = argparse.ArgumentParser(description="Evo modüllerini tek başına test etmek için script.")
-    parser.add_argument('--module', required=True, help='Test edilecek modülün Python yolu (örn: src.processing.vision)')
-    parser.add_argument('--class_name', required=True, help='Test edilecek sınıfın adı (örn: VisionProcessor)')
-    # TODO: Gelecekte belirli test senaryolarını çalıştırma argümanı eklenecek. (--scenario)
-    # TODO: Gelecekte sahte girdi verisi kaynağı/formatı argümanı eklenecek. (--input_data)
-    # TODO: Gelecekte çıktıyı dosyaya kaydetme argümanı eklenecek. (--output_file)
+    # Argüman ayrıştırmayı kaldırıyoruz, script doğrudan çalıştırıldığında
+    # belirli modülleri test edecek şekilde ayarlıyoruz.
+    # parser = argparse.ArgumentParser(description="Evo modüllerini tek başına test etmek için script.")
+    # parser.add_argument('--module', required=True, help='Test edilecek modülün Python yolu (örn: src.processing.vision)')
+    # parser.add_argument('--class_name', required=True, help='Test edilecek sınıfın adı (örn: VisionProcessor)')
+    # args = parser.parse_args()
 
-    args = parser.parse_args()
-
-    # Loglama sistemini yapılandır (config dosyası olmadan varsayılan ayarlar).
-    # Test scripti config'i sadece modül başlatırken kullanmalı.
-    # setup_logging None alabilir ve varsayılan (INFO) ile başlar.
-    setup_logging(config=None)
-
-    # Script'in kendi logger'ını al (Loglama setup'ından sonra).
-    global logger # Global logger'ı kullanacağımızı belirt
-    logger = logging.getLogger(__name__)
-    logger.info("Test scripti başlatıldı.")
-
+    # Loglama sistemini yapılandır (config dosyası olmadan varsayılan ayarlar veya temel config)
+    # Config yüklenmeden temel loglama için (isteğe bağlı, setup_logging config alabiliyor)
+    # setup_logging(config=None)
 
     # Yapılandırma dosyasını yükle (modül başlatırken kullanılacak).
     config_path = "config/main_config.yaml"
@@ -510,20 +584,77 @@ def main():
 
     # Config yüklenemezse testi sonlandır.
     if not config:
-        logger.critical("Yapılandırma yüklenemediği için modül testi başlatılamıyor.")
+        # Loglama zaten setup_logging içinde ayarlandıysa, hata load_config_from_yaml içinde loglanmıştır.
+        # Burada sadece çıkış yapalım.
         sys.exit(1)
 
+    # Loglama sistemini yüklenen config ile yeniden yapılandır (config'deki ayarlar kullanılır)
+    setup_logging(config=config)
 
-    # Modül testini çalıştır.
-    success, output = run_module_test(args.module, args.class_name, config)
+    # Script'in kendi logger'ını al (Loglama setup'ından sonra).
+    global logger # Global logger'ı kullanacağımızı belirt
+    logger = logging.getLogger(__name__)
+    logger.info("Test scripti başlatıldı (Belirli modüller test ediliyor).")
 
-    # Test sonucunu raporla.
-    logger.info(f"\nGenel Test Sonucu: '{args.class_name}' ({args.module}) testi { 'BAŞARILI' if success else 'BAŞARISIZ' }.")
 
-    # TODO: Çıktıyı dosyaya kaydetme veya başka formatlarda gösterme mantığı eklenecek.
-    # if output is not None:
-    #      logger.info(f"Test çıktısı: {output}") # Çok detaylı olabilir, özetini göstermek veya dosyaya yazmak daha iyi.
+    # --- Test Edilecek Modülleri Tanımla ---
+    # ROADMAP ve STRUCTURE.md'deki ana modülleri hedefleyelim.
+    modules_to_test = [
+        # Senses
+        ('src.senses.vision', 'VisionSensor'),
+        ('src.senses.audio', 'AudioSensor'),
+        # Processing
+        ('src.processing.vision', 'VisionProcessor'),
+        ('src.processing.audio', 'AudioProcessor'),
+        # Representation
+        ('src.representation.models', 'RepresentationLearner'),
+        # Memory
+        ('src.memory.core', 'Memory'), # Test store metodu varsayımıyla
+        # Cognition
+        ('src.cognition.understanding', 'UnderstandingModule'),
+        ('src.cognition.decision', 'DecisionModule'),
+        ('src.cognition.learning', 'LearningModule'),
+        ('src.cognition.core', 'CognitionCore'), # Test decide metodu varsayımıyla
+        # Motor Control
+        ('src.motor_control.expression', 'ExpressionGenerator'),
+        ('src.motor_control.core', 'MotorControlCore'), # Test generate_response metodu varsayımıyla
+        # Interaction
+        ('src.interaction.api', 'InteractionAPI'), # Test send_output metodu varsayımıyla
+        # Placeholder modülleri şimdilik test etmiyoruz
+        # ('src.memory.episodic', 'EpisodicMemory'),
+        # ('src.memory.semantic', 'SemanticMemory'),
+        # ('src.motor_control.manipulation', 'Manipulator'),
+        # ('src.motor_control.locomotion', 'LocomotionController'),
+    ]
+
+    # Tüm test sonuçlarını toplamak için liste
+    overall_success = True
+    test_results = {} # {'ModuleName': True/False}
+
+    # Her modül için testi çalıştır
+    for module_path, class_name in modules_to_test:
+        logger.info(f"\n>>> TEST EDİLİYOR: {class_name} ({module_path}) <<<")
+        success, output = run_module_test(module_path, class_name, config)
+        test_results[class_name] = success
+        if not success:
+            overall_success = False # Bir test bile başarısız olursa genel sonucu False yap.
+        logger.info(f">>> TEST SONUCU: {class_name}: {'BAŞARILI' if success else 'BAŞARISIZ'} <<<")
+
+
+    # Genel test sonucunu raporla.
+    logger.info("\n--- TÜM MODÜL TESTLERİ TAMAMLANDI ---")
+    for class_name, success in test_results.items():
+        logger.info(f"Test Sonucu '{class_name}': {'BAŞARILI' if success else 'BAŞARISIZ'}")
+
+    logger.info(f"\nGENEL TEST SONUCU: { 'TÜM TESTLER BAŞARILI' if overall_success else 'BAZI TESTLER BAŞARISIZ OLDU' }")
+
+    # Eğer herhangi bir test başarısız olursa, script hata koduyla çıksın.
+    if not overall_success:
+        sys.exit(1) # Hata kodu ile çıkış
+
+    logger.info("Test scripti sonlandırıldı.")
 
 
 if __name__ == '__main__':
+    # Direkt script çalıştırıldığında main'i çağır.
     main()
