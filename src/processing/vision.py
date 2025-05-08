@@ -48,7 +48,6 @@ class VisionProcessor:
         self.canny_high_threshold = get_config_value(config, 'processors', 'vision', 'canny_high_threshold', default=150, expected_type=int, logger_instance=logger)
 
         # Get thresholds from config (These are under the 'cognition' key)
-        # Added these attributes and read them from config.
         self.brightness_threshold_high = get_config_value(config, 'cognition', 'brightness_threshold_high', default=200.0, expected_type=(float, int), logger_instance=logger)
         self.brightness_threshold_low = get_config_value(config, 'cognition', 'brightness_threshold_low', default=50.0, expected_type=(float, int), logger_instance=logger)
         # Corrected: Add visual_edges_threshold which is also under cognition.

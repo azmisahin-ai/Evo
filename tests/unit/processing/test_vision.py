@@ -69,7 +69,7 @@ def vision_processor_instance(dummy_vision_processor_config):
         pytest.fail(f"VisionProcessor initialization failed: {e}")
 
 
-def test_vision_processor_init_with_valid_config(vision_processor_instance):
+def test_vision_processor_init_with_valid_config(vision_processor_instance, dummy_vision_processor_config):
     """Tests that VisionProcessor initializes successfully with a valid config."""
     test_logger.info("test_vision_processor_init_with_valid_config test started.")
     # The fixture itself ensures successful initialization.

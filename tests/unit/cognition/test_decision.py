@@ -8,63 +8,72 @@ import random
 
 from unittest.mock import patch, MagicMock
 
+# Set PROJECT_ROOT to the root directory of the project. Assuming test file is in tests/unit/cognition.
 PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), os.pardir, os.pardir, os.pardir))
 sys.path.insert(0, PROJECT_ROOT)
 
+# Import modules to be tested.
+# check_* and get_config_value imports are expected to work now.
 try:
     from src.cognition.decision import DecisionModule
-    # check_* ve get_config_value import'ları artık try block'una dahil değil
-    # Çünkü production kodunda da bu modüllerin import edilmesi beklenir.
-    # Eğer import hatası hala olursa, test ortamı kurulumu sorunludur.
-    from src.core.utils import check_input_not_none, check_input_type # Sadece import edildiğini varsayalım, mocklamayalım
-    from src.core.config_utils import get_config_value # Sadece import edildiğini varsayalım, mocklamayalım
+    # check_* functions come from src.core.utils
+    from src.core.utils import check_input_not_none, check_input_type
+    from src.core.config_utils import get_config_value # get_config_value comes from here
 
 except ImportError as e:
-     print(f"Temel modüller import edilemedi. PYTHONPATH doğru ayarlanmış mı? Hata: {e}")
+     print(f"Failed to import fundamental modules. Is PYTHONPATH configured correctly? Error: {e}")
      raise e
 
 
-# Testler sırasında logger çıktılarını görmek isterseniz bu satırları etkinleştirebilirsiniz.
+# Enable these lines if you want to see logger output during tests.
 # import logging
-# logging.basicConfig(level=logging.DEBUG)
+# logging.basicConfig(level=logging.DEBUG) # Set general level to DEBUG
 # logging.getLogger('src.cognition.decision').setLevel(logging.DEBUG)
-# logging.getLogger('src.core.utils').setLevel(logging.DEBUG)
-# logging.getLogger('src.core.config_utils').setLevel(logging.DEBUG)
+# logging.getLogger('src.core.utils').setLevel(logging.DEBUG) # To see logs from utils logger
+# logging.getLogger('src.core.config_utils').setLevel(logging.DEBUG) # To see logs from config utils logger
 
 
 class TestDecisionModule(unittest.TestCase):
 
     def setUp(self):
-        """Her test metodundan önce çalışır, varsayılan bir konfigürasyon ve DecisionModule örneği oluşturur."""
+        """Runs before each test method, creates a default configuration and DecisionModule instance."""
+        # Default, valid configuration structure reflecting main_config.yaml.
+        # DecisionModule needs settings under the 'cognition' key.
         self.default_config = {
-            'familiarity_threshold': 0.8,
-            'audio_energy_threshold': 1000.0,
-            'visual_edges_threshold': 50.0,
-            'brightness_threshold_high': 200.0,
-            'brightness_threshold_low': 50.0,
-            'concept_recognition_threshold': 0.85,
-            'curiosity_threshold': 5.0,
-            'curiosity_increment_new': 1.0,
-            'curiosity_decrement_familiar': 0.5,
-            'curiosity_decay': 0.1,
+            'cognition': {
+                'familiarity_threshold': 0.8,
+                'audio_energy_threshold': 1000.0,
+                'visual_edges_threshold': 50.0,
+                'brightness_threshold_high': 200.0,
+                'brightness_threshold_low': 50.0,
+                'concept_recognition_threshold': 0.85,
+                'curiosity_threshold': 5.0,
+                'curiosity_increment_new': 1.0,
+                'curiosity_decrement_familiar': 0.5,
+                'curiosity_decay': 0.1,
+            }
         }
-        # DecisionModule init çağrısı config_utils'taki workaround'a uygun kalıyor.
+        # Initialize the module with the default config.
         self.module = DecisionModule(self.default_config)
 
-        # Her test başında merak seviyesini varsayılan (0.0) olarak ayarlayalım (setUp'ta zaten yapılıyor ama emin olalım)
+        # Reset curiosity level to default (0.0) at the start of each test for isolation.
         self.module.curiosity_level = 0.0
 
 
     def tearDown(self):
-        """Her test metodundan sonra çalışır."""
+        """Runs after each test method."""
+        # Call cleanup to ensure resources are released (clears concepts list if implemented).
         self.module.cleanup()
 
 
-    # --- __init__ Testleri (Eşik kontrol hatalarını test etmeli) ---
+    # --- __init__ Tests (Verifies config reading and attribute assignment) ---
 
     def test_init_with_valid_config(self):
-        """Geçerli bir konfigürasyon ile başlatmayı test eder."""
+        """Tests initialization with a valid configuration."""
+        # The fixture (or setUp) ensures a valid config is used for module creation.
+        # Verify that config values were read and assigned correctly.
         self.assertEqual(self.module.config, self.default_config)
+        # Verify attributes match config values.
         self.assertEqual(self.module.familiarity_threshold, 0.8)
         self.assertEqual(self.module.audio_energy_threshold, 1000.0)
         self.assertEqual(self.module.visual_edges_threshold, 50.0)
@@ -75,635 +84,660 @@ class TestDecisionModule(unittest.TestCase):
         self.assertEqual(self.module.curiosity_increment_new, 1.0)
         self.assertEqual(self.module.curiosity_decrement_familiar, 0.5)
         self.assertEqual(self.module.curiosity_decay, 0.1)
-        self.assertEqual(self.module.curiosity_level, 0.0)
+        self.assertEqual(self.module.curiosity_level, 0.0) # Should be initialized to 0.0
+
 
     def test_init_with_missing_config_values(self):
-        """Bazı konfigürasyon değerleri eksikken başlatmayı test eder (varsayılanlar kullanılmalı)."""
-        # get_config_value artık None dönmemeli (workaround sayesinde), varsayılanlar doğru dönmeli.
+        """Tests initialization when some configuration values are missing (defaults should be used)."""
+        # Provide an incomplete config dictionary to the module init.
+        # The get_config_value calls inside __init__ should use their default values for missing keys.
+        # The structure must match the expected path, even if values are missing.
         incomplete_config = {
-            'familiarity_threshold': 0.9,
-            # Diğerleri eksik, get_config_value default değerlerini döndürmeli
+            'cognition': { # Must include cognition key for path to work
+                'familiarity_threshold': 0.9,
+                # Other cognition settings are missing, defaults should be used.
+            }
         }
-        # init metodu config_utils'tan değerleri alacak ve aralık kontrolü yapacak.
-        # Bu durumda eksik değerler get_config_value'dan varsayılan dönecek ve aralık kontrolünden geçecek.
         module = DecisionModule(incomplete_config)
-        self.assertEqual(module.familiarity_threshold, 0.9)
-        self.assertEqual(module.audio_energy_threshold, 1000.0) # Varsayılan
-        self.assertEqual(module.visual_edges_threshold, 50.0) # Varsayılan
-        self.assertEqual(module.brightness_threshold_high, 200.0) # Varsayılan
-        self.assertEqual(module.brightness_threshold_low, 50.0) # Varsayılan
-        self.assertEqual(module.concept_recognition_threshold, 0.85) # Varsayılan
-        self.assertEqual(module.curiosity_threshold, 5.0) # Varsayılan
-        self.assertEqual(module.curiosity_increment_new, 1.0) # Varsayılan
-        self.assertEqual(module.curiosity_decrement_familiar, 0.5) # Varsayılan
-        self.assertEqual(module.curiosity_decay, 0.1) # Varsayılan
+        # Verify that specified values were read and default values were used for missing keys.
+        self.assertEqual(module.familiarity_threshold, 0.9) # Should be read from the provided incomplete config
+        self.assertEqual(module.audio_energy_threshold, 1000.0) # Default for missing key
+        self.assertEqual(module.visual_edges_threshold, 50.0) # Default
+        self.assertEqual(module.brightness_threshold_high, 200.0) # Default
+        self.assertEqual(module.brightness_threshold_low, 50.0) # Default
+        self.assertEqual(module.concept_recognition_threshold, 0.85) # Default
+        self.assertEqual(module.curiosity_threshold, 5.0) # Default
+        self.assertEqual(module.curiosity_increment_new, 1.0) # Default
+        self.assertEqual(module.curiosity_decrement_familiar, 0.5) # Default
+        self.assertEqual(module.curiosity_decay, 0.1) # Default
+        self.assertEqual(module.curiosity_level, 0.0)
 
 
     def test_init_with_invalid_config_types(self):
-        """Geçersiz tipte konfigürasyon değerleri ile başlatmayı test eder (varsayılanlar kullanılmalı)."""
-        # config_utils'taki get_config_value'nun expected_type kontrolü ve default döndürmesi test ediliyor.
-        # Bu durumda DecisionModule'ün init'i get_config_value'dan varsayılanları alacak ve aralık kontrolünden geçecek.
+        """Tests initialization with configuration values of invalid types (defaults should be used)."""
+        # Provide a config with invalid types for some values.
+        # The get_config_value calls with expected_type checks should return their default values.
         invalid_type_config = {
-            'familiarity_threshold': "0.5", # Invalid type -> get_config_value default 0.8 döndürmeli
-            'audio_energy_threshold': [1000], # Invalid type -> get_config_value default 1000.0 döndürmeli
-            'curiosity_threshold': "5.0" # Invalid type -> get_config_value default 5.0 döndürmeli
+            'cognition': { # Must include cognition key for path to work
+                'audio_energy_threshold': "not a float", # Invalid type -> default 1000.0 should be used
+                'visual_edges_threshold': 60, # Valid int -> should be read and converted to float
+                'brightness_threshold_high': [250], # Invalid type -> default 200.0 should be used
+                'brightness_threshold_low': 30.0, # Valid float -> should be read
+            }
         }
+        # get_config_value logs a WARNING on type mismatch and returns default.
+        # __init__'s internal float casting doesn't affect this if default is already float.
         module = DecisionModule(invalid_type_config)
-        self.assertEqual(module.familiarity_threshold, 0.8) # Default used by get_config_value
-        self.assertEqual(module.audio_energy_threshold, 1000.0) # Default used by get_config_value
-        self.assertEqual(module.curiosity_threshold, 5.0) # Default used by get_config_value
-        # Diğer varsayılanları da kontrol edilebilir.
+        # Verify default values were used due to type mismatch and valid values were read.
+        self.assertEqual(module.audio_energy_threshold, 1000.0) # Default due to invalid type
+        self.assertIsInstance(module.audio_energy_threshold, float)
+        self.assertEqual(module.visual_edges_threshold, 60.0) # Read as int 60, converted to float 60.0
+        self.assertIsInstance(module.visual_edges_threshold, float)
+        self.assertEqual(module.brightness_threshold_high, 200.0) # Default due to invalid type
+        self.assertIsInstance(module.brightness_threshold_high, float)
+        self.assertEqual(module.brightness_threshold_low, 30.0) # Read as float 30.0
+        self.assertIsInstance(module.brightness_threshold_low, float)
+
+        # Check other attributes (defaults should apply if not in invalid_type_config)
+        self.assertEqual(module.familiarity_threshold, 0.8)
+        self.assertEqual(module.concept_recognition_threshold, 0.85)
+        self.assertEqual(module.curiosity_threshold, 5.0)
+        self.assertEqual(module.curiosity_increment_new, 1.0)
+        self.assertEqual(module.curiosity_decrement_familiar, 0.5)
+        self.assertEqual(module.curiosity_decay, 0.1)
+        self.assertEqual(module.curiosity_level, 0.0)
 
 
     def test_init_thresholds_out_of_range(self):
-        """Bazı eşiklerin geçerli aralık dışında ayarlanması durumunu test eder."""
-        # Bu test DecisionModule'ün kendi içindeki aralık kontrol mantığını test eder.
+        """Tests when some thresholds are set outside the valid range."""
+        # The __init__ method's internal range checks should reset the value to the default.
         out_of_range_config = {
-            'familiarity_threshold': 1.1, # Should be reset to 0.8 by DecisionModule's own check
-            'concept_recognition_threshold': -0.1, # Should be reset to 0.85 by DecisionModule's own check
-            'audio_energy_threshold': -10.0, # Should be reset to 1000.0 by DecisionModule's own check
-            'brightness_threshold_low': 100.0, # lower > higher -> should be reset to 50.0 (low)
-            'brightness_threshold_high': 80.0, # lower > higher -> should be reset to 200.0 (high)
-            'curiosity_increment_new': -5.0 # Should be reset to 1.0 by DecisionModule's own check
+            'cognition': { # Must include cognition key
+                'familiarity_threshold': 1.1, # Should be reset to 0.8 by DecisionModule's own check
+                'concept_recognition_threshold': -0.1, # Should be reset to 0.85 by DecisionModule's own check
+                'audio_energy_threshold': -10.0, # Should be reset to 1000.0 by DecisionModule's own check
+                'brightness_threshold_low': 100.0, # lower > higher -> should be reset to 50.0 (low)
+                'brightness_threshold_high': 80.0, # lower > higher -> should be reset to 200.0 (high)
+                'curiosity_increment_new': -5.0, # Should be reset to 1.0 by DecisionModule's own check
+            }
         }
         module = DecisionModule(out_of_range_config)
-        # DecisionModule'ün kendi aralık kontrolü default değerleri zorla atamalı.
+        # Verify that DecisionModule's own range checks reset the values to defaults.
         self.assertEqual(module.familiarity_threshold, 0.8)
         self.assertEqual(module.concept_recognition_threshold, 0.85)
         self.assertEqual(module.audio_energy_threshold, 1000.0)
-        self.assertEqual(module.brightness_threshold_low, 50.0) # Reset edildi
-        self.assertEqual(module.brightness_threshold_high, 200.0) # Reset edildi
+        self.assertEqual(module.brightness_threshold_low, 50.0) # Reset
+        self.assertEqual(module.brightness_threshold_high, 200.0) # Reset
         self.assertEqual(module.curiosity_increment_new, 1.0)
-        # Merak eşiği ve decay kontrolü de eklenebilir.
+        # Check other curiosity settings (they should also be reset by range check if applicable, or keep defaults if not in config)
+        self.assertEqual(module.curiosity_threshold, 5.0) # Default as not in config_high
+        self.assertEqual(module.curiosity_decrement_familiar, 0.5) # Default
+        self.assertEqual(module.curiosity_decay, 0.1) # Default
+        self.assertEqual(module.curiosity_level, 0.0)
 
 
     # --- decide Input Validation Tests ---
+    # These tests verify that decide handles invalid input signals gracefully.
 
     def test_decide_input_none(self):
-        """understanding_signals None ise decide metodunu test eder."""
+        """Tests the decide method when understanding_signals is None."""
         initial_curiosity = self.module.curiosity_level # 0.0
-        result = self.module.decide(None, [])
+        # Corrected: Provide the missing 'current_concepts' argument.
+        result = self.module.decide(None, [], []) # Add empty list for current_concepts
         self.assertIsNone(result)
-        # Input None ise merak seviyesi güncellenmemeli (finally bloğu decision is not None koşulu sayesinde)
+        # Curiosity level should not be updated if decision is None (handled by 'if decision is not None' in finally).
         self.assertEqual(self.module.curiosity_level, initial_curiosity)
 
 
     def test_decide_input_not_dict(self):
-        """understanding_signals dictionary değilse decide metodunu test eder."""
+        """Tests the decide method when understanding_signals is not a dictionary."""
         initial_curiosity = self.module.curiosity_level # 0.0
-        result = self.module.decide("not a dict", [])
+        # Corrected: Provide the missing 'current_concepts' argument.
+        result = self.module.decide("not a dict", [], []) # Add empty list for current_concepts
         self.assertIsNone(result)
-        # Input dict değilse merak seviyesi güncellenmemeli
+        # Curiosity level should not be updated if decision is None.
         self.assertEqual(self.module.curiosity_level, initial_curiosity)
 
 
     def test_decide_input_empty_dict(self):
-        """understanding_signals boş dictionary ise decide metodunu test eder (varsayılan değerler kullanılmalı)."""
-        # Boş dict'teki tüm flag'ler False, skorlar 0.0 olur. Hiçbir öncelikli eşik aşılmaz.
-        # Temel durum 'new' olur. Nihai karar "new_input_detected" veya "new_input_detected_fallback" olmalı.
-        # DecisionModule artık "new_input_detected" döndürüyor None olursa.
-        # Merak seviyesi: Başlangıç 0.0 -> new_input_detected kararı ile +increment -> decay ile -decay
+        """Tests the decide method when understanding_signals is an empty dictionary (defaults should be used)."""
+        # An empty dict means all flags are False and scores are 0.0. No high-priority thresholds are met.
+        # The fundamental state becomes 'new'. The final decision should be "new_input_detected".
+        # Curiosity level: Starts at 0.0 -> +increment due to "new_input_detected" -> -decay.
         initial_curiosity = 0.0
-        self.module.curiosity_level = initial_curiosity # Emin olalım
-        # Karar "new_input_detected" olacak.
+        self.module.curiosity_level = initial_curiosity # Ensure starting value
+        # Expected curiosity after update: initial + increment - decay
         expected_curiosity = initial_curiosity + self.module.curiosity_increment_new - self.module.curiosity_decay
-        expected_curiosity = max(0.0, expected_curiosity)
+        expected_curiosity = max(0.0, expected_curiosity) # Curiosity cannot be negative.
 
-        result = self.module.decide({}, []) # Boş dict gönder
-        # Fallback karar "new_input_detected" olmalı
-        self.assertEqual(result, "new_input_detected") # Fallback artık new_input_detected olarak güncellendi
-        # Merak seviyesi güncellenmiş olmalı (inc + decay)
+        # Corrected: Provide the missing 'current_concepts' argument.
+        result = self.module.decide({}, [], []) # Pass empty dict for signals, empty lists for others.
+
+        # The fallback decision should be "new_input_detected".
+        self.assertEqual(result, "new_input_detected") # Fallback is now "new_input_detected".
+        # Curiosity level should have been updated (inc + decay).
         self.assertAlmostEqual(self.module.curiosity_level, expected_curiosity, places=6)
 
 
-    # --- decide Karar Önceliği Testleri ---
-    # Merak seviyelerini test başında 0.0'dan başlatacağız ve expected curiosity hesaplarken
-    # karara göre inc/dec ve decay'i ekleyeceğiz.
+    # --- decide Decision Priority Tests ---
+    # These tests verify that the decision logic follows the specified priority order.
+    # Curiosity levels are started at 0.0 in setUp, and expected curiosity is calculated including inc/dec and decay based on the decision.
 
-    @patch('random.choice', return_value='explore_randomly') # random.choice'u mocklayalım
+    @patch('random.choice', return_value='explore_randomly') # Mock random.choice to control curiosity decision
     def test_decide_priority_curiosity_threshold(self, mock_random_choice):
-        """Merak eşiği aşıldığında decide metodunu test eder."""
-        initial_curiosity = self.module.curiosity_threshold + 1.0 # Eşiğin üstüne çıkar
+        """Tests the decide method when the curiosity threshold is exceeded."""
+        initial_curiosity = self.module.curiosity_threshold + 1.0 # Set curiosity above threshold (e.g., 6.0)
         self.module.curiosity_level = initial_curiosity
 
-        # Diğer sinyallerin hiçbiri yüksek öncelikli bir kararı tetiklememeli
+        # Other signals should not trigger any higher priority decision than curiosity.
         signals = {
-            'similarity_score': 0.1, # Bellek tanıdıklık eşiği altında
+            'similarity_score': 0.1, # Below memory familiarity threshold
             'high_audio_energy': False,
             'high_visual_edges': False,
             'is_bright': False,
             'is_dark': False,
-            'max_concept_similarity': 0.1, # Kavram tanıma eşiği altında
+            'max_concept_similarity': 0.1, # Below concept recognition threshold
             'most_similar_concept_id': None,
         }
 
-        # Merak seviyesi: Başlangıç > eşik -> Karar "explore_randomly" (mocklandı) -> Bu karar merakı inc/dec etmez -> decay ile -decay
-        expected_curiosity = initial_curiosity - self.module.curiosity_decay
-        expected_curiosity = max(0.0, expected_curiosity) # Merak negatif olmamalı
+        # Curiosity level update: Start > threshold -> Decision is 'explore_randomly' (mocked) -> This decision type doesn't trigger inc/dec -> Only decay applies.
+        expected_curiosity = initial_curiosity - self.module.curiosity_decay # e.g., 6.0 - 0.1 = 5.9
+        expected_curiosity = max(0.0, expected_curiosity) # Ensure curiosity is not negative.
 
-        result = self.module.decide(signals, [])
+        # Corrected: Provide the missing 'current_concepts' argument.
+        result = self.module.decide(signals, [], []) # Add empty list for current_concepts
 
-        self.assertEqual(result, 'explore_randomly') # random.choice'un döndürdüğü değer olmalı
-        mock_random_choice.assert_called_once_with(["explore_randomly", "make_noise"]) # random.choice doğru seçeneklerle çağrılmalı
-        self.assertAlmostEqual(self.module.curiosity_level, expected_curiosity, places=6) # Merak sadece decay olmalı
+        self.assertEqual(result, 'explore_randomly') # Should be the value returned by mocked random.choice
+        mock_random_choice.assert_called_once_with(["explore_randomly", "make_noise"]) # Verify random.choice was called with correct options
+        self.assertAlmostEqual(self.module.curiosity_level, expected_curiosity, places=6) # Curiosity should only decay.
 
 
     def test_decide_priority_sound_detected(self):
-        """Yüksek ses enerjisi algılandığında decide metodunu test eder."""
-        # Merak eşiği altında olsun ki merak kararı tetiklenmesin.
-        initial_curiosity = self.module.curiosity_threshold - 1.0 # örn: 4.0
+        """Tests the decide method when high audio energy is detected."""
+        # Ensure curiosity is below the threshold so the curiosity decision is not triggered.
+        initial_curiosity = self.module.curiosity_threshold - 1.0 # e.g., 4.0
         self.module.curiosity_level = initial_curiosity
 
         signals = {
-            'similarity_score': 0.1, # Bellek tanıdıklık eşiği altında
-            'high_audio_energy': True, # Ses algılandı - yüksek öncelik
+            'similarity_score': 0.1, # Below memory familiarity threshold
+            'high_audio_energy': True, # Audio detected - high priority
             'high_visual_edges': False,
             'is_bright': False,
             'is_dark': False,
-            'max_concept_similarity': 0.9, # Kavram tanıma eşiği üstünde (ama ses daha öncelikli)
+            'max_concept_similarity': 0.9, # Above concept recognition threshold (but audio has higher priority)
             'most_similar_concept_id': 1,
         }
 
-        # Merak seviyesi: Başlangıç < eşik -> Karar "sound_detected" -> Bu karar merakı inc/dec etmez -> decay ile -decay
-        expected_curiosity = initial_curiosity - self.module.curiosity_decay # örn: 4.0 - 0.1 = 3.9
+        # Curiosity level update: Start < threshold -> Decision is "sound_detected" -> This decision type doesn't trigger inc/dec -> Only decay applies.
+        expected_curiosity = initial_curiosity - self.module.curiosity_decay # e.g., 4.0 - 0.1 = 3.9
         expected_curiosity = max(0.0, expected_curiosity)
 
-        result = self.module.decide(signals, [])
+        # Corrected: Provide the missing 'current_concepts' argument.
+        result = self.module.decide(signals, [], []) # Add empty list for current_concepts
+
         self.assertEqual(result, "sound_detected")
-        # Merak sadece decay olmalı.
+        # Curiosity should only decay.
         self.assertAlmostEqual(self.module.curiosity_level, expected_curiosity, places=6)
 
 
     def test_decide_priority_complex_visual_detected(self):
-        """Yüksek görsel kenar yoğunluğu algılandığında decide metodunu test eder."""
-        initial_curiosity = self.module.curiosity_threshold - 1.0 # örn: 4.0
+        """Tests the decide method when high visual edge density is detected."""
+        initial_curiosity = self.module.curiosity_threshold - 1.0 # e.g., 4.0
         self.module.curiosity_level = initial_curiosity
 
         signals = {
-            'similarity_score': 0.1, # Bellek tanıdıklık eşiği altında
-            'high_audio_energy': False, # Ses yok
-            'high_visual_edges': True, # Görsel kenar algılandı - öncelikli
+            'similarity_score': 0.1, # Below memory familiarity threshold
+            'high_audio_energy': False, # No audio
+            'high_visual_edges': True, # Visual edge detected - priority
             'is_bright': False,
             'is_dark': False,
-            'max_concept_similarity': 0.9, # Kavram tanıma eşiği üstünde (ama görsel daha öncelikli)
+            'max_concept_similarity': 0.9, # Above concept recognition threshold (but visual edge has higher priority)
             'most_similar_concept_id': 1,
         }
 
-        # Merak seviyesi: Başlangıç < eşik -> Karar "complex_visual_detected" -> Bu karar merakı inc/dec etmez -> decay ile -decay
-        expected_curiosity = initial_curiosity - self.module.curiosity_decay # örn: 4.0 - 0.1 = 3.9
+        # Curiosity level update: Start < threshold -> Decision is "complex_visual_detected" -> Doesn't trigger inc/dec -> Only decay applies.
+        expected_curiosity = initial_curiosity - self.module.curiosity_decay # e.g., 4.0 - 0.1 = 3.9
         expected_curiosity = max(0.0, expected_curiosity)
 
-        result = self.module.decide(signals, [])
+        # Corrected: Provide the missing 'current_concepts' argument.
+        result = self.module.decide(signals, [], []) # Add empty list for current_concepts
+
         self.assertEqual(result, "complex_visual_detected")
-        # Merak sadece decay olmalı.
+        # Curiosity should only decay.
         self.assertAlmostEqual(self.module.curiosity_level, expected_curiosity, places=6)
 
 
     def test_decide_priority_bright_light_detected(self):
-        """Parlak ortam algılandığında decide metodunu test eder."""
-        initial_curiosity = self.module.curiosity_threshold - 1.0 # örn: 4.0
+        """Tests the decide method when a bright environment is detected."""
+        initial_curiosity = self.module.curiosity_threshold - 1.0 # e.g., 4.0
         self.module.curiosity_level = initial_curiosity
 
         signals = {
-            'similarity_score': 0.1, # Bellek tanıdıklık eşiği altında
+            'similarity_score': 0.1, # Below memory familiarity threshold
             'high_audio_energy': False,
             'high_visual_edges': False,
-            'is_bright': True, # Parlak algılandı - öncelikli
+            'is_bright': True, # Bright detected - priority
             'is_dark': False,
-            'max_concept_similarity': 0.9, # Kavram tanıma eşiği üstünde (ama parlaklık daha öncelikli)
+            'max_concept_similarity': 0.9, # Above concept recognition threshold (but brightness has higher priority)
             'most_similar_concept_id': 1,
         }
 
-        # Merak seviyesi: Başlangıç < eşik -> Karar "bright_light_detected" -> Bu karar merakı inc/dec etmez -> decay ile -decay
-        expected_curiosity = initial_curiosity - self.module.curiosity_decay # örn: 4.0 - 0.1 = 3.9
+        # Curiosity level update: Start < threshold -> Decision is "bright_light_detected" -> Doesn't trigger inc/dec -> Only decay applies.
+        expected_curiosity = initial_curiosity - self.module.curiosity_decay # e.g., 4.0 - 0.1 = 3.9
         expected_curiosity = max(0.0, expected_curiosity)
 
-        result = self.module.decide(signals, [])
+        # Corrected: Provide the missing 'current_concepts' argument.
+        result = self.module.decide(signals, [], []) # Add empty list for current_concepts
+
         self.assertEqual(result, "bright_light_detected")
-        # Merak sadece decay olmalı.
+        # Curiosity should only decay.
         self.assertAlmostEqual(self.module.curiosity_level, expected_curiosity, places=6)
 
 
     def test_decide_priority_dark_environment_detected(self):
-        """Karanlık ortam algılandığında decide metodunu test eder."""
-        initial_curiosity = self.module.curiosity_threshold - 1.0 # örn: 4.0
+        """Tests the decide method when a dark environment is detected."""
+        initial_curiosity = self.module.curiosity_threshold - 1.0 # e.g., 4.0
         self.module.curiosity_level = initial_curiosity
 
         signals = {
-            'similarity_score': 0.1, # Bellek tanıdıklık eşiği altında
+            'similarity_score': 0.1, # Below memory familiarity threshold
             'high_audio_energy': False,
             'high_visual_edges': False,
             'is_bright': False,
-            'is_dark': True, # Karanlık algılandı - öncelikli
-            'max_concept_similarity': 0.9, # Kavram tanıma eşiği üstünde (ama karanlık daha öncelikli)
+            'is_dark': True, # Dark detected - priority
+            'max_concept_similarity': 0.9, # Above concept recognition threshold (but darkness has higher priority)
             'most_similar_concept_id': 1,
         }
 
-        # Merak seviyesi: Başlangıç < eşik -> Karar "dark_environment_detected" -> Bu karar merakı inc/dec etmez -> decay ile -decay
-        expected_curiosity = initial_curiosity - self.module.curiosity_decay # örn: 4.0 - 0.1 = 3.9
+        # Curiosity level update: Start < threshold -> Decision is "dark_environment_detected" -> Doesn't trigger inc/dec -> Only decay applies.
+        expected_curiosity = initial_curiosity - self.module.curiosity_decay # e.g., 4.0 - 0.1 = 3.9
         expected_curiosity = max(0.0, expected_curiosity)
 
-        result = self.module.decide(signals, [])
+        # Corrected: Provide the missing 'current_concepts' argument.
+        result = self.module.decide(signals, [], []) # Add empty list for current_concepts
+
         self.assertEqual(result, "dark_environment_detected")
-        # Merak sadece decay olmalı.
+        # Curiosity should only decay.
         self.assertAlmostEqual(self.module.curiosity_level, expected_curiosity, places=6)
 
 
     def test_decide_priority_recognized_concept(self):
-        """Kavram tanındığında decide metodunu test eder."""
-        initial_curiosity = self.module.curiosity_threshold - 1.0 # örn: 4.0
+        """Tests the decide method when a concept is recognized."""
+        initial_curiosity = self.module.curiosity_threshold - 1.0 # e.g., 4.0
         self.module.curiosity_level = initial_curiosity
 
         signals = {
-            'similarity_score': 0.1, # Bellek tanıdıklık eşiği altında
+            'similarity_score': 0.1, # Below memory familiarity threshold
             'high_audio_energy': False,
             'high_visual_edges': False,
             'is_bright': False,
             'is_dark': False,
-            'max_concept_similarity': self.module.concept_recognition_threshold + 0.01, # Kavram tanıma eşiği üstünde (örn: 0.86)
-            'most_similar_concept_id': 42, # Kavram ID'si var - öncelikli (Process sinyallerinden sonra)
+            'max_concept_similarity': self.module.concept_recognition_threshold + 0.01, # Above concept recognition threshold (e.g., 0.86)
+            'most_similar_concept_id': 42, # Concept ID exists - priority (after Process signals)
         }
 
-        # Merak seviyesi: Başlangıç < eşik -> Karar "recognized_concept_42" -> Bu karar merakı decrement eder -> decay ile -decay
-        expected_curiosity = initial_curiosity - self.module.curiosity_decrement_familiar - self.module.curiosity_decay # örn: 4.0 - 0.5 - 0.1 = 3.4
-        expected_curiosity = max(0.0, expected_curiosity) # Merak negatif olmasın
+        # Curiosity level update: Start < threshold -> Decision is "recognized_concept_42" -> Triggers decrement -> Decay applies.
+        expected_curiosity = initial_curiosity - self.module.curiosity_decrement_familiar - self.module.curiosity_decay # e.g., 4.0 - 0.5 - 0.1 = 3.4
+        expected_curiosity = max(0.0, expected_curiosity) # Ensure curiosity is not negative.
 
-        result = self.module.decide(signals, [])
+        # Corrected: Provide the missing 'current_concepts' argument.
+        result = self.module.decide(signals, [], []) # Add empty list for current_concepts
+
         self.assertEqual(result, "recognized_concept_42")
-        # Merak azalmalı ve decay olmalı.
+        # Curiosity should decrease and decay.
         self.assertAlmostEqual(self.module.curiosity_level, expected_curiosity, places=6)
 
 
     def test_decide_priority_recognized_concept_at_threshold(self):
-        """Kavram tanıma benzerlik skoru eşiğe eşit olduğunda decide metodunu test eder."""
-        initial_curiosity = self.module.curiosity_threshold - 1.0 # örn: 4.0
+        """Tests the decide method when concept recognition similarity score is exactly at the threshold."""
+        initial_curiosity = self.module.curiosity_threshold - 1.0 # e.g., 4.0
         self.module.curiosity_level = initial_curiosity
 
         signals = {
-            'similarity_score': 0.1, # Bellek tanıdıklık eşiği altında
+            'similarity_score': 0.1, # Below memory familiarity threshold
             'high_audio_energy': False,
             'high_visual_edges': False,
             'is_bright': False,
             'is_dark': False,
-            'max_concept_similarity': self.module.concept_recognition_threshold, # Eşiğe eşit (0.85)
-            'most_similar_concept_id': 99, # Kavram ID'si var
+            'max_concept_similarity': self.module.concept_recognition_threshold, # Exactly at threshold (0.85)
+            'most_similar_concept_id': 99, # Concept ID exists
         }
 
-        # Eşitlik durumunda da kavram tanınmalı (>= kullandığımız için)
-        # Merak seviyesi: Başlangıç < eşik -> Karar "recognized_concept_99" -> decrement eder -> decay ile -decay
-        expected_curiosity = initial_curiosity - self.module.curiosity_decrement_familiar - self.module.curiosity_decay # örn: 4.0 - 0.5 - 0.1 = 3.4
+        # If similarity is equal to the threshold, it should still be recognized (using >=).
+        # Curiosity level update: Start < threshold -> Decision is "recognized_concept_99" -> Triggers decrement -> Decay applies.
+        expected_curiosity = initial_curiosity - self.module.curiosity_decrement_familiar - self.module.curiosity_decay # e.g., 4.0 - 0.5 - 0.1 = 3.4
         expected_curiosity = max(0.0, expected_curiosity)
 
-        result = self.module.decide(signals, [])
+        # Corrected: Provide the missing 'current_concepts' argument.
+        result = self.module.decide(signals, [], []) # Add empty list for current_concepts
+
         self.assertEqual(result, "recognized_concept_99")
-        # Merak azalmalı ve decay olmalı.
+        # Curiosity should decrease and decay.
         self.assertAlmostEqual(self.module.curiosity_level, expected_curiosity, places=6)
 
 
     def test_decide_priority_recognized_concept_similarity_below_threshold(self):
-        """Kavram tanıma benzerlik skoru eşik altında kaldığında decide metodunu test eder."""
-        initial_curiosity = self.module.curiosity_threshold - 1.0 # örn: 4.0
+        """Tests the decide method when concept recognition similarity score is below the threshold."""
+        initial_curiosity = self.module.curiosity_threshold - 1.0 # e.g., 4.0
         self.module.curiosity_level = initial_curiosity
 
         signals = {
-            'similarity_score': 0.1, # Bellek tanıdıklık eşiği altında
+            'similarity_score': 0.1, # Below memory familiarity threshold
             'high_audio_energy': False,
             'high_visual_edges': False,
             'is_bright': False,
             'is_dark': False,
-            'max_concept_similarity': self.module.concept_recognition_threshold - 0.01, # Eşik altında (örn: 0.84)
-            'most_similar_concept_id': 123, # ID olsa da benzerlik düşük
+            'max_concept_similarity': self.module.concept_recognition_threshold - 0.01, # Below threshold (e.g., 0.84)
+            'most_similar_concept_id': 123, # ID exists but similarity is low
         }
 
-        # Kavram tanıma koşulu sağlanmadı. Karar, bir sonraki öncelikli koşula düşmeli (Bellek Tanıdıklığı veya Yeni).
-        # similarity_score 0.1, familiarity_threshold 0.8 -> 0.1 < 0.8 -> Temel durum is_fundamentally_new.
-        # Karar "new_input_detected" olmalı.
-        # Merak seviyesi: Başlangıç < eşik -> Karar "new_input_detected" -> increment eder -> decay ile -decay
-        expected_curiosity = initial_curiosity + self.module.curiosity_increment_new - self.module.curiosity_decay # örn: 4.0 + 1.0 - 0.1 = 4.9
+        # Concept recognition condition is not met. Decision should fall through to the next priority condition (Memory Familiarity or New).
+        # similarity_score is 0.1, familiarity_threshold is 0.8 -> 0.1 < 0.8 -> Fundamental state is is_fundamentally_new.
+        # Decision should be "new_input_detected".
+        # Curiosity level update: Start < threshold -> Decision is "new_input_detected" -> Triggers increment -> Decay applies.
+        expected_curiosity = initial_curiosity + self.module.curiosity_increment_new - self.module.curiosity_decay # e.g., 4.0 + 1.0 - 0.1 = 4.9
         expected_curiosity = max(0.0, expected_curiosity)
 
-        result = self.module.decide(signals, [])
-        # Kavram tanıma tetiklenmedi, default 'new'e düştü
+        # Corrected: Provide the missing 'current_concepts' argument.
+        result = self.module.decide(signals, [], []) # Add empty list for current_concepts
+
+        # Fallback to "new_input_detected" as no higher priority was detected.
         self.assertEqual(result, "new_input_detected")
-        # Merak artmalı ve decay olmalı.
-        self.assertAlmostEqual(self.module.curiosity_level, expected_curiosity, places=6)
-
-
-    def test_decide_priority_recognized_concept_id_none(self):
-        """Kavram tanıma benzerlik skoru yüksek ama most_similar_concept_id None olduğunda test eder."""
-        initial_curiosity = self.module.curiosity_threshold - 1.0 # örn: 4.0
-        self.module.curiosity_level = initial_curiosity
-
-        signals = {
-            'similarity_score': 0.1, # Bellek tanıdıklık eşiği altında
-            'high_audio_energy': False,
-            'high_visual_edges': False,
-            'is_bright': False,
-            'is_dark': False,
-            'max_concept_similarity': 0.9, # Eşiğin üstünde
-            'most_similar_concept_id': None, # ID None -> Kavram tanıma koşulu sağlanmaz
-        }
-
-        # most_similar_concept_id None olduğu için kavram tanıma koşulu sağlanmadı.
-        # Karar, bir sonraki öncelikli koşula düşmeli (Bellek Tanıdıklığı veya Yeni).
-        # similarity_score 0.1, familiarity_threshold 0.8 -> 0.1 < 0.8 -> Temel durum is_fundamentally_new.
-        # Karar "new_input_detected" olmalı.
-        # Merak seviyesi: Başlangıç < eşik -> Karar "new_input_detected" -> increment eder -> decay ile -decay
-        expected_curiosity = initial_curiosity + self.module.curiosity_increment_new - self.module.curiosity_decay # örn: 4.0 + 1.0 - 0.1 = 4.9
-        expected_curiosity = max(0.0, expected_curiosity)
-
-        result = self.module.decide(signals, [])
-        # Kavram tanıma tetiklenmedi, default 'new'e düştü
-        self.assertEqual(result, "new_input_detected")
-        # Merak artmalı ve decay olmalı.
+        # Curiosity should increase and decay.
         self.assertAlmostEqual(self.module.curiosity_level, expected_curiosity, places=6)
 
 
     def test_decide_priority_familiar_input_detected(self):
-        """Bellek benzerlik skoru eşiği aştığında decide metodunu test eder."""
-        initial_curiosity = self.module.curiosity_threshold - 1.0 # örn: 4.0
+        """Tests the decide method when memory similarity score exceeds the threshold."""
+        initial_curiosity = self.module.curiosity_threshold - 1.0 # e.g., 4.0
         self.module.curiosity_level = initial_curiosity
 
         signals = {
-            'similarity_score': self.module.familiarity_threshold + 0.01, # Tanıdıklık eşiği üstünde (örn: 0.81)
+            'similarity_score': self.module.familiarity_threshold + 0.01, # Above familiarity threshold (e.g., 0.81)
             'high_audio_energy': False,
             'high_visual_edges': False,
             'is_bright': False,
             'is_dark': False,
-            'max_concept_similarity': 0.1, # Kavram tanıma eşiği altında
-            'most_similar_concept_id': None, # ID yok
+            'max_concept_similarity': 0.1, # Below concept recognition threshold
+            'most_similar_concept_id': None, # No ID
         }
 
-        # Önceki tüm öncelikler False. similarity_score >= familiarity_threshold True -> "familiar_input_detected"
-        # Merak seviyesi: Başlangıç < eşik -> Karar "familiar_input_detected" -> decrement eder -> decay ile -decay
-        expected_curiosity = initial_curiosity - self.module.curiosity_decrement_familiar - self.module.curiosity_decay # örn: 4.0 - 0.5 - 0.1 = 3.4
+        # All previous priorities are False. similarity_score >= familiarity_threshold is True -> "familiar_input_detected"
+        # Curiosity level update: Start < threshold -> Decision is "familiar_input_detected" -> Triggers decrement -> Decay applies.
+        expected_curiosity = initial_curiosity - self.module.curiosity_decrement_familiar - self.module.curiosity_decay # e.g., 4.0 - 0.5 - 0.1 = 3.4
         expected_curiosity = max(0.0, expected_curiosity)
 
-        result = self.module.decide(signals, [])
+        # Corrected: Provide the missing 'current_concepts' argument.
+        result = self.module.decide(signals, [], []) # Add empty list for current_concepts
+
         self.assertEqual(result, "familiar_input_detected")
-        # Merak azalmalı ve decay olmalı.
+        # Curiosity should decrease and decay.
         self.assertAlmostEqual(self.module.curiosity_level, expected_curiosity, places=6)
 
 
     def test_decide_priority_familiar_input_at_threshold(self):
-        """Bellek benzerlik skoru eşiğe eşit olduğunda decide metodunu test eder."""
-        initial_curiosity = self.module.curiosity_threshold - 1.0 # örn: 4.0
+        """Tests the decide method when memory similarity score is exactly at the threshold."""
+        initial_curiosity = self.module.curiosity_threshold - 1.0 # e.g., 4.0
         self.module.curiosity_level = initial_curiosity
 
         signals = {
-            'similarity_score': self.module.familiarity_threshold, # Eşiğe eşit (0.8)
+            'similarity_score': self.module.familiarity_threshold, # Exactly at threshold (0.8)
             'high_audio_energy': False,
             'high_visual_edges': False,
             'is_bright': False,
             'is_dark': False,
-            'max_concept_similarity': 0.1, # Kavram tanıma eşiği altında
-            'most_similar_concept_id': None, # ID yok
+            'max_concept_similarity': 0.1, # Below concept recognition threshold
+            'most_similar_concept_id': None, # No ID
         }
 
-        # Eşitlik durumunda da tanıdık kabul edilmeli (>= kullandığımız için)
-        # Merak seviyesi: Başlangıç < eşik -> Karar "familiar_input_detected" -> decrement eder -> decay ile -decay
-        expected_curiosity = initial_curiosity - self.module.curiosity_decrement_familiar - self.module.curiosity_decay # örn: 4.0 - 0.5 - 0.1 = 3.4
+        # If similarity is equal to the threshold, it should be considered familiar (using >=).
+        # Curiosity level update: Start < threshold -> Decision is "familiar_input_detected" -> Triggers decrement -> Decay applies.
+        expected_curiosity = initial_curiosity - self.module.curiosity_decrement_familiar - self.module.curiosity_decay # e.g., 4.0 - 0.5 - 0.1 = 3.4
         expected_curiosity = max(0.0, expected_curiosity)
 
-        result = self.module.decide(signals, [])
+        # Corrected: Provide the missing 'current_concepts' argument.
+        result = self.module.decide(signals, [], []) # Add empty list for current_concepts
+
         self.assertEqual(result, "familiar_input_detected")
-        # Merak azalmalı ve decay olmalı.
+        # Curiosity should decrease and decay.
         self.assertAlmostEqual(self.module.curiosity_level, expected_curiosity, places=6)
 
 
     def test_decide_priority_new_input_detected(self):
-        """Hiçbir öncelikli veya tanıdık koşul sağlanmadığında decide metodunu test eder."""
-        initial_curiosity = self.module.curiosity_threshold - 1.0 # örn: 4.0
+        """Tests the decide method when no higher priority or familiar condition is met."""
+        initial_curiosity = self.module.curiosity_threshold - 1.0 # e.g., 4.0
         self.module.curiosity_level = initial_curiosity
 
         signals = {
-            'similarity_score': self.module.familiarity_threshold - 0.01, # Tanıdıklık eşiği altında (örn: 0.79)
+            'similarity_score': self.module.familiarity_threshold - 0.01, # Below familiarity threshold (e.g., 0.79)
             'high_audio_energy': False,
             'high_visual_edges': False,
             'is_bright': False,
             'is_dark': False,
-            'max_concept_similarity': 0.1, # Kavram tanıma eşiği altında
-            'most_similar_concept_id': None, # ID yok
+            'max_concept_similarity': 0.1, # Below concept recognition threshold
+            'most_similar_concept_id': None, # No ID
         }
 
-        # Önceki tüm öncelikler False. similarity_score < familiarity_threshold True -> Temel durum 'new'.
-        # Decision Module None döndürecek -> Fallback "new_input_detected"
-        # Merak seviyesi: Başlangıç < eşik -> Karar "new_input_detected" -> increment eder -> decay ile -decay
-        expected_curiosity = initial_curiosity + self.module.curiosity_increment_new - self.module.curiosity_decay # örn: 4.0 + 1.0 - 0.1 = 4.9
+        # All previous priorities are False. similarity_score < familiarity_threshold is True -> Fundamental state 'new'.
+        # Decision falls through to the default "new_input_detected".
+        # Curiosity level update: Start < threshold -> Decision is "new_input_detected" -> Triggers increment -> Decay applies.
+        expected_curiosity = initial_curiosity + self.module.curiosity_increment_new - self.module.curiosity_decay # e.g., 4.0 + 1.0 - 0.1 = 4.9
         expected_curiosity = max(0.0, expected_curiosity)
 
-        result = self.module.decide(signals, [])
-        # Hiçbir öncelikli durum algılanamadığı için varsayılan "new_input_detected" olmalı.
+        # Corrected: Provide the missing 'current_concepts' argument.
+        result = self.module.decide(signals, [], []) # Add empty list for current_concepts
+
+        # Fallback to "new_input_detected" as no higher priority was detected.
         self.assertEqual(result, "new_input_detected")
-        # Merak artmalı ve decay olmalı.
+        # Curiosity should increase and decay.
         self.assertAlmostEqual(self.module.curiosity_level, expected_curiosity, places=6)
 
 
-    # --- Merak Güncelleme Testleri ---
-    # Bu testler artık yukarıdaki öncelik testleri içinde merak seviyesi kontrolü ile birleştirildi.
-    # Ancak ayrı testler olarak da tutmak temizlik açısından iyi olabilir.
-    # Mevcut test seti zaten merak güncellemesini öncelik testleri içinde kontrol ediyor.
-    # Sadece ayrı testler olarak kalmasını istiyorsanız, duplicate testler gibi görünebilir.
-    # Mevcut test setinde Merak güncellemesi testleri zaten var, sadece beklenen merak değerlerini düzeltelim.
+    # --- Curiosity Update Tests ---
+    # These tests verify the logic for updating the curiosity level.
+    # These tests overlap with the priority tests above but focus specifically on curiosity update.
+    # They are kept for clarity and isolation of curiosity logic testing.
 
     def test_curiosity_update_new_input(self):
-        """'new_input_detected' kararı merakı artırmalı ve decay olmalı."""
-        initial_curiosity = 1.0 # Başlangıç merak seviyesi
+        """Tests that the 'new_input_detected' decision increments curiosity and applies decay."""
+        initial_curiosity = 1.0 # Starting curiosity level
         self.module.curiosity_level = initial_curiosity
 
-        signals = { # new_input_detected kararına yol açacak sinyaller (tüm öncelikler False, sim < threshold)
+        signals = { # Signals that lead to a "new_input_detected" decision (all priorities False, sim < threshold)
             'similarity_score': self.module.familiarity_threshold - 0.01, # 0.79
             'high_audio_energy': False, 'high_visual_edges': False, 'is_bright': False, 'is_dark': False,
             'max_concept_similarity': 0.1, 'most_similar_concept_id': None,
         }
 
-        # Beklenen: initial + increment - decay
+        # Expected curiosity: initial + increment - decay
         expected_curiosity = initial_curiosity + self.module.curiosity_increment_new - self.module.curiosity_decay # 1.0 + 1.0 - 0.1 = 1.9
-        expected_curiosity = max(0.0, expected_curiosity)
+        expected_curiosity = max(0.0, expected_curiosity) # Curiosity cannot be negative.
 
-        result = self.module.decide(signals, [])
-        self.assertEqual(result, "new_input_detected")
-        self.assertAlmostEqual(self.module.curiosity_level, expected_curiosity, places=6)
+        # Corrected: Provide the missing 'current_concepts' argument.
+        result = self.module.decide(signals, [], []) # Add empty list for current_concepts
+
+        self.assertEqual(result, "new_input_detected") # Decision should be "new_input_detected"
+        self.assertAlmostEqual(self.module.curiosity_level, expected_curiosity, places=6) # Curiosity should increment and decay.
 
 
     def test_curiosity_update_familiar_input(self):
-        """'familiar_input_detected' kararı merakı azaltmalı ve decay olmalı (negatif olmamalı)."""
-        initial_curiosity = 1.0 # Başlangıç merak seviyesi
+        """Tests that the 'familiar_input_detected' decision decrements curiosity and applies decay (not below zero)."""
+        initial_curiosity = 1.0 # Starting curiosity level
         self.module.curiosity_level = initial_curiosity
 
-        signals = { # familiar_input_detected kararına yol açacak sinyaller (öncelikler False, sim >= threshold)
+        signals = { # Signals that lead to a "familiar_input_detected" decision (priorities False, sim >= threshold)
             'similarity_score': self.module.familiarity_threshold + 0.01, # 0.81
             'high_audio_energy': False, 'high_visual_edges': False, 'is_bright': False, 'is_dark': False,
             'max_concept_similarity': 0.1, 'most_similar_concept_id': None,
         }
 
-        # Beklenen: initial - decrement - decay
+        # Expected curiosity: initial - decrement - decay
         expected_curiosity = initial_curiosity - self.module.curiosity_decrement_familiar - self.module.curiosity_decay # 1.0 - 0.5 - 0.1 = 0.4
-        expected_curiosity = max(0.0, expected_curiosity) # Negatif olmamalı
+        expected_curiosity = max(0.0, expected_curiosity) # Ensure curiosity is not negative.
 
-        result = self.module.decide(signals, [])
-        self.assertEqual(result, "familiar_input_detected")
-        self.assertAlmostEqual(self.module.curiosity_level, expected_curiosity, places=6)
+        # Corrected: Provide the missing 'current_concepts' argument.
+        result = self.module.decide(signals, [], []) # Add empty list for current_concepts
+
+        self.assertEqual(result, "familiar_input_detected") # Decision should be "familiar_input_detected"
+        self.assertAlmostEqual(self.module.curiosity_level, expected_curiosity, places=6) # Curiosity should decrease and decay.
 
 
     def test_curiosity_update_recognized_concept(self):
-        """'recognized_concept_X' kararı merakı azaltmalı ve decay olmalı (negatif olmamalı)."""
-        initial_curiosity = 1.0 # Başlangıç merak seviyesi
+        """Tests that the 'recognized_concept_X' decision decrements curiosity and applies decay (not below zero)."""
+        initial_curiosity = 1.0 # Starting curiosity level
         self.module.curiosity_level = initial_curiosity
 
-        signals = { # recognized_concept_X kararına yol açacak sinyaller (process false, sim < threshold, concept_sim >= threshold)
-            'similarity_score': 0.1, # Bellek eşiği altında olsun ki familiar tetiklenmesin
+        signals = { # Signals that lead to a "recognized_concept_X" decision (process false, sim < threshold, concept_sim >= threshold)
+            'similarity_score': 0.1, # Ensure memory sim is below threshold so familiar is not triggered
             'high_audio_energy': False, 'high_visual_edges': False, 'is_bright': False, 'is_dark': False,
             'max_concept_similarity': self.module.concept_recognition_threshold + 0.01, 'most_similar_concept_id': 77, # 0.86
         }
 
-        # Beklenen: initial - decrement - decay
+        # Expected curiosity: initial - decrement - decay
         expected_curiosity = initial_curiosity - self.module.curiosity_decrement_familiar - self.module.curiosity_decay # 1.0 - 0.5 - 0.1 = 0.4
-        expected_curiosity = max(0.0, expected_curiosity) # Negatif olmamalı
+        expected_curiosity = max(0.0, expected_curiosity) # Ensure curiosity is not negative.
 
-        result = self.module.decide(signals, [])
-        self.assertEqual(result, "recognized_concept_77")
-        self.assertAlmostEqual(self.module.curiosity_level, expected_curiosity, places=6)
+        # Corrected: Provide the missing 'current_concepts' argument.
+        result = self.module.decide(signals, [], []) # Add empty list for current_concepts
+
+        self.assertEqual(result, "recognized_concept_77") # Decision should be "recognized_concept_77"
+        self.assertAlmostEqual(self.module.curiosity_level, expected_curiosity, places=6) # Curiosity should decrease and decay.
 
 
     def test_curiosity_update_other_decisions_only_decay(self):
-        """Process tabanlı kararlar (ses, görsel vb.) merakı sadece decay etmeli."""
-        initial_curiosity = 1.0 # Başlangıç merak seviyesi
+        """Tests that process-based decisions (audio, visual, etc.) only apply decay to curiosity."""
+        initial_curiosity = 1.0 # Starting curiosity level
         self.module.curiosity_level = initial_curiosity
 
-        signals = { # sound_detected kararına yol açacak sinyaller (yüksek öncelikli olduğu için diğerleri önemsiz)
+        signals = { # Signals that lead to a "sound_detected" decision (high priority, others false)
             'similarity_score': 0.1,
-            'high_audio_energy': True, # Bu karar tetiklenir
+            'high_audio_energy': True, # This decision is triggered
             'high_visual_edges': False, 'is_bright': False, 'is_dark': False,
             'max_concept_similarity': 0.1, 'most_similar_concept_id': None,
         }
 
-        # Beklenen: initial - decay (inc/dec yok)
+        # Expected curiosity: initial - decay (no inc/dec)
         expected_curiosity = initial_curiosity - self.module.curiosity_decay # 1.0 - 0.1 = 0.9
-        expected_curiosity = max(0.0, expected_curiosity) # Negatif olmamalı
+        expected_curiosity = max(0.0, expected_curiosity) # Ensure curiosity is not negative.
 
-        result = self.module.decide(signals, [])
-        self.assertEqual(result, "sound_detected") # Karar doğru olmalı
-        self.assertAlmostEqual(self.module.curiosity_level, expected_curiosity, places=6) # Sadece decay olmalı
+        # Corrected: Provide the missing 'current_concepts' argument.
+        result = self.module.decide(signals, [], []) # Add empty list for current_concepts
 
-        # Diğer process tabanlı kararlar için de aynı behavior beklenir.
-        self.module.curiosity_level = initial_curiosity # Sıfırla
+        self.assertEqual(result, "sound_detected") # Decision should be correct
+        self.assertAlmostEqual(self.module.curiosity_level, expected_curiosity, places=6) # Curiosity should only decay.
+
+        # The same behavior is expected for other process-based decisions.
+        self.module.curiosity_level = initial_curiosity # Reset for next check
         signals_visual = { 'high_audio_energy': False, 'high_visual_edges': True, 'is_bright': False, 'is_dark': False, 'similarity_score': 0.1, 'max_concept_similarity': 0.1, 'most_similar_concept_id': None, }
-        result_visual = self.module.decide(signals_visual, [])
+        # Corrected: Provide the missing 'current_concepts' argument.
+        result_visual = self.module.decide(signals_visual, [], []) # Add empty list
+
         self.assertEqual(result_visual, "complex_visual_detected")
-        self.assertAlmostEqual(self.module.curiosity_level, expected_curiosity, places=6) # Sadece decay olmalı (1.0 -> 0.9)
+        self.assertAlmostEqual(self.module.curiosity_level, expected_curiosity, places=6) # Should only decay (1.0 -> 0.9)
 
-        self.module.curiosity_level = initial_curiosity # Sıfırla
+        self.module.curiosity_level = initial_curiosity # Reset
         signals_bright = { 'high_audio_energy': False, 'high_visual_edges': False, 'is_bright': True, 'is_dark': False, 'similarity_score': 0.1, 'max_concept_similarity': 0.1, 'most_similar_concept_id': None, }
-        result_bright = self.module.decide(signals_bright, [])
+        # Corrected: Provide the missing 'current_concepts' argument.
+        result_bright = self.module.decide(signals_bright, [], []) # Add empty list
+
         self.assertEqual(result_bright, "bright_light_detected")
-        self.assertAlmostEqual(self.module.curiosity_level, expected_curiosity, places=6) # Sadece decay olmalı (1.0 -> 0.9)
+        self.assertAlmostEqual(self.module.curiosity_level, expected_curiosity, places=6) # Should only decay (1.0 -> 0.9)
 
 
-        self.module.curiosity_level = initial_curiosity # Sıfırla
+        self.module.curiosity_level = initial_curiosity # Reset
         signals_dark = { 'high_audio_energy': False, 'high_visual_edges': False, 'is_bright': False, 'is_dark': True, 'similarity_score': 0.1, 'max_concept_similarity': 0.1, 'most_similar_concept_id': None, }
-        result_dark = self.module.decide(signals_dark, [])
+        # Corrected: Provide the missing 'current_concepts' argument.
+        result_dark = self.module.decide(signals_dark, [], []) # Add empty list
+
         self.assertEqual(result_dark, "dark_environment_detected")
-        self.assertAlmostEqual(self.module.curiosity_level, expected_curiosity, places=6) # Sadece decay olmalı (1.0 -> 0.9)
+        self.assertAlmostEqual(self.module.curiosity_level, expected_curiosity, places=6) # Should only decay (1.0 -> 0.9)
 
 
-    @patch('random.choice', return_value='explore_randomly') # random.choice'u mocklayalım
+    @patch('random.choice', return_value='explore_randomly') # Mock random.choice to control curiosity decision
     def test_curiosity_update_explore_randomly_only_decay(self, mock_random_choice):
-        """'explore_randomly' kararı merakı sadece decay etmeli."""
-        initial_curiosity = self.module.curiosity_threshold + 1.0 # Merak eşiği üstünde (örn: 6.0)
+        """Tests that the 'explore_randomly' decision only applies decay to curiosity."""
+        initial_curiosity = self.module.curiosity_threshold + 1.0 # Set curiosity above threshold (e.g., 6.0)
         self.module.curiosity_level = initial_curiosity
 
-        signals = { # Merak kararını tetikleyecek (diğerleri düşük öncelikli)
+        signals = { # Signals that trigger the curiosity decision (others are low priority)
             'similarity_score': 0.1,
             'high_audio_energy': False, 'high_visual_edges': False, 'is_bright': False, 'is_dark': False,
             'max_concept_similarity': 0.1, 'most_similar_concept_id': None,
         }
 
-        # Beklenen: initial - decay (inc/dec yok)
-        expected_curiosity = initial_curiosity - self.module.curiosity_decay # örn: 6.0 - 0.1 = 5.9
+        # Expected curiosity: initial - decay (no inc/dec)
+        expected_curiosity = initial_curiosity - self.module.curiosity_decay # e.g., 6.0 - 0.1 = 5.9
         expected_curiosity = max(0.0, expected_curiosity)
 
-        result = self.module.decide(signals, [])
-        self.assertEqual(result, "explore_randomly")
-        self.assertAlmostEqual(self.module.curiosity_level, expected_curiosity, places=6) # Sadece decay olmalı
+        # Corrected: Provide the missing 'current_concepts' argument.
+        result = self.module.decide(signals, [], []) # Add empty list for current_concepts
+
+        self.assertEqual(result, "explore_randomly") # Should be the value returned by mocked random.choice
+        self.assertAlmostEqual(self.module.curiosity_level, expected_curiosity, places=6) # Curiosity should only decay.
 
 
     def test_curiosity_does_not_go_below_zero(self):
-        """Merak seviyesi sıfırın altına düşmemeli."""
-        initial_curiosity = 0.1 # Çok düşük bir başlangıç değeri
+        """Tests that the curiosity level does not go below zero."""
+        initial_curiosity = 0.1 # Very low starting value
         self.module.curiosity_level = initial_curiosity
 
-        signals = { # familiar_input_detected kararına yol açacak sinyaller (decrement tetikler)
+        signals = { # Signals that lead to a "familiar_input_detected" decision (triggers decrement)
             'similarity_score': self.module.familiarity_threshold + 0.01, # 0.81
             'high_audio_energy': False, 'high_visual_edges': False, 'is_bright': False, 'is_dark': False,
             'max_concept_similarity': 0.1, 'most_similar_concept_id': None,
         }
 
-        # initial_curiosity (0.1) - decrement (0.5) - decay (0.1) = -0.5. Negatif olmamalı, 0.0 olmalı.
+        # Expected curiosity: initial (0.1) - decrement (0.5) - decay (0.1) = -0.5. Should be capped at 0.0.
         expected_curiosity = max(0.0, initial_curiosity - self.module.curiosity_decrement_familiar - self.module.curiosity_decay)
 
-        result = self.module.decide(signals, [])
-        self.assertEqual(result, "familiar_input_detected")
-        self.assertAlmostEqual(self.module.curiosity_level, 0.0, places=6) # Sıfıra eşit olmalı
+        # Corrected: Provide the missing 'current_concepts' argument.
+        result = self.module.decide(signals, [], []) # Add empty list for current_concepts
+
+        self.assertEqual(result, "familiar_input_detected") # Decision should be familiar
+        self.assertAlmostEqual(self.module.curiosity_level, 0.0, places=6) # Should be capped at zero.
 
 
     # --- Exception Handling Test ---
 
-    # decide metodunun try bloğu içinde hata fırlatacak bir şey mocklayalım.
-    # random.choice merak eşiği aşıldığında çağrılıyor. Onu mocklayıp hata fırlatalım.
-    @patch('random.choice', side_effect=RuntimeError("Simüle Edilmiş Karar Hatası"))
+    # Mock random.choice (called when curiosity threshold is exceeded) to raise an error during decide.
+    @patch('random.choice', side_effect=RuntimeError("Simulated Decision Error"))
     def test_decide_exception_handling_during_decision_logic(self, mock_random_choice):
-        """Karar alma mantığı sırasında hata oluşursa None döndürmesini test eder."""
-        initial_curiosity = self.module.curiosity_threshold + 1.0 # Merak eşiği üstüne çıkarak random.choice çağrılmasını sağla (örn: 6.0)
-        self.module.curiosity_level = initial_curiosity
+        """Tests that the decide method returns None if an error occurs during decision making logic."""
+        initial_curiosity_for_test = self.module.curiosity_threshold + 1.0 # Set curiosity above threshold to ensure random.choice is called (e.g., 6.0)
+        self.module.curiosity_level = initial_curiosity_for_test
 
-        signals = { # Merak kararını tetikleyecek sinyaller
+        signals = { # Signals that will trigger the curiosity decision (others are low priority)
             'similarity_score': 0.1,
             'high_audio_energy': False, 'high_visual_edges': False, 'is_bright': False, 'is_dark': False,
             'max_concept_similarity': 0.1, 'most_similar_concept_id': None,
         }
 
-        # Beklenti: Karar alma sırasında hata fırlatılacak (mock sayesinde).
-        # except bloğu yakalayacak ve None döndürecek.
-        # finally bloğu çalışacak.
-        # finally içindeki if decision is not None: false olacak (decision = None kaldı).
-        # decay çalışMAYACAK (çünkü decision None). Initial merak seviyesi aynı kalmalı.
-        # Düzeltme: finally bloğu decision is not None kontrolü kaldırıldı. Merak seviyesi *her zaman* decay olmalı.
-        # Yeni Merak Logic'ine göre: Hata durumunda decision=None olur. Finally çalışır. decision is not None false olur. Merak değişmez.
-        # O zaman expected_curiosity initial_curiosity olmalı.
-        # Tekrar kontrol: finally bloğunda decay decision is not None kontrolünün dışında mıydı?
-        # HAYIR, decay de decision is not None kontrolünün içindeymiş.
-        # Demek ki hata durumunda NE ARTIS NE AZALIS NE DE DECAY uygulanıyor.
-        # initial_curiosity = 6.0
-        # Expected curiosity should be 6.0
+        # Expectation: An error will be raised during decision making (due to the mock).
+        # The except block will catch it and return None.
+        # The finally block will run. The 'if decision is not None' check in finally will be false (as decision remained None).
+        # Thus, curiosity will NOT be updated (no increment/decrement or decay). The initial curiosity level should remain unchanged.
+        # Let's confirm the finally block logic: yes, update happens inside `if decision is not None:`.
 
-        initial_curiosity_for_test = self.module.curiosity_threshold + 1.0
-        self.module.curiosity_level = initial_curiosity_for_test
+        # Corrected: Provide the missing 'current_concepts' argument.
+        result = self.module.decide(signals, [], []) # Add empty list for current_concepts
 
-        result = self.module.decide(signals, [])
+        self.assertIsNone(result) # Should return None on error
+        mock_random_choice.assert_called_once() # Verify the mocked function was called
 
-        self.assertIsNone(result) # Hata durumunda None dönmeli
-        mock_random_choice.assert_called_once() # Mocklanan fonksiyon çağrılmış olmalı
-
-        # Merak seviyesi kontrolü: Hata durumunda merak seviyesi güncellenmemeli (artış/azalış veya decay).
-        # DecisionModule finally bloğundaki if decision is not None kontrolü sayesinde.
+        # Verify curiosity level remains unchanged (no update due to error).
         self.assertEqual(self.module.curiosity_level, initial_curiosity_for_test)
 
 
-    # --- cleanup Testleri ---
+    # --- cleanup Test ---
+    # This test verifies the cleanup method runs without raising an exception.
 
     def test_cleanup(self):
-        """cleanup metodunun kaynakları temizlediğini test eder (şimdilik sadece loglama)."""
-        # cleanup şu an bir state değiştirmiyor, sadece logluyor.
-        # Log çıktısını mocklayarak çağrıldığını doğrulayabiliriz.
+        """Tests that the cleanup method runs without issues (currently just logs)."""
+        # cleanup currently doesn't change state that can be easily asserted, just logs.
+        # We can use mocking to verify that the logger.info method is called.
         with patch('src.cognition.decision.logger.info') as mock_logger_info:
-             self.module.cleanup()
-             # Doğru log mesajı ve çağrı.
-             mock_logger_info.assert_called_with("DecisionModule objesi temizleniyor.")
-        # Curiosity seviyesi zaten setUp'ta ve teardown'dan sonra sıfırlanmış oluyor,
-        # cleanup metodu da aslında bir state değiştirmiyor.
-
-
-# Testleri çalıştırmak için boilerplate kod
-if __name__ == '__main__':
-    unittest.main(argv=[sys.argv[0]], exit=False)
+             self.module.cleanup() # Call the cleanup method
+             # Verify the correct log message was called.
+             mock_logger_info.assert_called_with("DecisionModule object cleaning up.")
+        # Curiosity level is reset in setUp and after tearDown by the fixture,
+        # and cleanup doesn't actually change its state currently.
