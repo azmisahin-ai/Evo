@@ -40,57 +40,58 @@ class DecisionModule:
 
         # Get thresholds and curiosity settings from config using get_config_value.
         # These settings are under the 'cognition' key in the main config.
-        self.familiarity_threshold = get_config_value(config, 'cognition', 'familiarity_threshold', default=0.8, expected_type=(float, int), logger_instance=logger)
-        self.audio_energy_threshold = get_config_value(config, 'cognition', 'audio_energy_threshold', default=1000.0, expected_type=(float, int), logger_instance=logger)
-        self.visual_edges_threshold = get_config_value(config, 'cognition', 'visual_edges_threshold', default=50.0, expected_type=(float, int), logger_instance=logger)
-        self.brightness_threshold_high = get_config_value(config, 'cognition', 'brightness_threshold_high', default=200.0, expected_type=(float, int), logger_instance=logger)
-        self.brightness_threshold_low = get_config_value(config, 'cognition', 'brightness_threshold_low', default=50.0, expected_type=(float, int), logger_instance=logger)
-        self.concept_recognition_threshold = get_config_value(config, 'cognition', 'concept_recognition_threshold', default=0.85, expected_type=(float, int), logger_instance=logger)
-        self.curiosity_threshold = get_config_value(config, 'cognition', 'curiosity_threshold', default=5.0, expected_type=(float, int), logger_instance=logger)
-        self.curiosity_increment_new = get_config_value(config, 'cognition', 'curiosity_increment_new', default=1.0, expected_type=(float, int), logger_instance=logger)
-        self.curiosity_decrement_familiar = get_config_value(config, 'cognition', 'curiosity_decrement_familiar', default=0.5, expected_type=(float, int), logger_instance=logger)
-        self.curiosity_decay = get_config_value(config, 'cognition', 'curiosity_decay', default=0.1, expected_type=(float, int), logger_instance=logger)
+        # Ensure all these attributes are stored as floats.
+        self.familiarity_threshold = float(get_config_value(config, 'cognition', 'familiarity_threshold', default=0.8, expected_type=(float, int), logger_instance=logger))
+        self.audio_energy_threshold = float(get_config_value(config, 'cognition', 'audio_energy_threshold', default=1000.0, expected_type=(float, int), logger_instance=logger))
+        self.visual_edges_threshold = float(get_config_value(config, 'cognition', 'visual_edges_threshold', default=50.0, expected_type=(float, int), logger_instance=logger))
+        self.brightness_threshold_high = float(get_config_value(config, 'cognition', 'brightness_threshold_high', default=200.0, expected_type=(float, int), logger_instance=logger))
+        self.brightness_threshold_low = float(get_config_value(config, 'cognition', 'brightness_threshold_low', default=50.0, expected_type=(float, int), logger_instance=logger))
+        self.concept_recognition_threshold = float(get_config_value(config, 'cognition', 'concept_recognition_threshold', default=0.85, expected_type=(float, int), logger_instance=logger))
+        self.curiosity_threshold = float(get_config_value(config, 'cognition', 'curiosity_threshold', default=5.0, expected_type=(float, int), logger_instance=logger))
+        self.curiosity_increment_new = float(get_config_value(config, 'cognition', 'curiosity_increment_new', default=1.0, expected_type=(float, int), logger_instance=logger))
+        self.curiosity_decrement_familiar = float(get_config_value(config, 'cognition', 'curiosity_decrement_familiar', default=0.5, expected_type=(float, int), logger_instance=logger))
+        self.curiosity_decay = float(get_config_value(config, 'cognition', 'curiosity_decay', default=0.1, expected_type=(float, int), logger_instance=logger))
 
 
         # Simple value checks for thresholds (0.0-1.0 range for similarity, non-negative for others)
-        # Use float casting for comparison robustness after getting values from config.
-        if not (0.0 <= float(self.familiarity_threshold) <= 1.0):
+        # Attributes are now floats, so direct comparison is fine.
+        if not (0.0 <= self.familiarity_threshold <= 1.0):
              logger.warning(f"DecisionModule: Config 'familiarity_threshold' out of expected range ({self.familiarity_threshold}). Using default 0.8.")
              self.familiarity_threshold = 0.8
-        if float(self.audio_energy_threshold) < 0.0:
+        if self.audio_energy_threshold < 0.0:
              logger.warning(f"DecisionModule: Config 'audio_energy_threshold' is negative ({self.audio_energy_threshold}). Using default 1000.0.")
              self.audio_energy_threshold = 1000.0
-        if float(self.visual_edges_threshold) < 0.0:
+        if self.visual_edges_threshold < 0.0:
              logger.warning(f"DecisionModule: Config 'visual_edges_threshold' is negative ({self.visual_edges_threshold}). Using default 50.0.")
              self.visual_edges_threshold = 50.0
         # Brightness threshold check: Must be positive and low < high
-        if float(self.brightness_threshold_high) < 0.0:
+        if self.brightness_threshold_high < 0.0:
              logger.warning(f"DecisionModule: Config 'brightness_threshold_high' is negative ({self.brightness_threshold_high}). Using default 200.0.")
              self.brightness_threshold_high = 200.0
-        if float(self.brightness_threshold_low) < 0.0:
+        if self.brightness_threshold_low < 0.0:
              logger.warning(f"DecisionModule: Config 'brightness_threshold_low' is negative ({self.brightness_threshold_low}). Using default 50.0.")
              self.brightness_threshold_low = 50.0
         # After previous checks, check the current values
-        if float(self.brightness_threshold_low) >= float(self.brightness_threshold_high):
+        if self.brightness_threshold_low >= self.brightness_threshold_high:
              logger.warning(f"DecisionModule: Config 'brightness_threshold_low' ({self.brightness_threshold_low}) is greater than or equal to 'brightness_threshold_high' ({self.brightness_threshold_high}). Using defaults 50.0 and 200.0.")
              self.brightness_threshold_low = 50.0
              self.brightness_threshold_high = 200.0 # Both low and high reset to ensure low < high.
 
-        if not (0.0 <= float(self.concept_recognition_threshold) <= 1.0):
+        if not (0.0 <= self.concept_recognition_threshold <= 1.0):
              logger.warning(f"DecisionModule: Config 'concept_recognition_threshold' out of expected range ({self.concept_recognition_threshold}). Expected between 0.0 and 1.0. Using default 0.85.")
              self.concept_recognition_threshold = 0.85
         # Curiosity threshold and update amounts must not be negative
-        if float(self.curiosity_threshold) < 0.0:
+        if self.curiosity_threshold < 0.0:
              logger.warning(f"DecisionModule: Config 'curiosity_threshold' is negative ({self.curiosity_threshold}). Using default 5.0.")
              self.curiosity_threshold = 5.0
-        if float(self.curiosity_increment_new) < 0.0:
+        if self.curiosity_increment_new < 0.0:
              logger.warning(f"DecisionModule: Config 'curiosity_increment_new' is negative ({self.curiosity_increment_new}). Using default 1.0.")
              self.curiosity_increment_new = 1.0
-        if float(self.curiosity_decrement_familiar) < 0.0:
+        if self.curiosity_decrement_familiar < 0.0:
              logger.warning(f"DecisionModule: Config 'curiosity_decrement_familiar' is negative ({self.curiosity_decrement_familiar}). Using default 0.5.")
              self.curiosity_decrement_familiar = 0.5
         # Curiosity decay must not be negative
-        if float(self.curiosity_decay) < 0.0:
+        if self.curiosity_decay < 0.0:
              logger.warning(f"DecisionModule: Config 'curiosity_decay' is negative ({self.curiosity_decay}). Using default 0.1.")
              self.curiosity_decay = 0.1
 
@@ -140,29 +141,36 @@ class DecisionModule:
         # Safely get understanding signals from the dictionary. Use default values if keys are missing.
         # Use get() method. Values obtained might be None or wrong type if UnderstandingModule had issues,
         # so be defensive in decision logic below.
-        similarity_score = understanding_signals.get('similarity_score', 0.0)
+        similarity_score_input = understanding_signals.get('similarity_score', 0.0)
         high_audio_energy = understanding_signals.get('high_audio_energy', False)
         high_visual_edges = understanding_signals.get('high_visual_edges', False)
         is_bright = understanding_signals.get('is_bright', False)
         is_dark = understanding_signals.get('is_dark', False)
-        max_concept_similarity = understanding_signals.get('max_concept_similarity', 0.0)
+        max_concept_similarity_input = understanding_signals.get('max_concept_similarity', 0.0)
         most_similar_concept_id = understanding_signals.get('most_similar_concept_id', None)
+        
+        # Ensure numeric inputs are float for reliable comparison
+        similarity_score = 0.0
+        if isinstance(similarity_score_input, (int, float)):
+            similarity_score = float(similarity_score_input)
+        else:
+            logger.warning(f"DecisionModule.decide: 'similarity_score' received non-numeric value {similarity_score_input}. Defaulting to 0.0.")
 
-        # Validate types of incoming signals if needed, or be defensive in logic.
-        # Boolean signals (high_audio_energy, etc.) are fine if get() defaults to False.
-        # Numerical signals (similarity_score, max_concept_similarity) should ideally be numeric, check isinstance before comparison.
-        # most_similar_concept_id can be int or None.
+        max_concept_similarity = 0.0
+        if isinstance(max_concept_similarity_input, (int, float)):
+            max_concept_similarity = float(max_concept_similarity_input)
+        else:
+            logger.warning(f"DecisionModule.decide: 'max_concept_similarity' received non-numeric value {max_concept_similarity_input}. Defaulting to 0.0.")
+
 
         logger.debug(f"DecisionModule.decide: Received understanding signals - Sim:{similarity_score:.4f}, Audio:{high_audio_energy}, Visual:{high_visual_edges}, Bright:{is_bright}, Dark:{is_dark}, ConceptSim:{max_concept_similarity:.4f}, ConceptID:{most_similar_concept_id}. Current Curiosity: {self.curiosity_level:.2f}. Making decision.")
 
-        # Determine the fundamental memory/similarity state (provides a hint for curiosity update too)
-        # This is the base state BEFORE process signals and concept recognition override.
-        # Is fundamentally familiar if similarity_score is numeric and above/equal to the threshold.
         is_fundamentally_familiar = False
-        if isinstance(similarity_score, (int, float)) and float(similarity_score) >= float(self.familiarity_threshold):
+        # self.familiarity_threshold is guaranteed to be float
+        if similarity_score >= self.familiarity_threshold:
              is_fundamentally_familiar = True
 
-        is_fundamentally_new = not is_fundamentally_familiar # The base state is either familiar or new.
+        is_fundamentally_new = not is_fundamentally_familiar
 
 
         try:
@@ -170,24 +178,19 @@ class DecisionModule:
             # Priority Order: Curiosity > Audio > Visual Edge > Brightness/Darkness > Concept Recognition > Memory Familiarity > Default (New)
 
             # Check conditions in order of priority. Use elif so only the first met condition sets the decision.
-
-            # 1. Has the Curiosity Threshold been exceeded? (Highest priority)
-            if isinstance(self.curiosity_level, (int, float)) and float(self.curiosity_level) >= float(self.curiosity_threshold):
-                 # If curiosity threshold is exceeded, make a random exploration/signal decision.
+            # self.curiosity_level and self.curiosity_threshold are guaranteed to be float
+            if self.curiosity_level >= self.curiosity_threshold:
                  decision = random.choice(["explore_randomly", "make_noise"])
                  logger.debug(f"DecisionModule.decide: Decision: '{decision}'. Curiosity threshold ({self.curiosity_level:.2f} >= {self.curiosity_threshold:.2f}) exceeded.")
 
-            # 2. Is there high audio energy? (Second priority)
             elif isinstance(high_audio_energy, bool) and high_audio_energy:
                  decision = "sound_detected"
                  logger.debug(f"DecisionModule.decide: Decision: '{decision}'. High audio energy detected.")
 
-            # 3. Is there high visual edge density? (Third priority)
             elif isinstance(high_visual_edges, bool) and high_visual_edges:
                  decision = "complex_visual_detected"
                  logger.debug(f"DecisionModule.decide: Decision: '{decision}'. High visual edge density detected.")
 
-            # 4. Is the environment Bright or Dark? (Fourth priority)
             elif isinstance(is_bright, bool) and is_bright:
                  decision = "bright_light_detected"
                  logger.debug(f"DecisionModule.decide: Decision: '{decision}'. Environment detected as bright.")
@@ -195,93 +198,51 @@ class DecisionModule:
             elif isinstance(is_dark, bool) and is_dark:
                  decision = "dark_environment_detected"
                  logger.debug(f"DecisionModule.decide: Decision: '{decision}'. Environment detected as dark.")
-
-            # 5. Was a Concept Recognized? (Fifth priority)
-            # Check if concept similarity score is numeric, if ID is not None, and if similarity is above/equal to threshold.
-            # This is checked ONLY if none of the higher elif conditions were met.
-            elif isinstance(max_concept_similarity, (int, float)) and float(max_concept_similarity) >= float(self.concept_recognition_threshold) and most_similar_concept_id is not None:
-                 # Ensure the concept ID is an integer before using it in f-string.
+            
+            # self.concept_recognition_threshold is guaranteed to be float
+            elif max_concept_similarity >= self.concept_recognition_threshold and most_similar_concept_id is not None:
                  if isinstance(most_similar_concept_id, int):
                       decision = f"recognized_concept_{most_similar_concept_id}"
                       logger.debug(f"DecisionModule.decide: Decision: '{decision}'. Concept recognized (Similarity: {max_concept_similarity:.4f} >= Threshold {self.concept_recognition_threshold:.4f}, ID: {most_similar_concept_id}).")
                  else:
-                      # If ID is not a valid type, skip concept recognition decision and fall through to the next priority.
                       logger.debug(f"DecisionModule.decide: Concept recognition similarity high ({max_concept_similarity:.4f}) but ConceptID is not a valid integer ({type(most_similar_concept_id)}). Skipping concept recognition decision.")
 
-
-            # 6. Is the memory similarity score above the threshold? (Sixth priority)
-            # This is checked ONLY if none of the higher elif conditions were met.
-            elif is_fundamentally_familiar: # is_fundamentally_familiar is true if similarity_score >= familiarity_threshold (and is numeric).
+            elif is_fundamentally_familiar:
                  decision = "familiar_input_detected"
                  logger.debug(f"DecisionModule.decide: Decision: '{decision}'. Memory similarity score ({similarity_score:.4f}) >= Threshold ({self.familiarity_threshold:.4f}).")
 
-
-            # 7. If none of the higher priority conditions were met (Default)
-            # This is reached if decision is still None after the entire elif chain.
             if decision is None:
-                 decision = "new_input_detected" # Default decision
+                 decision = "new_input_detected" 
                  logger.debug(f"DecisionModule.decide: Decision: '{decision}'. No higher priority condition detected.")
 
-
-            # TODO: More complex logic in the future:
-            # - Incorporate information from other understanding outputs into the decision.
-            # - Combine multiple criteria (e.g., high similarity AND understanding detected a specific object).
-            # - Include other internal states in the decision (boredom, hunger, etc.).
-            # - Different types of decisions (e.g., "move", "make noise").
-
         except Exception as e:
-            # Catch any unexpected error that occurs during the decision making process.
-            # Log the error.
             logger.error(f"DecisionModule.decide: Unexpected error during decision making: {e}", exc_info=True)
-            # Curiosity level is not updated in case of error (handled in finally block).
-            return None # Return None in case of error.
+            return None
 
         finally:
             # --- Update Curiosity Level ---
-            # Update curiosity level ONLY if a decision was successfully made (decision is not None).
-            # Ensure self.curiosity_level is numeric.
-            if decision is not None and isinstance(self.curiosity_level, (int, float)):
+            # self.curiosity_level, self.curiosity_increment_new, self.curiosity_decrement_familiar, self.curiosity_decay are floats.
+            if decision is not None: # curiosity_level is always float
                 try:
-                    curiosity_before_decay = float(self.curiosity_level)
+                    curiosity_before_update = self.curiosity_level # Already float
 
-                    # Increase/decrease curiosity based on the DECISION MADE.
-                    # Decisions based on Process signals or Curiosity threshold (explore_randomly, make_noise) only apply decay.
-                    # Only "new" or "familiar/recognized" decisions apply inc/dec.
-                    # Note: Decisions are compared using string comparison.
-                    if decision == "new_input_detected" or decision == "new_input_detected_fallback": # Added fallback string check for safety
-                         curiosity_before_decay += self.curiosity_increment_new
+                    if decision == "new_input_detected" or decision == "new_input_detected_fallback":
+                         curiosity_before_update += self.curiosity_increment_new
                          logger.debug(f"DecisionModule: Curiosity increment ({self.curiosity_increment_new:.2f}) based on decision: '{decision}'.")
                     elif decision == "familiar_input_detected" or (isinstance(decision, str) and decision.startswith("recognized_concept_")):
-                         curiosity_before_decay -= self.curiosity_decrement_familiar
+                         curiosity_before_update -= self.curiosity_decrement_familiar
                          logger.debug(f"DecisionModule: Curiosity decrement ({self.curiosity_decrement_familiar:.2f}) based on decision: '{decision}'.")
                     else:
-                         # Decisions based on Audio, Visual Edges, Bright/Dark, Explore/Noise. Do not increment/decrement curiosity, only decay applies.
-                         # curiosity_before_decay remains unchanged here before decay.
                          logger.debug(f"DecisionModule: No curiosity change (only decay). Decision: '{decision}'.")
+                    
+                    self.curiosity_level = max(0.0, curiosity_before_update - self.curiosity_decay)
 
-
-                    # Apply decay to curiosity level in every loop iteration where a decision was made.
-                    self.curiosity_level = max(0.0, curiosity_before_decay - float(self.curiosity_decay)) # Ensure curiosity doesn't go below 0.0
-
-                    # Log the updated curiosity level.
                     logger.debug(f"DecisionModule: Current Curiosity Level: {self.curiosity_level:.2f}")
 
                 except Exception as e:
-                     # Catch errors during curiosity update but do not interrupt the main flow (already made a decision).
                      logger.error(f"DecisionModule: Unexpected error while updating curiosity level: {e}", exc_info=True)
-            # else: If decision was None, curiosity is not updated (handled by the if decision is not None check).
-
-
-        return decision # Return the decision string or None.
+        return decision
 
     def cleanup(self):
-        """
-        Cleans up DecisionModule resources.
-
-        Currently, it doesn't use specific resources.
-        TODO: Saving internal state (like curiosity level) could go here (future TODO).
-        Called by module_loader.py when the program terminates (if it exists).
-        """
         logger.info("DecisionModule object cleaning up.")
-        # TODO: Add logic here to save internal state (future TODO).
         pass
