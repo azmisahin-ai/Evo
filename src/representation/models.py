@@ -178,7 +178,6 @@ class RepresentationLearner:
         logger.info("RepresentationLearner initializing...")
 
         # Get input and representation dimensions from config using get_config_value.
-        # Corrected: Use default= keyword format for all calls.
         # Based on config, these settings are under the 'representation' key.
         self.input_dim = get_config_value(config, 'representation', 'input_dim', default=8194, expected_type=int, logger_instance=logger)
         self.representation_dim = get_config_value(config, 'representation', 'representation_dim', default=128, expected_type=int, logger_instance=logger)
@@ -236,381 +235,236 @@ class RepresentationLearner:
         logger.info(f"RepresentationLearner initialized. Input dimension: {self.input_dim}, Representation dimension: {self.representation_dim}. Initialization Successful: {self.is_initialized}")
 
 
-    # ... (learn, decode, cleanup methods - same as before) ...
-
-
     def learn(self, processed_inputs):
         """
-        İşlenmiş duyusal girdiden bir temsil (latent vektör) çıkarır (Encoder forward pass).
+        Extracts a representation (latent vector) from processed sensory input (Encoder forward pass).
 
-        Processing modüllerinden gelen işlenmiş duyusal verileri (sözlük formatında) alır.
-        Bu verileri birleştirerek birleşik bir girdi vektörü oluşturur.
-        Girdi vektörünü Encoder katmanından geçirerek temsil vektörünü hesaplar.
-        Modül başlatılmamışsa, girdi boşsa veya işleme/ileri geçiş sırasında
-        hata oluşursa None döndürür.
+        Receives processed sensory data (in a dictionary format) from Processing modules.
+        Combines this data into a unified input vector.
+        Passes the input vector through the Encoder layer to compute the representation vector.
+        Returns None if the module is not initialized, input is empty, or an error occurs
+        during processing/forward pass.
 
         Args:
-            processed_inputs (dict): İşlenmiş duyu verileri sözlüğü.
-                                     Örn: {'visual': dict or None, 'audio': numpy.ndarray or None}.
-                                     Genellikle Process modüllerinden gelir.
+            processed_inputs (dict): Dictionary of processed sensory data.
+                                     E.g., {'visual': dict or None, 'audio': numpy.ndarray or None}.
+                                     Typically comes from Process modules.
 
         Returns:
-            numpy.ndarray or None: Öğrenilmiş temsil vektörü (shape (representation_dim,), dtype sayısal)
-                                   veya hata durumunda ya da temsil çıkarılamazsa None.
+            numpy.ndarray or None: The learned representation vector (shape (representation_dim,), numerical dtype)
+                                   or None on error or if representation could not be extracted.
         """
-        # Hata yönetimi: Modül başlatılamamışsa işlem yapma.
-        if not self.is_initialized or self.encoder is None: # Decoder yoksa bile Encoder çalışabilir policy'si olabilir.
-             logger.error("RepresentationLearner.learn: Modül başlatılmamış veya Encoder katmanı yok. Temsil öğrenilemiyor.")
-             return None # Başlatılamadıysa None döndür.
+        # Error handling: If module is not initialized, do not proceed.
+        if not self.is_initialized or self.encoder is None: # Even if decoder is None, encoder might still work (policy).
+             logger.error("RepresentationLearner.learn: Module is not initialized or Encoder layer is missing. Cannot learn representation.")
+             return None # Return None if not initialized.
 
-        # Hata yönetimi: İşlenmiş girdi sözlüğü None veya boşsa işlem yapma.
-        # check_input_not_none fonksiyonunu processed_inputs sözlüğü için kullanalım.
+        # Error handling: If the processed input dictionary is None or empty, do not proceed.
+        # Use check_input_not_none function for the processed_inputs dictionary.
         if not check_input_not_none(processed_inputs, input_name="processed_inputs for RepresentationLearner", logger_instance=logger):
-             logger.debug("RepresentationLearner.learn: İşlenmiş girdi sözlüğü None. Temsil öğrenilemiyor.")
-             return None # Girdi None ise None döndür.
+             logger.debug("RepresentationLearner.learn: Processed input dictionary is None. Cannot learn representation.")
+             return None # Return None if input is None.
 
-        if not processed_inputs: # Sözlük boşsa
-            logger.debug("RepresentationLearner.learn: İşlenmiş girdi sözlüğü boş. Temsil öğrenilemiyor.")
-            return None # Girdi yoksa None döndür.
+        if not processed_inputs: # If the dictionary is empty
+            logger.debug("RepresentationLearner.learn: Processed input dictionary is empty. Cannot learn representation.")
+            return None # Return None if there is no input.
 
 
-        input_vector_parts = [] # Birleştirilecek girdi parçalarını tutacak liste.
+        input_vector_parts = [] # List to hold parts of the input vector to be concatenated.
 
         try:
-            # İşlenmiş duyusal verileri alıp birleştirerek modelin beklediği tek bir girdi vektörü oluştur.
-            # Bu kısım, farklı modalitelerden (görsel, işitsel) gelen işlenmiş veriyi
-            # nasıl birleştirip model için tek bir girdi formatına getireceğimizi belirler.
-            # Beklenen format:
-            # visual: VisionProcessor'dan gelen dict {'grayscale': np.ndarray (64x64 uint8), 'edges': np.ndarray (64x64 uint8)}
-            # audio: AudioProcessor'dan gelen np.ndarray (shape (output_dim,), dtype float32) - [energy, spectral_centroid]
-            # Amacımız RepresentationLearner'ın input_dim (8194) ile eşleşen bir vektör oluşturmak.
+            # Take the processed sensory data and combine it into a single input vector as expected by the model.
+            # This part determines how we combine processed data from different modalities (visual, auditory)
+            # into a single input format for the model.
+            # Expected format:
+            # visual: dict from VisionProcessor {'grayscale': np.ndarray (64x64 uint8), 'edges': np.ndarray (64x64 uint8)}
+            # audio: np.ndarray from AudioProcessor (shape (output_dim,), dtype float32) - [energy, spectral_centroid]
+            # Goal is to create a vector matching RepresentationLearner's input_dim (8194).
             # 8194 = (64*64 grayscale) + (64*64 edges) + (AudioProcessor output_dim)
 
-            # Görsel veriyi işle ve birleştirilecek listeye ekle
+            # Process visual data and add to the list of parts to be concatenated
             visual_processed = processed_inputs.get('visual')
-            # İşlenmiş görsel verinin bir sözlük olup olmadığını kontrol et.
+            # Check if the processed visual data is a dictionary.
             if isinstance(visual_processed, dict):
-                 # Sözlüğün içindeki 'grayscale' ve 'edges' anahtarlarını kontrol et ve değerlerinin numpy array olduğunu doğrula.
+                 # Check for 'grayscale' and 'edges' keys within the dictionary and ensure their values are numpy arrays.
                  grayscale_data = visual_processed.get('grayscale')
                  edges_data = visual_processed.get('edges')
 
-                 # Grayscale veriyi işle
-                 # check_numpy_input artık expected_shape_0 argümanını kabul etmiyor.
+                 # Process grayscale data
                  if grayscale_data is not None and check_numpy_input(grayscale_data, expected_dtype=np.uint8, expected_ndim=2, input_name="processed_inputs['visual']['grayscale']", logger_instance=logger):
-                      # Görsel veriyi düzleştirip (flatten) float32'ye çevir. Normalizasyon isteğe bağlı (Gelecek TODO).
+                      # Flatten the visual data and convert to float32. Normalization is optional (Future TODO).
                       flattened_grayscale = grayscale_data.flatten().astype(np.float32)
                       # TODO: Normalize flattened_grayscale to 0-1 range? flattened_grayscale = flattened_grayscale / 255.0
                       input_vector_parts.append(flattened_grayscale)
-                      logger.debug(f"RepresentationLearner.learn: Görsel veri (grayscale) düzleştirildi. Shape: {flattened_grayscale.shape}")
+                      logger.debug(f"RepresentationLearner.learn: Visual data (grayscale) flattened. Shape: {flattened_grayscale.shape}")
                  else:
-                      logger.warning("RepresentationLearner.learn: İşlenmiş görsel input sözlüğünde 'grayscale' geçerli numpy array değil veya boyutu yanlış. Yoksayılıyor.")
+                      # Log a warning if 'grayscale' is not a valid numpy array or has wrong dimensions/type.
+                      logger.warning("RepresentationLearner.learn: 'grayscale' in processed visual input dictionary is not a valid numpy array or has wrong dimensions/type. Skipping.")
 
-                 # Edges veriyi işle
-                 # check_numpy_input artık expected_shape_0 argümanını kabul etmiyor.
+                 # Process edges data
                  if edges_data is not None and check_numpy_input(edges_data, expected_dtype=np.uint8, expected_ndim=2, input_name="processed_inputs['visual']['edges']", logger_instance=logger):
-                      # Kenar haritasını düzleştirip (flatten) float32'ye çevir. 0-255 değerleri 0 veya 255'tir.
+                      # Flatten the edge map and convert to float32. Values are typically 0 or 255.
                       flattened_edges = edges_data.flatten().astype(np.float32)
-                      # TODO: Normalize flattened_edges? flattened_edges = flattened_edges / 255.0 # Veya sadece 0/1 ikili değerler olarak mı kalsın?
+                      # TODO: Normalize flattened_edges? flattened_edges = flattened_edges / 255.0 # Or keep as 0/1 binary values?
                       input_vector_parts.append(flattened_edges)
-                      logger.debug(f"RepresentationLearner.learn: Görsel veri (edges) düzleştirildi. Shape: {flattened_edges.shape}")
+                      logger.debug(f"RepresentationLearner.learn: Visual data (edges) flattened. Shape: {flattened_edges.shape}")
                  else:
-                      logger.warning("RepresentationLearner.learn: İşlenmiş görsel input sözlüğünde 'edges' geçerli numpy array değil veya boyutu yanlış. Yoksayılıyor.")
+                      # Log a warning if 'edges' is not a valid numpy array or has wrong dimensions/type.
+                      logger.warning("RepresentationLearner.learn: 'edges' in processed visual input dictionary is not a valid numpy array or has wrong dimensions/type. Skipping.")
 
-            # elif visual_processed is not None: # Dict değil ama None da değilse
-            #      logger.warning(f"RepresentationLearner.learn: İşlenmiş görsel input beklenmeyen tipte ({type(visual_processed)}). dict bekleniyordu. Yoksayılıyor.")
+            # elif visual_processed is not None: # If not a dict but also not None (unexpected format)
+            #      logger.warning(f"RepresentationLearner.learn: Processed visual input has unexpected type ({type(visual_processed)}). Dictionary expected. Skipping.")
             # else: # visual_processed is None
-            #      logger.debug("RepresentationLearner.learn: İşlenmiş görsel input None. Yoksayılıyor.")
+            #      logger.debug("RepresentationLearner.learn: Processed visual input is None. Skipping.")
 
 
-            # İşitsel veriyi işle ve birleştirilecek listeye ekle
+            # Process auditory data and add to the list of parts to be concatenated
             audio_processed = processed_inputs.get('audio')
-            # AudioProcessor artık bir numpy array (shape (output_dim,), dtype float32) veya None döndürmeli.
-            # Gelen verinin numpy array ve doğru boyutta/dtype olduğunu kontrol et.
-            # Beklenen dtype np.number (veya np.float32). Beklenen ndim 1. Beklenen shape[0] = AudioProcessor config'teki output_dim (2).
-            # check_numpy_input artık expected_shape_0 argümanını kabul etmiyor. Shape kontrolünü manuel yapalım.
-            expected_audio_dim = self.config.get('processors', {}).get('audio', {}).get('output_dim', 2) # Config'ten beklenen boyutu al.
+            # AudioProcessor is expected to return a numpy array (shape (output_dim,), dtype float32) or None.
+            # Check if the incoming data is a numpy array and has the correct dimensions/dtype.
+            # Expected dtype is np.number (or np.float32). Expected ndim is 1. Expected shape[0] is the output_dim from AudioProcessor config (2).
+            # Get the expected audio output dimension from config.
+            expected_audio_dim = get_config_value(self.config, 'processors', 'audio', 'output_dim', default=2, expected_type=int, logger_instance=logger) # Use self.config here
             if audio_processed is not None and check_numpy_input(audio_processed, expected_dtype=np.number, expected_ndim=1, input_name="processed_inputs['audio']", logger_instance=logger):
-                 # check_numpy_input temel array/dtype/ndim kontrolünü yaptı. Şimdi spesifik shape[0] kontrolünü yapalım.
+                 # check_numpy_input performed basic array/dtype/ndim checks. Now check the specific shape[0] dimension.
                  if audio_processed.shape[0] == expected_audio_dim:
-                      # Ses özellik array'ini doğrudan ekle (zaten 1D array). Dtype float32 olmalıydı AudioProcessor'da.
+                      # Add the audio features array directly (it's already a 1D array). Should be float32 from AudioProcessor.
                       audio_features_array = audio_processed.astype(np.float32) # Ensure float32
                       # TODO: Normalize audio_features_array?
                       input_vector_parts.append(audio_features_array)
-                      logger.debug(f"RepresentationLearner.learn: Ses verisi array'i eklendi. Shape: {audio_features_array.shape}")
+                      logger.debug(f"RepresentationLearner.learn: Audio data array added. Shape: {audio_features_array.shape}")
                  else:
-                      # check_numpy_input geçerli dese bile, beklenen ilk boyut uymuyor.
-                      logger.warning(f"RepresentationLearner.learn: İşlenmiş ses input beklenmeyen boyutta. Beklenen shape ({expected_audio_dim},), gelen shape {audio_processed.shape}. Yoksayılıyor.")
+                      # Log a warning if the expected first dimension doesn't match, even if other checks pass.
+                      logger.warning(f"RepresentationLearner.learn: Processed audio input has unexpected dimension. Expected shape ({expected_audio_dim},), received shape {audio_processed.shape}. Skipping.")
 
-
-            # elif audio_processed is not None: # Geçersiz format (numpy array değil veya yanlış dtype)
-            #      logger.warning(f"RepresentationLearner.learn: İşlenmiş ses input beklenmeyen formatta ({type(audio_processed)}, shape {getattr(audio_processed, 'shape', 'N/A')}). 1D numpy array bekleniyordu. Yoksayılıyor.")
+            # elif audio_processed is not None: # Invalid format (not numpy array or wrong dtype)
+            #      logger.warning(f"RepresentationLearner.learn: Processed audio input has unexpected format ({type(audio_processed)}, shape {getattr(audio_processed, 'shape', 'N/A')}). Expected 1D numpy array. Skipping.")
             # else: # audio_processed is None
-            #      logger.debug("RepresentationLearner.learn: İşlenmiş ses input None. Yoksayılıyor.")
+            #      logger.debug("RepresentationLearner.learn: Processed audio input is None. Skipping.")
 
 
-            # Tüm geçerli girdi parçalarını tek bir numpy vektöründe birleştir (concatenate).
-            # Eğer grayscale, edges ve audio'dan en az biri geçerliyse devam et.
-            if not input_vector_parts: # Eğer hiçbir geçerli girdi parçası (grayscale, edges, audio_features) eklenmediyse
-                 logger.debug("RepresentationLearner.learn: İşlenmiş girdilerden (grayscale, edges, audio) geçerli veri çıkarılamadı veya hiçbiri mevcut değil. Temsil öğrenilemiyor.")
-                 return None # Temsil öğrenilemez, None döndür.
+            # Concatenate all valid input parts into a single numpy vector.
+            # Continue only if at least one valid input part (grayscale, edges, audio_features) was added.
+            if not input_vector_parts: # If no valid input parts were added
+                 logger.debug("RepresentationLearner.learn: No valid data extracted from processed inputs (grayscale, edges, audio). Cannot learn representation.")
+                 return None # Cannot learn representation, return None.
 
-            # np.concatenate, listedeki arrayleri tek bir arrayde birleştirir. axis=0 default olarak ilk boyutta birleştirir.
+            # Concatenate the arrays in the list into a single array. axis=0 concatenates along the first dimension by default.
             combined_input = np.concatenate(input_vector_parts, axis=0)
 
-            # Girdi boyutu kontrolü: Birleştirilmiş girdi boyutu (shape[0]) config'teki input_dim ile eşleşmeli.
-            # Bu kontrol Dense katmanı içinde de yapılıyor (forward metodu), ama burada da yapmak
-            # temsil öğrenme adımındaki veri hazırlığı sorunlarını anlamayı kolaylaştırır.
-            # input_dim'i config'ten alıyoruz (default 8194). Birleştirilen verinin boyutu da bu olmalı.
+            # Input dimension check: The dimension of the combined input (shape[0]) should match the input_dim from config.
+            # This check is also performed inside the Dense layer (forward method), but doing it here too
+            # makes it easier to understand data preparation issues at the representation learning step.
+            # self.input_dim is obtained from config (default 8194). The dimension of the combined data must match.
             if combined_input.shape[0] != self.input_dim:
-                 # Hata mesajını daha açıklayıcı yapalım.
-                 logger.error(f"RepresentationLearner.learn: Birleştirilmiş girdi boyutu ({combined_input.shape[0]}) config'teki input_dim ({self.input_dim}) ile eşleşmiyor. Lütfen config dosyasındaki 'representation' input_dim ayarını ve Processing modüllerinin çıktı format/boyutlarını (şu an VisionProcessor'dan 'grayscale' 64x64, 'edges' 64x64 ve AudioProcessor'dan 2 özellik bekleniyor) kontrol edin.")
-                 # Bu noktada boyut uyuşmazlığı ciddi bir konfigürasyon/veri akışı hatasıdır. None döndürüyoruz.
-                 return None # Boyut uymuyorsa temsil öğrenilemez, None döndür.
+                 # Make the error message more informative.
+                 logger.error(f"RepresentationLearner.learn: Combined input dimension ({combined_input.shape[0]}) does not match input_dim in config ({self.input_dim}). Please check the 'representation.input_dim' setting in the config file and the output format/dimensions of the Processors (currently expects 64x64 grayscale, 64x64 edges, and {expected_audio_dim} audio features).")
+                 # Dimension mismatch is a serious configuration/data flow error. Return None.
+                 return None # Cannot learn representation if dimensions don't match, return None.
 
-            # DEBUG logu: Birleştirilmiş girdi detayları.
-            logger.debug(f"RepresentationLearner.learn: Görsel ve ses verisi birleştirildi. Shape: {combined_input.shape}, Dtype: {combined_input.dtype}.")
+            # DEBUG log: Combined input details.
+            logger.debug(f"RepresentationLearner.learn: Visual and audio data combined. Shape: {combined_input.shape}, Dtype: {combined_input.dtype}.")
 
 
-            # Representation modelini çalıştır (encoder ileri geçiş - forward pass).
-            # Representation modelimizin encoder'ı self.encoder (Dense katmanı).
-            # Encoder katmanının forward metodu girdi None ise veya hata olursa None döndürür.
+            # Run the representation model (encoder forward pass).
+            # Our representation model's encoder is self.encoder (a Dense layer).
+            # The encoder layer's forward method returns None if input is None or an error occurs.
             representation = self.encoder.forward(combined_input)
 
-            # Eğer modelden None döndüyse (encoder içinde hata olduysa)
+            # If the model returned None (an error occurred inside the encoder)
             if representation is None:
-                 logger.error("RepresentationLearner.learn: Encoder modelinden None döndü, ileri geçiş başarısız. Temsil öğrenilemedi.")
-                 return None # Hata durumında None döndür.
+                 logger.error("RepresentationLearner.learn: Encoder model returned None, forward pass failed. Cannot learn representation.")
+                 return None # Return None in case of error.
 
-            # DEBUG logu: Temsil çıktı detayları.
-            # if representation is not None: # Zaten None değilse buraya gelinir.
-            logger.debug(f"RepresentationLearner.learn: Temsil başarıyla öğrenildi. Output Shape: {representation.shape}, Dtype: {representation.dtype}.")
+            # DEBUG log: Representation output details.
+            # if representation is not None: # We are in this block only if representation is not None.
+            logger.debug(f"RepresentationLearner.learn: Representation successfully learned. Output Shape: {representation.shape}, Dtype: {representation.dtype}.")
 
 
-            # Başarılı durumda öğrenilen temsil vektörünü döndür.
+            # Return the learned representation vector on success.
             return representation
 
         except Exception as e:
-            # Genel hata yönetimi: İşlem (veri hazırlığı, birleştirme, model çalıştırma) sırasında beklenmedik hata olursa logla.
-            logger.error(f"RepresentationLearner.learn: Temsil öğrenme sırasında beklenmedik hata: {e}", exc_info=True)
-            return None # Hata durumunda None döndür.
+            # General error handling: Catch any unexpected error during the process (data preparation, concatenation, model execution).
+            logger.error(f"RepresentationLearner.learn: Unexpected error during representation learning: {e}", exc_info=True)
+            return None # Return None in case of error.
 
 
     def decode(self, latent_vector):
         """
-        Bir latent vektörden orijinal girdi boyutunda bir rekonstrüksiyon üretir (Decoder forward pass).
+        Produces a reconstruction in the original input dimensions from a latent vector (Decoder forward pass).
 
-        Bu metot, Autoencoder prensibinin decoder kısmını simüle eder.
-        Run_evo.py'nin ana döngüsünde şu an kullanılmayacak.
+        This method simulates the decoder part of an Autoencoder principle.
+        It will not be used in run_evo.py's main loop currently.
 
         Args:
-            latent_vector (numpy.ndarray or None): Decoder girdisi olan latent vektör (representation_dim boyutunda)
-                                                  veya None.
+            latent_vector (numpy.ndarray or None): The latent vector input for the Decoder (of dimension representation_dim)
+                                                  or None.
 
         Returns:
-            numpy.ndarray or None: Rekonstrukksiyon çıktısı (shape (input_dim,), dtype sayısal)
-                                   veya hata durumunda ya da girdi None ise None.
+            numpy.ndarray or None: The reconstruction output (shape (input_dim,), numerical dtype)
+                                   or None on error or if input is None.
         """
-        # Hata yönetimi: Modül başlatılamamışsa veya Decoder yoksa işlem yapma.
+        # Error handling: If the module is not initialized or Decoder is missing, do not proceed.
         if not self.is_initialized or self.decoder is None:
-             logger.error("RepresentationLearner.decode: Modül başlatılmamış veya Decoder katmanı yok. Rekonstrüksiyon yapılamıyor.")
+             logger.error("RepresentationLearner.decode: Module is not initialized or Decoder layer is missing. Cannot perform reconstruction.")
              return None
 
-        # Hata yönetimi: Latent vektör None mu? check_input_not_none kullan.
+        # Error handling: Is the latent vector input None? Use check_input_not_none.
         if not check_input_not_none(latent_vector, input_name="latent_vector for RepresentationLearner.decode", logger_instance=logger):
-             logger.debug("RepresentationLearner.decode: Girdi latent_vector None. None döndürülüyor.")
+             logger.debug("RepresentationLearner.decode: Input latent_vector is None. Returning None.")
              return None
 
-        # Hata yönetimi: Latent vektör numpy array ve doğru boyutta/dtype mı?
-        # representation_dim boyutunda 1D numpy array beklenir.
+        # Error handling: Is the latent vector a numpy array and has the correct dimensions/dtype?
+        # A 1D numpy array of dimension representation_dim is expected.
         if not check_numpy_input(latent_vector, expected_dtype=np.number, expected_ndim=1, input_name="latent_vector for RepresentationLearner.decode", logger_instance=logger):
-             # check_numpy_input temel kontrolü yaptı. Şimdi spesifik shape[0] kontrolünü yapalım.
+             # check_numpy_input performed basic array/dtype/ndim checks. Now check the specific shape[0] dimension.
              if not (isinstance(latent_vector, np.ndarray) and latent_vector.shape[0] == self.representation_dim):
-                   logger.error(f"RepresentationLearner.decode: Girdi latent_vector yanlış formatta. Beklenen shape ({self.representation_dim},), ndim 1, dtype sayısal. Gelen shape {getattr(latent_vector, 'shape', 'N/A')}, ndim {getattr(latent_vector, 'ndim', 'N/A')}, dtype {getattr(latent_vector, 'dtype', 'N/A')}. None döndürülüyor.")
+                   logger.error(f"RepresentationLearner.decode: Input latent_vector has wrong format. Expected shape ({self.representation_dim},), ndim 1, numerical dtype. Received shape {getattr(latent_vector, 'shape', 'N/A')}, ndim {getattr(latent_vector, 'ndim', 'N/A')}, dtype {getattr(latent_vector, 'dtype', 'N/A')}. Returning None.")
                    return None
-             # check_numpy_input zaten kendi içinde hata logladıysa, burada sadece None dönelim.
+             # If check_numpy_input already logged an error, just return None.
              return None
 
 
-        logger.debug(f"RepresentationLearner.decode: Latent vektör alindi. Shape: {latent_vector.shape}, Dtype: {latent_vector.dtype}. Rekonstruksiyon yapılıyor.")
+        logger.debug(f"RepresentationLearner.decode: Latent vector received. Shape: {latent_vector.shape}, Dtype: {latent_vector.dtype}. Performing reconstruction.")
 
         reconstruction = None
 
         try:
-            # Decoder katmanını çalıştır (ileri geçiş - forward pass).
-            # Decoder katmanının forward metodu girdi None ise veya hata olursa None döndürür.
+            # Run the Decoder layer (forward pass).
+            # The Decoder layer's forward method returns None if input is None or an error occurs.
             reconstruction = self.decoder.forward(latent_vector)
 
-            # Eğer modelden None döndüyse (decoder içinde hata olduysa)
+            # If the model returned None (an error occurred inside the decoder)
             if reconstruction is None:
-                 logger.error("RepresentationLearner.decode: Decoder modelinden None döndü, ileri geçiş başarısız. Rekonstrüksiyon yapılamadı.")
-                 return None # Hata durumında None döndür.
+                 logger.error("RepresentationLearner.decode: Decoder model returned None, forward pass failed. Cannot perform reconstruction.")
+                 return None # Return None in case of error.
 
-            # DEBUG logu: Rekonstrüksiyon çıktı detayları.
-            logger.debug(f"RepresentationLearner.decode: Rekonstrukksiyon tamamlandı. Output Shape: {reconstruction.shape}, Dtype: {reconstruction.dtype}.")
+            # DEBUG log: Reconstruction output details.
+            logger.debug(f"RepresentationLearner.decode: Reconstruction completed. Output Shape: {reconstruction.shape}, Dtype: {reconstruction.dtype}.")
 
 
-            # Başarılı durumda rekonstrüksiyon çıktısını döndür.
+            # Return the reconstruction output on success.
             return reconstruction
 
         except Exception as e:
-             # Genel hata yönetimi: İşlem sırasında beklenmedik hata olursa logla.
-             logger.error(f"RepresentationLearner.decode: Rekonstrukksiyon sırasında beklenmedik hata: {e}", exc_info=True)
-             return None # Hata durumunda None döndür.
+             # General error handling: Catch any unexpected error during the process.
+             logger.error(f"RepresentationLearner.decode: Unexpected error during reconstruction: {e}", exc_info=True)
+             return None # Return None in case of error.
 
 
     def cleanup(self):
         """
-        RepresentationLearner modülü kaynaklarını temizler (model katmanlarını vb.).
+        Cleans up RepresentationLearner module resources (model layers, etc.).
 
-        İçindeki model katmanlarının cleanup metotlarını (varsa) çağırır.
-        module_loader.py bu metotu program sonlanırken çağırır (varsa).
+        Calls the cleanup methods of its internal model layers (if they exist).
+        Called by module_loader.py when the program terminates (if it exists).
         """
-        logger.info("RepresentationLearner objesi siliniyor...")
-        # Encoder ve Decoder katmanlarının cleanup metotlarını çağır (varsa)
+        logger.info("RepresentationLearner object cleaning up.")
+        # Call the cleanup methods of Encoder and Decoder layers (if they exist)
         if hasattr(self.encoder, 'cleanup'):
              self.encoder.cleanup()
         if hasattr(self.decoder, 'cleanup'):
              self.decoder.cleanup()
 
-        logger.info("RepresentationLearner objesi silindi.")
-
-# Modülü bağımsız test etmek için örnek kullanım (isteğe bağlı, geliştirme sürecinde faydalı olabilir)
-if __name__ == '__main__':
-    # Test için temel loglama yapılandırması
-    import sys
-    logging.basicConfig(level=logging.DEBUG, stream=sys.stdout, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-
-    print("RepresentationLearner test ediliyor...")
-
-    # Sahte bir config sözlüğü oluştur
-    test_config = {
-        'input_dim': 8194, # 64*64 (grayscale) + 64*64 (edges) + 2 (audio features)
-        'representation_dim': 128,
-        'processors': { # Processor çıktı boyutlarını taklit etmek için config'e ekleyelim (gerçekte Representation bunları doğrudan kullanmamalı, ama test için belirtebiliriz)
-             'vision': {'output_width': 64, 'output_height': 64},
-             'audio': {'output_dim': 2}
-        }
-    }
-
-    # RepresentationLearner objesini başlat
-    try:
-        learner = RepresentationLearner(test_config)
-        print("\nRepresentationLearner objesi başarıyla başlatıldı.")
-        print(f"Beklenen girdi boyutu (input_dim): {learner.input_dim}")
-        print(f"Beklenen temsil boyutu (representation_dim): {learner.representation_dim}")
-
-
-        # Sahte işlenmiş girdi sözlüğü oluştur (VisionProcessor ve AudioProcessor çıktılarını taklit ederek)
-        # VisionProcessor çıktısı: {'grayscale': 64x64 uint8 array, 'edges': 64x64 uint8 array}
-        dummy_processed_visual_gray = np.random.randint(0, 256, size=(64, 64), dtype=np.uint8)
-        dummy_processed_visual_edges = np.random.randint(0, 2, size=(64, 64), dtype=np.uint8) * 255 # 0 veya 255
-        dummy_processed_visual_dict = {
-            'grayscale': dummy_processed_visual_gray,
-            'edges': dummy_processed_visual_edges
-        }
-        # AudioProcessor çıktısı: np.array([energy, spectral_centroid], dtype=float32) - shape (2,)
-        dummy_processed_audio_features = np.array([np.random.rand(), np.random.rand() * 10000], dtype=np.float32) # Centroid daha büyük değerler alabilir
-
-
-        dummy_processed_inputs = {
-            'visual': dummy_processed_visual_dict,
-            'audio': dummy_processed_audio_features
-        }
-
-        print(f"\nSahte işlenmiş girdi sözlüğü oluşturuldu: {list(dummy_processed_inputs.keys())}")
-        if isinstance(dummy_processed_inputs.get('visual'), dict):
-             print(f"  Görsel (dict): Keys: {list(dummy_processed_inputs['visual'].keys())}")
-             if dummy_processed_inputs['visual'].get('grayscale') is not None:
-                  print(f"    'grayscale' Shape: {dummy_processed_inputs['visual']['grayscale'].shape}, Dtype: {dummy_processed_inputs['visual']['grayscale'].dtype}")
-             if dummy_processed_inputs['visual'].get('edges') is not None:
-                  print(f"    'edges' Shape: {dummy_processed_inputs['visual']['edges'].shape}, Dtype: {dummy_processed_inputs['visual']['edges'].dtype}")
-        if isinstance(dummy_processed_inputs.get('audio'), np.ndarray):
-             print(f"  Ses (array): Shape: {dummy_processed_inputs['audio'].shape}, Dtype: {dummy_processed_inputs['audio'].dtype}")
-             if dummy_processed_inputs['audio'].shape[0] > 1:
-                  print(f"    Değerler (Enerji, Centroid): {dummy_processed_inputs['audio']}")
-
-
-        # learn metodunu test et (geçerli girdi ile)
-        print("\nlearn metodu test ediliyor (geçerli girdi ile):")
-        learned_representation = learner.learn(dummy_processed_inputs)
-
-        # Representation çıktısını kontrol et
-        if learned_representation is not None: # None dönmediyse başarılı demektir.
-            print("learn metodu başarıyla çalıştı. Öğrenilmiş temsil:")
-            if isinstance(learned_representation, np.ndarray):
-                 print(f"  Temsil: numpy.ndarray, Shape: {learned_representation.shape}, Dtype: {learned_representation.dtype}")
-                 # Beklenen çıktı boyutunu kontrol et
-                 if learned_representation.shape == (test_config['representation_dim'],):
-                      print(f"  Boyutlar beklenen ({test_config['representation_dim']},) ile eşleşiyor.")
-                 else:
-                       print(f"  UYARI: Boyutlar beklenmiyor ({learned_representation.shape} vs ({test_config['representation_dim']},)).")
-            else:
-                 print(f"  Temsil: Beklenmeyen tip: {type(learned_representation)}")
-
-        else:
-             print("learn metodu None döndürdü (işlem başarısız veya girdi geçersiz).")
-
-
-        # decode metodunu test et (latent vektör girdisi ile)
-        print("\ndecode metodu test ediliyor (latent vektör ile):")
-        # learn metodu çalıştıysa çıktısını kullan, yoksa sahte bir latent vektör oluştur
-        test_latent_vector = learned_representation if learned_representation is not None else np.random.rand(test_config['representation_dim']).astype(np.float32)
-        if test_latent_vector is not None and isinstance(test_latent_vector, np.ndarray) and test_latent_vector.shape == (test_config['representation_dim'],):
-            print(f"Decoder girdisi (latent): Shape: {test_latent_vector.shape}, Dtype: {test_latent_vector.dtype}")
-            reconstruction = learner.decode(test_latent_vector)
-
-            # Rekonstrüksiyon çıktısını kontrol et
-            if reconstruction is not None:
-                print("decode metodu başarıyla çalıştı. Rekonstrüksiyon çıktısı:")
-                if isinstance(reconstruction, np.ndarray):
-                     print(f"  Rekonstrüksiyon: numpy.ndarray, Shape: {reconstruction.shape}, Dtype: {reconstruction.dtype}")
-                     # Beklenen çıktı boyutunu (orijinal girdi boyutu) kontrol et
-                     if reconstruction.shape == (test_config['input_dim'],):
-                          print(f"  Boyutlar beklenen ({test_config['input_dim']},) ile eşleşiyor.")
-                     else:
-                           print(f"  UYARI: Boyutlar beklenmiyor ({reconstruction.shape} vs ({test_config['input_dim']},)).")
-                else:
-                     print(f"  Rekonstrüksiyon: Beklenmeyen tip: {type(reconstruction)}")
-            else:
-                 print("decode metodu None döndürdü (işlem başarısız veya girdi geçersiz).")
-        else:
-             print("decode metodu için geçerli latent vektör girdisi yok veya RepresentationLearner başlatılamadı.")
-
-
-        # Geçersiz girdi (boş dict) ile learn test et
-        print("\nlearn metodu test ediliyor (boş dict girdi ile):")
-        learned_representation_empty = learner.learn({})
-        if learned_representation_empty is None:
-             print("Boş dict girdi ile learn metodu doğru şekilde None döndürdü.")
-        else:
-             print("Boş dict girdi ile learn metodu None döndürmedi (beklenmeyen durum).")
-
-        # Geçersiz girdi (None) ile learn test et
-        print("\nlearn metodu test ediliyor (None girdi ile):")
-        learned_representation_none = learner.learn(None)
-        if learned_representation_none is None:
-             print("None girdi ile learn metodu doğru şekilde None döndürdü.")
-        else:
-             print("None girdi ile learn metodu None döndürmedi (beklenmeyen durum).")
-
-        # Geçersiz girdi (yanlış boyutlu array) ile decode test et
-        print("\ndecode metodu test ediliyor (yanlış boyut latent ile):")
-        invalid_latent = np.random.rand(test_config['representation_dim'] + 10).astype(np.float32) # Yanlış boyut
-        reconstruction_invalid = learner.decode(invalid_latent)
-        if reconstruction_invalid is None:
-             print("Yanlış boyut latent girdi ile decode metodu doğru şekilde None döndürdü.")
-        else:
-             print("Yanlış boyut latent girdi ile decode metodu None döndürmedi (beklenmeyen durum).")
-
-
-    except Exception as e:
-        print(f"\nTest sırasında beklenmedik hata oluştu: {e}")
-        import traceback
-        traceback.print_exc()
-    finally:
-        # Cleanup metodunu çağır
-        if 'learner' in locals() and hasattr(learner, 'cleanup'):
-             print("\nRepresentationLearner cleanup çağrılıyor...")
-             learner.cleanup()
-
-    print("\nRepresentationLearner testi bitti.")
+        logger.info("RepresentationLearner object cleaning up completed.")

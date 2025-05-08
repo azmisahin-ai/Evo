@@ -1,8 +1,9 @@
 # src/cognition/core.py
 #
-# Evo'nın bilişsel çekirdeğini temsil eder.
-# Gelen temsilleri, bellek girdilerini, işlenmiş anlık duyu özelliklerini kullanarak dünyayı anlamaya çalışır, kavramları öğrenir ve bir eylem kararı alır.
-# UnderstandingModule, DecisionModule ve LearningModule alt modüllerini koordine eder.
+# Evo's cognitive core.
+# Attempts to understand the world, learn concepts, and make action decisions
+# using incoming representations, memory entries, and instantaneous sensory features.
+# Coordinates the UnderstandingModule, DecisionModule, and LearningModule sub-modules.
 
 import logging # For logging.
 # numpy is required (for parameter types)
@@ -123,7 +124,7 @@ class CognitionCore:
 
 
     # run_evo.py calls this method. It receives processed_inputs, learned_representation, relevant_memory_entries, current_concepts arguments.
-    # Corrected: The signature of the decide method matches the call in run_evo.py.
+    # The signature of the decide method matches the call in run_evo.py.
     def decide(self, processed_inputs, learned_representation, relevant_memory_entries, current_concepts):
         """
         Makes an action decision based on processed inputs, learned representation, and relevant memory entries.
@@ -140,7 +141,7 @@ class CognitionCore:
         # Increment the loop counter.
         self._loop_counter += 1
 
-        # The current_concepts information is now passed to the decide method externally (from run_evo.py).
+        # The current_concepts information is passed to the decide method externally (from run_evo.py).
         # The CognitionCore decide method itself does not retrieve concepts from the LearningModule at the start of the cycle.
         # This makes the decide method easier to test in isolation, as concepts can be mocked.
 
@@ -151,7 +152,7 @@ class CognitionCore:
         if self.learning_module is not None and self.memory_instance is not None and self._loop_counter % self.learning_frequency == 0:
              logger.info(f"CognitionCore: Learning cycle triggered (cycle #{self._loop_counter}).")
              try:
-                  # Get a sample of Representations for learning from Memory.
+                  # Memory'den öğrenme için Representation örneklemi al.
                   if hasattr(self.memory_instance, 'get_all_representations'):
                       all_memory_representations = self.memory_instance.get_all_representations()
 

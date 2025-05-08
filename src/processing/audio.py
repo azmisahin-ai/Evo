@@ -53,6 +53,8 @@ class AudioProcessor:
         if self.output_dim != 2:
              logger.warning(f"AudioProcessor: Config output_dim ({self.output_dim}) does not match implemented feature count (2). Please check config and implementation consistency. RepresentationLearner's input_dim for audio should match the actual output dimension.")
              # This is a warning, not an error. The implementation returns 2 features, config should ideally match.
+             # Optional: Could adjust processed_features_vector here if needed (e.g., pad with zeros or truncate).
+             # For now, just logging the warning.
 
 
         logger.info(f"AudioProcessor initialized. Sample Rate: {self.audio_rate} Hz, Implemented Output Dimension: {self.output_dim}")
@@ -166,7 +168,7 @@ class AudioProcessor:
 
             # Check: Does the resulting vector dimension match the expected output_dim from config?
             if processed_features_vector.shape[0] != self.output_dim:
-                 logger.warning(f"AudioProcessor.process: Generated feature vector dimension ({processed_features_vector.shape[0]}) does not match output_dim in config ({self.output_dim}). Please check the config file and the implementation. RepresentationLearner's input_dim for audio should match the actual output dimension.")
+                 logger.warning(f"AudioProcessor.process: Generated feature vector dimension ({processed_features_vector.shape[0]}) does not match output_dim in config ({self.output_dim}). Please check the config file and the implementation. RepresentationLearner's input_dim for audio should match this actual dimension.")
                  # This is a warning, not an error. The implementation returns 2 features, config should ideally match.
                  # Optional: Could adjust processed_features_vector here if needed (e.g., pad with zeros or truncate).
                  # For now, just logging the warning.

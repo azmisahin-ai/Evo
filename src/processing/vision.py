@@ -48,7 +48,6 @@ class VisionProcessor:
         self.canny_high_threshold = get_config_value(config, 'processors', 'vision', 'canny_high_threshold', default=150, expected_type=int, logger_instance=logger)
 
         # Get brightness thresholds from config (These are under the 'cognition' key)
-        # Added these attributes and read them from config.
         self.brightness_threshold_high = get_config_value(config, 'cognition', 'brightness_threshold_high', default=200.0, expected_type=(float, int), logger_instance=logger)
         self.brightness_threshold_low = get_config_value(config, 'cognition', 'brightness_threshold_low', default=50.0, expected_type=(float, int), logger_instance=logger)
 
@@ -157,12 +156,10 @@ class VisionProcessor:
             if 'grayscale' in processed_features and processed_features['grayscale'].size > 0:
                  avg_brightness = np.mean(processed_features['grayscale'])
                  # Log comparing the mean brightness to config thresholds.
-                 # Use self.brightness_threshold_high/low which are now assigned in __init__
                  logger.debug(f"VisionProcessor.process: Avg Brightness: {avg_brightness:.2f} (High: {self.brightness_threshold_high:.2f}, Low: {self.brightness_threshold_low:.2f})")
             if 'edges' in processed_features and processed_features['edges'].size > 0:
                  avg_edges = np.mean(processed_features['edges'])
                  # Log comparing the mean edges to config threshold.
-                 # Use self.visual_edges_threshold which is assigned in __init__
                  logger.debug(f"VisionProcessor.process: Avg Edges: {avg_edges:.2f} (Threshold: {self.visual_edges_threshold:.2f})")
 
 
