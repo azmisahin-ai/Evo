@@ -57,7 +57,7 @@ class LearningModule:
 
         # Get threshold from config using get_config_value with keyword arguments.
         # Based on config, new_concept_threshold is under the 'cognition' key.
-        self.new_concept_threshold = get_config_value(config, 'cognition', 'new_concept_threshold', default=0.7, expected_type=(float, int), logger_instance=logger)
+        self.new_concept_threshold = get_config_value(config, 'cognition', 'learning','new_concept_threshold', default=0.7, expected_type=(float, int), logger_instance=logger)
         # Get the representation dimension from config. Obtain it from the representation.representation_dim key.
         self.representation_dim = get_config_value(config, 'representation', 'representation_dim', default=128, expected_type=int, logger_instance=logger)
 
