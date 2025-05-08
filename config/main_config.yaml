@@ -30,7 +30,7 @@ processors:
     # Implementation şu an 2 özellik döndürüyor.
     output_dim: 2
     # audio_rate AudioSensor'dan gelebilir, ama burada da belirtilebilir.
-    # audio_rate: 44100 # İsteğe bağlı olarak burada belirtilebilir
+    audio_rate: 44100 # İsteğe bağlı olarak burada belirtilebilir
 
 # Representation Learner ayarları
 representation:
@@ -68,6 +68,7 @@ cognition:
   curiosity_decay: 0.1
   learning:
     concept_file_path: data/concepts.pkl # Öğrenilen kavramların kaydedileceği dosya yolu
+    learning_frequency: 100 # Öğrenme sıklığı (her 100 döngüde bir öğrenme işlemi yapılır)
 
 # Motor Control modülleri ayarları
 motor_control:
