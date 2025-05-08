@@ -397,7 +397,7 @@ class TestDecisionModule(unittest.TestCase):
         self.module.curiosity_level = initial_curiosity
 
         signals = {
-            'similarity_score': self.module.concept_recognition_threshold, # Exactly at threshold (0.85)
+            'similarity_score': self.module.concept_recognition_threshold, # Exactly at threshold (0.8)
             'high_audio_energy': False,
             'high_visual_edges': False,
             'is_bright': False,
@@ -597,7 +597,7 @@ class TestDecisionModule(unittest.TestCase):
         }
 
         # Curiosity level update: Start < threshold -> Decision is "recognized_concept_77" -> Triggers decrement -> Decay applies.
-        expected_curiosity = initial_curiosity - self.module.curiosity_decrement_familiar - self.module.curiosity_decay # 1.0 - 0.5 - 0.1 = 0.4
+        expected_curiosity = initial_curiosity - self.module.curiosity_decrement_familiar - self.module.curiosity_decay # e.g., 4.0 - 0.5 - 0.1 = 3.4
         expected_curiosity = max(0.0, expected_curiosity) # Ensure curiosity is not negative.
 
         # Corrected: Provide the missing 'current_concepts' argument.
@@ -675,7 +675,7 @@ class TestDecisionModule(unittest.TestCase):
         # Corrected: Provide the missing 'current_concepts' argument.
         result = self.module.decide(signals, [], []) # Add empty list for current_concepts
 
-        self.assertEqual(result, "explore_randomly") # Should be the value returned by mocked random.choice
+        self.assertEqual(result, 'explore_randomly') # Should be the value returned by mocked random.choice
         mock_random_choice.assert_called_once_with(["explore_randomly", "make_noise"]) # Verify random.choice was called with correct options
         self.assertAlmostEqual(self.module.curiosity_level, expected_curiosity, places=6) # Curiosity should only decay.
 

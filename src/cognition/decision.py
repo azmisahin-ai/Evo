@@ -8,8 +8,8 @@ import numpy as np
 import random
 
 # Import utility functions (input checks from src/core/utils, config from src/core/config_utils)
-# check_* functions come from src/core/utils
-# get_config_value comes from src/core/config_utils
+# check_* functions come from src.core.utils
+# get_config_value comes from src.core.config_utils
 # Assuming these imports are successful.
 from src.core.utils import check_input_not_none, check_input_type
 from src.core.config_utils import get_config_value
@@ -169,39 +169,37 @@ class DecisionModule:
             # Decision Making Logic (Phase 3/4): Priority-based Logic
             # Priority Order: Curiosity > Audio > Visual Edge > Brightness/Darkness > Concept Recognition > Memory Familiarity > Default (New)
 
+            # Check conditions in order of priority. Use elif so only the first met condition sets the decision.
+
             # 1. Has the Curiosity Threshold been exceeded? (Highest priority)
-            # Check if self.curiosity_level is numeric.
             if isinstance(self.curiosity_level, (int, float)) and float(self.curiosity_level) >= float(self.curiosity_threshold):
                  # If curiosity threshold is exceeded, make a random exploration/signal decision.
                  decision = random.choice(["explore_randomly", "make_noise"])
                  logger.debug(f"DecisionModule.decide: Decision: '{decision}'. Curiosity threshold ({self.curiosity_level:.2f} >= {self.curiosity_threshold:.2f}) exceeded.")
 
             # 2. Is there high audio energy? (Second priority)
-            # Check if high_audio_energy is boolean before using it.
             elif isinstance(high_audio_energy, bool) and high_audio_energy:
                  decision = "sound_detected"
                  logger.debug(f"DecisionModule.decide: Decision: '{decision}'. High audio energy detected.")
 
             # 3. Is there high visual edge density? (Third priority)
-            # Check if high_visual_edges is boolean before using it.
             elif isinstance(high_visual_edges, bool) and high_visual_edges:
                  decision = "complex_visual_detected"
                  logger.debug(f"DecisionModule.decide: Decision: '{decision}'. High visual edge density detected.")
 
             # 4. Is the environment Bright or Dark? (Fourth priority)
-            # Check if is_bright is boolean before using it.
             elif isinstance(is_bright, bool) and is_bright:
                  decision = "bright_light_detected"
                  logger.debug(f"DecisionModule.decide: Decision: '{decision}'. Environment detected as bright.")
 
-            # Check if is_dark is boolean before using it.
             elif isinstance(is_dark, bool) and is_dark:
                  decision = "dark_environment_detected"
                  logger.debug(f"DecisionModule.decide: Decision: '{decision}'. Environment detected as dark.")
 
             # 5. Was a Concept Recognized? (Fifth priority)
-            # Is concept similarity score numeric, is ID not None, and is similarity above/equal to threshold?
-            if isinstance(max_concept_similarity, (int, float)) and float(max_concept_similarity) >= float(self.concept_recognition_threshold) and most_similar_concept_id is not None:
+            # Check if concept similarity score is numeric, if ID is not None, and if similarity is above/equal to threshold.
+            # This is checked ONLY if none of the higher elif conditions were met.
+            elif isinstance(max_concept_similarity, (int, float)) and float(max_concept_similarity) >= float(self.concept_recognition_threshold) and most_similar_concept_id is not None:
                  # Ensure the concept ID is an integer before using it in f-string.
                  if isinstance(most_similar_concept_id, int):
                       decision = f"recognized_concept_{most_similar_concept_id}"
@@ -212,21 +210,14 @@ class DecisionModule:
 
 
             # 6. Is the memory similarity score above the threshold? (Sixth priority)
-            # The is_fundamentally_familiar variable was calculated correctly initially.
-            # This check is performed only if the higher priority Process/Concept recognition signals were not present or did not trigger a decision.
-            # Check if a decision was already made by a higher priority rule.
-            elif decision is None and is_fundamentally_familiar:
+            # This is checked ONLY if none of the higher elif conditions were met.
+            elif is_fundamentally_familiar: # is_fundamentally_familiar is true if similarity_score >= familiarity_threshold (and is numeric).
                  decision = "familiar_input_detected"
                  logger.debug(f"DecisionModule.decide: Decision: '{decision}'. Memory similarity score ({similarity_score:.4f}) >= Threshold ({self.familiarity_threshold:.4f}).")
 
 
             # 7. If none of the higher priority conditions were met (Default)
-            # In this case, the fundamental state should be is_fundamentally_new.
-            # else: # Falls through to the is_fundamentally_new case.
-            #     decision = "new_input_detected"
-            #     logger.debug(f"DecisionModule.decide: Decision: '{decision}'. No higher priority condition detected (Fundamental State: New).")
-
-            # More explicit fallback: If the elif chain above left decision as None
+            # This is reached if decision is still None after the entire elif chain.
             if decision is None:
                  decision = "new_input_detected" # Default decision
                  logger.debug(f"DecisionModule.decide: Decision: '{decision}'. No higher priority condition detected.")
@@ -242,8 +233,8 @@ class DecisionModule:
             # Catch any unexpected error that occurs during the decision making process.
             # Log the error.
             logger.error(f"DecisionModule.decide: Unexpected error during decision making: {e}", exc_info=True)
-            # Curiosity level is not updated in case of error (checked in finally block).
-            return None # Return None in case of error to allow the main loop to continue.
+            # Curiosity level is not updated in case of error (handled in finally block).
+            return None # Return None in case of error.
 
         finally:
             # --- Update Curiosity Level ---
