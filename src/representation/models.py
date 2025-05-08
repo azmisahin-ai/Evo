@@ -190,9 +190,13 @@ class RepresentationLearner:
         # TODO: and verify that the input_dim value matches the sum of these dimensions.
         # Processor output dimensions are used by RepresentationLearner for calculating the expected input_dim.
         # Get processor output dimensions using get_config_value for consistency.
-        visual_config = config.get('processors', {}).get('vision', {})
-        audio_config = config.get('processors', {}).get('audio', {})
+        # Get the processors section, then vision and audio sub-sections.
+        processors_config = config.get('processors', {})
+        visual_config = processors_config.get('vision', {})
+        audio_config = processors_config.get('audio', {})
+
         # Use get_config_value to retrieve values from the nested config structures.
+        # Paths here are relative to the visual_config or audio_config dicts obtained above.
         visual_out_width = get_config_value(visual_config, 'output_width', default=64, expected_type=int, logger_instance=logger) # Use visual_config here
         visual_out_height = get_config_value(visual_config, 'output_height', default=64, expected_type=int, logger_instance=logger) # Use visual_config here
         audio_features_dim = get_config_value(audio_config, 'output_dim', default=2, expected_type=int, logger_instance=logger) # Use audio_config here
@@ -324,7 +328,8 @@ class RepresentationLearner:
             # Check if the incoming data is a numpy array and has the correct dimensions/dtype.
             # Expected dtype is np.number (or np.float32). Expected ndim is 1. Expected shape[0] is the output_dim from AudioProcessor config (2).
             # Get the expected audio output dimension from config.
-            expected_audio_dim = get_config_value(self.config, 'processors', 'audio', 'output_dim', default=2, expected_type=int, logger_instance=logger) # Use self.config here
+            # Corrected: Path should use 'processors', 'audio', then 'output_dim' relative to the full config.
+            expected_audio_dim = get_config_value(self.config, 'processors', 'audio', 'output_dim', default=2, expected_type=int, logger_instance=logger)
             if audio_processed is not None and check_numpy_input(audio_processed, expected_dtype=np.number, expected_ndim=1, input_name="processed_inputs['audio']", logger_instance=logger):
                  # check_numpy_input performed basic array/dtype/ndim checks. Now check the specific shape[0] dimension.
                  if audio_processed.shape[0] == expected_audio_dim:
@@ -336,6 +341,7 @@ class RepresentationLearner:
                  else:
                       # Log a warning if the expected first dimension doesn't match, even if other checks pass.
                       logger.warning(f"RepresentationLearner.learn: Processed audio input has unexpected dimension. Expected shape ({expected_audio_dim},), received shape {audio_processed.shape}. Skipping.")
+
 
             # elif audio_processed is not None: # Invalid format (not numpy array or wrong dtype)
             #      logger.warning(f"RepresentationLearner.learn: Processed audio input has unexpected format ({type(audio_processed)}, shape {getattr(audio_processed, 'shape', 'N/A')}). Expected 1D numpy array. Skipping.")

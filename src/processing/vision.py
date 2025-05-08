@@ -1,8 +1,8 @@
 # src/processing/vision.py
 #
-# Processes visual sensory data.
-# Extracts basic visual features (e.g., resizing, grayscale, edges) from raw pixel data.
-# Part of Evo's Phase 1 processing capabilities.
+# Görsel duyu verisini işler.
+# Ham piksel verisinden temel görsel özellikleri (örn. yeniden boyutlandırma, gri tonlama, kenarlar) çıkarır.
+# Evo'nın Faz 1'deki işleme yeteneklerinin bir parçasıdır.
 
 import cv2 # OpenCV library, for camera capture and basic image processing. Should be in requirements.txt.
 import time # For timing or simulation if needed. Not directly used currently.

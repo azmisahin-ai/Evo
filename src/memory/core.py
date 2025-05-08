@@ -297,7 +297,7 @@ class Memory:
 
         try:
             # TODO: In the future: Based on incoming representation and metadata, decide which memory type (core/working, episodic, semantic) to save to.
-            # For example, entries with clear timestamps or specific context might go to episodic memory.
+            # For example, entries with clear timestamps or specific context might go to episodic memory,
             # Recurring or relational entries might go to semantic memory.
             # For now, only saving to the basic list-based core memory.
 
@@ -463,7 +463,7 @@ class Memory:
 
         except Exception as e:
             # Catch any unexpected error that might occur during the retrieval process.
-            # Errors in vector operations (np.dot, np.linalg.norm) can be caught here.
+            # Vector operations (np.dot, np.linalg.norm) errors can be caught here.
             logger.error(f"Memory.retrieve: Unexpected error during memory retrieval: {e}", exc_info=True)
             return [] # Return an empty list in case of error to allow the main loop to continue.
 
