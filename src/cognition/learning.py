@@ -1,8 +1,8 @@
 # src/cognition/learning.py
 #
-# Evo'nın denetimsiz öğrenme (kavram keşfi) modülünü temsil eder.
-# Bellekteki Representation vektörlerini analiz ederek temel desenleri/kümeleri (kavramları) keşfeder.
-# Basit eşik tabanlı yeni kavram ekleme mantığı kullanır.
+# Evo's unsupervised learning (concept discovery) module.
+# Analyzes Representation vectors in memory to discover basic patterns/clusters (concepts).
+# Uses a simple threshold-based new concept addition logic.
 
 import logging
 import numpy as np # For vector operations and similarity calculation
@@ -33,22 +33,26 @@ logger = logging.getLogger(__name__)
 class LearningModule:
     """
     Evo's unsupervised learning (concept discovery) module class (Phase 4 implementation).
-    ... (Docstring same) ...
+
+    Receives Representation vectors from memory and applies a simple threshold-based
+    new concept addition logic to discover and learn basic concepts (pattern groupings).
+    Discovered concepts are stored as concept representative vectors (the first vector that
+    represents that concept).
+    Uses a "from scratch" principle, with a simple approach without complex libraries.
     """
     def __init__(self, config):
         """
         Initializes the LearningModule.
 
         Args:
-            config (dict): Learning module configuration settings.
+            config (dict): Learning module configuration settings (full config dict).
                            'new_concept_threshold': The similarity threshold (float, default 0.7) below which
                                                     a Representation vector is considered a new concept
                                                     relative to existing concept representatives.
                            'representation_dim': The dimension of the Representation vectors to be processed (int).
                                                   This should match the output dimension of the RepresentationLearner.
-                                                  It can be obtained from the main config's representation section.
         """
-        self.config = config
+        self.config = config # LearningModule receives the full config
         logger.info("LearningModule initializing (Phase 4)...")
 
         # Get threshold from config using get_config_value with keyword arguments.
@@ -58,9 +62,9 @@ class LearningModule:
         self.representation_dim = get_config_value(config, 'representation', 'representation_dim', default=128, expected_type=int, logger_instance=logger)
 
         # Cast threshold to float to ensure correct comparison arithmetic later.
-        # While expected_type checks type, explicit cast ensures float.
+        self_logger = logging.getLogger(f"{__name__}.__init__") # Use a specific logger for init logs if needed, or just module logger
         self.new_concept_threshold = float(self.new_concept_threshold)
-        # representation_dim is expected to be an int, no casting needed after expected_type check.
+        # representation_dim is expected to be an int.
 
         # Simple value check for the threshold (must be between 0.0 and 1.0)
         if not (0.0 <= self.new_concept_threshold <= 1.0):
@@ -81,127 +85,155 @@ class LearningModule:
 
         logger.info(f"LearningModule initialized. New Concept Threshold: {self.new_concept_threshold}, Representation Dimension: {self.representation_dim}. Initial Concept Count: {len(self.concept_representatives)}")
 
-    # ... (learn_concepts, get_concepts, cleanup methods - same as before) ...
-
     def learn_concepts(self, representation_list):
         """
-        Verilen Representation vektör listesini kullanarak yeni kavramları keşfeder veya mevcutları günceller.
-        ... (Docstring aynı) ...
+        Discovers new concepts or updates existing ones using the provided list of Representation vectors.
+
+        Applies a simple threshold-based logic. If a vector's highest similarity to existing
+        concept representatives is below the new concept threshold, it is added as a new
+        concept representative. Otherwise, it is considered to belong to an existing concept
+        and does not trigger a change in the concept list (although future implementations
+        might update representatives, e.g., by averaging).
+        Handles invalid inputs gracefully (None, wrong type, wrong dimension) and logs errors.
+
+        Args:
+            representation_list (list or None): A list of Representation vectors (numpy arrays) to learn from.
+                                                Expected format: list of np.ndarray (shape (representation_dim,), numerical dtype).
+                                                Can be None or an empty list.
+
+        Returns:
+            list: The updated list of learned concept representatives (numpy arrays).
+                  Returns the current list on error or if input is invalid/empty.
         """
-        # Girdi kontrolü. check_* fonksiyonları artık src.core.utils'tan geliyor.
+        # Input validation. Check if representation_list is None.
         if not check_input_not_none(representation_list, input_name="representation_list for LearningModule", logger_instance=logger):
-             logger.debug("LearningModule.learn_concepts: representation_list None. Kavram öğrenme atlandi.")
-             return self.concept_representatives
+             logger.debug("LearningModule.learn_concepts: representation_list is None. Skipping concept learning.")
+             return self.concept_representatives # Return current list if input is None.
 
+        # Input validation. Check if representation_list is a list.
         if not check_input_type(representation_list, list, input_name="representation_list for LearningModule", logger_instance=logger):
-             logger.error(f"LearningModule.learn_concepts: representation_list liste değil ({type(representation_list)}). Kavram öğrenme atlandi.")
-             return self.concept_representatives
+             logger.error(f"LearningModule.learn_concepts: representation_list is not a list ({type(representation_list)}). Skipping concept learning.")
+             return self.concept_representatives # Return current list if input is not a list.
 
+        # Input validation. Check if representation_list is an empty list.
         if not representation_list:
-             logger.debug("LearningModule.learn_concepts: representation_list boş liste. Kavram öğrenme atlandi.")
-             return self.concept_representatives
+             logger.debug("LearningModule.learn_concepts: representation_list is an empty list. Skipping concept learning.")
+             return self.concept_representatives # Return current list if input is empty.
 
-        # Representation boyutu geçerli değilse öğrenme yapma.
+        # Check if the module's representation dimension is valid before proceeding.
         if self.representation_dim <= 0:
-             logger.error("LearningModule.learn_concepts: Representation boyutu geçersiz. Kavram öğrenme atlandi.")
-             return self.concept_representatives
+             logger.error("LearningModule.learn_concepts: Representation dimension is invalid. Skipping concept learning.")
+             return self.concept_representatives # Return current list if dimension is invalid.
 
 
-        logger.debug(f"LearningModule.learn_concepts: {len(representation_list)} representation vektörü öğrenme için alındı. Mevcut {len(self.concept_representatives)} kavram var.")
+        logger.debug(f"LearningModule.learn_concepts: Received {len(representation_list)} representation vectors for learning. Currently have {len(self.concept_representatives)} concepts.")
 
         try:
-            # Gelen her Representation vektörünü işle.
+            # Process each Representation vector in the list.
             for rep_vector in representation_list:
-                # Representation vektörünün geçerli (numpy array, 1D, sayısal, doğru boyut) olduğundan emin ol.
+                # Ensure each item in the list is a valid Representation vector (numpy array, 1D, numerical, correct dimension).
                 if rep_vector is not None and check_numpy_input(rep_vector, expected_dtype=np.number, expected_ndim=1, input_name="item in representation_list", logger_instance=logger):
+                    # Check if the vector's dimension matches the module's expected dimension.
                     if rep_vector.shape[0] == self.representation_dim:
-                        # Vektörün normalizasyonunu hesapla (benzerlik için).
+                        # Calculate the norm of the vector (for similarity calculation).
                         rep_norm = np.linalg.norm(rep_vector)
 
-                        # Eğer vektör sıfır değilse (an anlamlıysa)
+                        # If the vector is not near zero norm (meaningful)
                         if rep_norm > 1e-8:
-                            # Bu vektörün mevcut kavram temsilcilerine olan en yüksek benzerliğini bul.
-                            # max_similarity_to_concepts başlangıcını -1.0 yap (maksimum alırken negatif benzerlikleri de yakalamak için)
-                            # max_similarity_to_concepts = -1.0 başlangıcı ve threshold 1.0/0.0 karşılaştırma mantığı doğru uygulandığından emin olun.
-                            max_similarity_to_concepts = -1.0 # Kosinüs benzerliği -1.0 ile 1.0 arasındadır.
+                            # Find the highest similarity of this vector to existing concept representatives.
+                            # Initialize max_similarity_to_concepts to -1.0 (cosine similarity is between -1.0 and 1.0)
+                            max_similarity_to_concepts = -1.0 # Initialize with lowest possible similarity
 
-                            if self.concept_representatives: # Öğrenilmiş kavram varsa benzerlik hesapla.
+                            if self.concept_representatives: # Calculate similarity only if there are learned concepts.
                                 for concept_rep in self.concept_representatives:
-                                     if concept_rep is not None and check_numpy_input(concept_rep, expected_dtype=np.number, expected_ndim=1, input_name="existing concept representative", logger_instance=logger):
+                                     # Ensure the existing concept representative is valid before calculation.
+                                     if concept_rep is not None and isinstance(concept_rep, np.ndarray) and concept_rep.ndim == 1 and np.issubdtype(concept_rep.dtype, np.number):
                                           concept_norm = np.linalg.norm(concept_rep)
-                                          if concept_norm > 1e-8:
-                                               # Kosinüs benzerliği hesapla.
+                                          if concept_norm > 1e-8: # Check if the concept vector is near zero to avoid division errors.
+                                               # Calculate cosine similarity.
                                                similarity = np.dot(rep_vector, concept_rep) / (rep_norm * concept_norm)
-                                               # NaN veya sonsuzluk kontrolü
-                                               if not np.isnan(similarity) and np.isfinite(similarity):
+                                               if not np.isnan(similarity) and np.isfinite(similarity): # Ignore NaN or infinite similarity scores.
                                                     max_similarity_to_concepts = max(max_similarity_to_concepts, similarity)
-                                          # else: logger.debug("LM.learn_concepts: Concept rep near zero norm, skipping similarity.")
-                                     # else: logger.warning("LM.learn_concepts: Existing concept representative invalid, skipping similarity.")
+                                          # else: logger.debug("LM.learn_concepts: Concept rep near zero norm, skipping similarity calculation for this concept.")
+                                     # else: logger.warning("LM.learn_concepts: Existing concept representative is invalid, skipping similarity calculation for this concept.")
 
-                                # logger.debug(f"LM.learn_concepts: Vektör için en yüksek kavram benzerliği: {max_similarity_to_concepts:.4f}")
+                                # logger.debug(f"LM.learn_concepts: Highest similarity to existing concepts for vector: {max_similarity_to_concepts:.4f}")
 
-                            # Eğer en yüksek benzerlik eşiğin altındaysa, yeni kavram olarak ekle.
-                            # Veya hiç kavram yoksa ilk vektörü ilk kavram yap.
+                            # If the highest similarity is BELOW the threshold, add as a new concept.
+                            # Or if there are no existing concepts, the first valid vector is the first concept.
                             should_add_concept = False
                             if not self.concept_representatives:
-                                # İlk vektör her zaman eklenir (boş liste kontrolü)
+                                # The first valid vector is always added as the first concept (empty list check).
                                 should_add_concept = True
                             else:
-                                # Karşılaştırma yap
-                                # Eşik 1.0 olduğunda floating point toleransı kullan.
-                                if abs(self.new_concept_threshold - 1.0) < 1e-9: # Eşik 1.0'a çok yakınsa
-                                    # Çok yakınsa bile 1.0'dan KESİNLİKLE küçük kabul et (epsilon toleransı)
-                                    should_add_concept = max_similarity_to_concepts < (1.0 - 1e-9)
-                                elif abs(self.new_concept_threshold - 0.0) < 1e-9: # Eşik 0.0'a çok yakınsa
-                                    # Kesinlikle negatifse ekle
-                                     should_add_concept = max_similarity_to_concepts < 0.0
-                                else:
-                                     # Genel durum
-                                     should_add_concept = max_similarity_to_concepts < self.new_concept_threshold
+                                # Perform the comparison.
+                                # Use floating point tolerance when comparing near 1.0 threshold.
+                                # The condition for adding a NEW concept is that it is NOT sufficiently similar to ANY existing concept.
+                                # The threshold 'new_concept_threshold' defines what "sufficiently similar" means.
+                                # If similarity is >= threshold, it's NOT a new concept. If similarity < threshold, it IS a new concept.
+                                # Example: threshold = 0.7. Sim = 0.6 -> 0.6 < 0.7 is True -> New concept.
+                                # Example: threshold = 0.7. Sim = 0.7 -> 0.7 < 0.7 is False -> Not a new concept.
+                                # Example: threshold = 0.7. Sim = 0.8 -> 0.8 < 0.7 is False -> Not a new concept.
+                                # The existing check `max_similarity_to_concepts < self.new_concept_threshold` seems correct based on this logic.
+                                # However, unit tests were failing when similarity was exactly equal to the threshold.
+                                # Let's re-evaluate the comparison, perhaps using a small tolerance for equality checks if needed,
+                                # but standard float comparison should be okay here given how similarity is calculated.
+                                # The logs in the failing test show "En yüksek mevcut benzerlik: 0.7000 < Eşik 0.7000" -> Yeni kavram keşfedildi. This means 0.7000 < 0.7000 evaluated to True. This is mathematically incorrect for standard float comparison.
+                                # It might be a subtle floating point precision issue, or the test case is slightly off.
+                                # Let's explicitly check for near-equality if using strict `<`.
+                                # Or, perhaps the intention was that similarity must be *strictly less than* the threshold?
+                                # Yes, "Bir Representation'ın yeni kavram sayılması için mevcut kavramlara olan en yüksek benzerlik eşiği (0.0-1.0)" implies that if it's >= the threshold, it's *not* new. So strictly less than is correct.
+                                # Let's check if max_similarity_to_concepts is strictly less than the threshold.
+                                should_add_concept = max_similarity_to_concepts < self.new_concept_threshold
+                                # Add a small tolerance for floating point equality check if needed, e.g., `max_similarity_to_concepts < (self.new_concept_threshold - 1e-9)`?
+                                # Let's stick to strict comparison for now, as the test case might be comparing 0.7 exactly.
 
                             if should_add_concept:
-                                # Yeni kavram temsilcisi olarak mevcut Representation vektörünü ekle (kopyası).
-                                self.concept_representatives.append(rep_vector.copy()) # Numpy array'in kopyasını sakla.
-                                logger.info(f"LearningModule.learn_concepts: Yeni kavram keşfedildi! Toplam kavram: {len(self.concept_representatives)}. En yüksek mevcut benzerlik: {max_similarity_to_concepts:.4f} < Eşik {self.new_concept_threshold:.4f}")
-                            # else: logger.debug(f"LM.learn_concepts: Vektör yeterince tanıdık (benzerlik {max_similarity_to_concepts:.4f} >= eşik {self.new_concept_threshold:.4f}). Yeni kavram eklenmedi.")
+                                # Add the current Representation vector as a new concept representative (a copy).
+                                self.concept_representatives.append(rep_vector.copy()) # Store a copy of the numpy array.
+                                logger.info(f"LearningModule.learn_concepts: New concept discovered! Total concepts: {len(self.concept_representatives)}. Highest existing similarity: {max_similarity_to_concepts:.4f} < Threshold {self.new_concept_threshold:.4f}")
+                            # else: logger.debug(f"LM.learn_concepts: Vector is sufficiently familiar (similarity {max_similarity_to_concepts:.4f} >= threshold {self.new_concept_threshold:.4f}). No new concept added.")
 
-                        # else: logger.debug("LM.learn_concepts: Representation vektörü sıfır norm, işlenmedi.")
-                    # else: logger.warning(f"LM.learn_concepts: Representation vektörü yanlış boyut ({rep_vector.shape[0]} vs {self.representation_dim}), işlenmedi.")
-                # else: logger.warning("LM.learn_concepts: Listedeki öğe geçerli Representation vektörü değil, işlenmedi.")
+                        # else: logger.debug("LM.learn_concepts: Representation vector has zero norm, skipping processing.")
+                    # else: logger.warning(f"LM.learn_concepts: Representation vector has wrong dimension ({rep_vector.shape[0]} vs {self.representation_dim}), skipping processing.")
+                # else: logger.warning("LM.learn_concepts: Item in list is not a valid Representation vector, skipping processing.")
 
-            logger.debug(f"LearningModule.learn_concepts: Kavram öğrenme tamamlandı. Güncel kavram sayısı: {len(self.concept_representatives)}")
+            logger.debug(f"LearningModule.learn_concepts: Concept learning completed. Current concept count: {len(self.concept_representatives)}")
 
         except Exception as e:
-            # Öğrenme işlemi sırasında beklenmedik bir hata olursa logla.
-            logger.error(f"LearningModule.learn_concepts: Kavram öğrenme sırasında beklenmedik hata: {e}", exc_info=True)
-            # Hata durumunda mevcut kavram listesini döndür.
+            # Catch any unexpected error during the learning process.
+            logger.error(f"LearningModule.learn_concepts: Unexpected error during concept learning: {e}", exc_info=True)
+            # In case of error, return the current list of concepts.
 
-        return self.concept_representatives # Güncellenmiş kavram temsilcileri listesini döndür.
+        return self.concept_representatives # Return the updated list of concept representatives.
 
 
     def get_concepts(self):
         """
-        Öğrenilmiş kavram temsilcileri listesini döndürür (shallow copy).
+        Returns the list of learned concept representatives (shallow copy).
 
         Returns:
-            list: Öğrenilmiş kavram temsilcileri numpy array listesi.
+            list: A list of learned concept representatives (numpy arrays).
+                  Returns an empty list on error.
         """
-        # Güvenlik için listenin shallow kopyasını döndürmek daha iyi olabilir.
-        # Bu, listenin kendisi kopyalanır ancak içindeki array objeleri referans olarak kalır.
+        # Returning a shallow copy of the list is better for safety.
+        # This copies the list itself, but the array objects inside remain references.
         return self.concept_representatives[:]
 
 
     def cleanup(self):
         """
-        LearningModule kaynaklarını temizler.
-        ... (Docstring aynı) ...
-        """
-        logger.info("LearningModule objesi siliniyor...")
-        # TODO: Öğrenilen kavramları kaydetme mantığı buraya gelecek (gelecek TODO).
+        Cleans up LearningModule resources.
 
-        # Öğrenilen kavramlar listesini temizle.
+        Currently, it primarily clears the list of learned concepts.
+        TODO: Persistence logic for saving learned concepts will go here (future TODO).
+        """
+        logger.info("LearningModule object cleaning up.")
+        # TODO: Add logic here to save learned concepts (future TODO).
+
+        # Clear the list of learned concepts.
         self.concept_representatives = []
-        logger.info("LearningModule: Öğrenilen kavramlar temizlendi.")
+        logger.info("LearningModule: Learned concepts cleared.")
         pass
 
-    # TODO: Kavramları kaydetme/yükleme metotları eklenecek (gelecek TODO).
+    # TODO: Methods for saving/loading concepts will be added (future TODO).

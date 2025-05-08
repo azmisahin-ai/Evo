@@ -1,16 +1,16 @@
 # src/cognition/decision.py
 #
-# Evo'nın karar alma modülünü temsil eder.
-# Anlama modülünden gelen sinyalleri, bellek girdilerini ve içsel durumu kullanarak bir eylem kararı alır.
+# Evo's decision making module.
+# Makes an action decision using signals from the understanding module, memory entries, and internal state.
 
 import logging
 import numpy as np
 import random
 
-# Yardımcı fonksiyonları import et (girdi kontrolleri ve config için)
-# check_* fonksiyonları src/core/utils'tan gelir
-# get_config_value src/core/config_utils'tan gelir
-# Bu importların başarılı olduğu varsayılır (config_utils workaround sonrası).
+# Import utility functions (input checks from src/core/utils, config from src/core/config_utils)
+# check_* functions come from src/core/utils
+# get_config_value comes from src/core/config_utils
+# Assuming these imports are successful.
 from src.core.utils import check_input_not_none, check_input_type
 from src.core.config_utils import get_config_value
 
@@ -18,20 +18,28 @@ logger = logging.getLogger(__name__)
 
 class DecisionModule:
     """
-    Evo'nın denetimsiz öğrenme (kavram keşfi) yeteneğini sağlayan sınıf (Faz 4 implementasyonu).
-    ... (Docstring aynı) ...
+    Evo's decision making capability class (Phase 3/4 implementation).
+
+    Receives signals from the Understanding module, memory entries, and internal state (curiosity level).
+    Applies priority logic to these signals to select an action decision.
+    Updates its internal state (e.g., curiosity level) based on the decision made.
     """
     def __init__(self, config):
         """
-        DecisionModule'ü başlatır.
-        ... (Docstring aynı) ...
+        Initializes the DecisionModule.
+
+        Reads configuration settings for decision thresholds and curiosity dynamics.
+
+        Args:
+            config (dict): Cognitive core configuration settings (full config dict).
+                           DecisionModule will read its relevant section from this dict,
+                           specifically settings under 'cognition'.
         """
-        self.config = config
+        self.config = config # DecisionModule receives the full config
         logger.info("DecisionModule initializing (Phase 3/4)...")
 
         # Get thresholds and curiosity settings from config using get_config_value.
-        # Corrected: Use default= keyword format for all calls.
-        # Based on config, these settings are under the 'cognition' key, not under a 'decision' sub-key.
+        # These settings are under the 'cognition' key in the main config.
         self.familiarity_threshold = get_config_value(config, 'cognition', 'familiarity_threshold', default=0.8, expected_type=(float, int), logger_instance=logger)
         self.audio_energy_threshold = get_config_value(config, 'cognition', 'audio_energy_threshold', default=1000.0, expected_type=(float, int), logger_instance=logger)
         self.visual_edges_threshold = get_config_value(config, 'cognition', 'visual_edges_threshold', default=50.0, expected_type=(float, int), logger_instance=logger)
@@ -45,8 +53,7 @@ class DecisionModule:
 
 
         # Simple value checks for thresholds (0.0-1.0 range for similarity, non-negative for others)
-        # get_config_value should return correct defaults now. Perform our own range checks on the values obtained.
-        # Cast to float for comparison robustness.
+        # Use float casting for comparison robustness after getting values from config.
         if not (0.0 <= float(self.familiarity_threshold) <= 1.0):
              logger.warning(f"DecisionModule: Config 'familiarity_threshold' out of expected range ({self.familiarity_threshold}). Using default 0.8.")
              self.familiarity_threshold = 0.8
@@ -94,31 +101,45 @@ class DecisionModule:
         logger.info(f"DecisionModule initialized. Familiarity Threshold: {self.familiarity_threshold}, Audio Threshold: {self.audio_energy_threshold}, Visual Threshold: {self.visual_edges_threshold}, Brightness High Threshold: {self.brightness_threshold_high}, Brightness Low Threshold: {self.brightness_threshold_low}, Concept Recognition Threshold: {self.concept_recognition_threshold}, Curiosity Threshold: {self.curiosity_threshold}")
         logger.debug(f"DecisionModule: Curiosity Increment (New): {self.curiosity_increment_new}, Decrement (Familiar): {self.curiosity_decrement_familiar}, Decay: {self.curiosity_decay}")
 
-    # ... (decide and cleanup methods - same as before) ...
 
-    def decide(self, understanding_signals, relevant_memory_entries, internal_state=None):
+    def decide(self, understanding_signals, relevant_memory_entries, current_concepts):
         """
-        Anlama sinyallerine ve içsel duruma (curiosity_level) göre bir eylem kararı alır.
-        ... (Docstring aynı) ...
+        Makes an action decision based on understanding signals and internal state (curiosity_level).
+
+        Args:
+            understanding_signals (dict or None): Dictionary of signals from the Understanding module.
+                                                Expected keys: 'similarity_score', 'high_audio_energy', 'high_visual_edges',
+                                                               'is_bright', 'is_dark', 'max_concept_similarity', 'most_similar_concept_id'.
+                                                Can be None if understanding failed.
+            relevant_memory_entries (list or None): List of relevant memory entries. Not directly used in current decision logic
+                                                    but passed as context.
+                                                    Expected format: list of dicts or None.
+            current_concepts (list): List of current concept representative vectors. Not directly used in current decision logic
+                                  (concept recognition uses signals), but passed as context.
+                                  Expected format: list of np.ndarray.
+            # internal_state (any, optional): Placeholder for other internal state information. Defaults to None.
+
+        Returns:
+            str or None: The decided action (string) or None if understanding signals are invalid or decision making failed.
+                         Decision strings like "sound_detected", "familiar_input_detected", "new_input_detected", etc.
         """
-        # Girdi kontrolleri. understanding_signals'ın geçerli bir dictionary mi?
+        # Input validation. Are understanding_signals a valid dictionary?
         if not check_input_not_none(understanding_signals, input_name="understanding_signals for DecisionModule", logger_instance=logger):
-             logger.debug("DecisionModule.decide: understanding_signals None. Karar alınamıyor.")
-             # Merak seviyesi None durumda güncellenmez.
+             logger.debug("DecisionModule.decide: understanding_signals is None. Cannot make a decision.")
+             # Curiosity level is not updated if decision is None (handled in finally block).
              return None
 
         if not isinstance(understanding_signals, dict):
-             logger.error(f"DecisionModule.decide: understanding_signals beklenmeyen tipte: {type(understanding_signals)}. Dict veya None bekleniyordu. Karar alınamıyor.")
-             # Merak seviyesi dict olmayan durumda güncellenmez.
+             logger.error(f"DecisionModule.decide: understanding_signals has unexpected type: {type(understanding_signals)}. Dictionary or None expected. Cannot make a decision.")
+             # Curiosity level is not updated if decision is None.
              return None
 
 
-        decision = None # Alınan kararı tutacak değişken.
+        decision = None # Variable to hold the decision. Starts as None.
 
-        # Anlama sinyallerini dictionary'den güvenle al. Anahtarlar yoksa default değerler kullanılır.
-        # get() metodu anahtar yoksa None veya belirtilen default değeri döndürür.
-        # Bu değerlerin tipi get_config_value ile alınanlar gibi garanti değildir, bu yüzden karar mantığında tip kontrolü yapalım.
-        # get() metodu ile alınan değerlerin None veya yanlış tipte olma ihtimaline karşı karar mantığı sağlam olmalı.
+        # Safely get understanding signals from the dictionary. Use default values if keys are missing.
+        # Use get() method. Values obtained might be None or wrong type if UnderstandingModule had issues,
+        # so be defensive in decision logic below.
         similarity_score = understanding_signals.get('similarity_score', 0.0)
         high_audio_energy = understanding_signals.get('high_audio_energy', False)
         high_visual_edges = understanding_signals.get('high_visual_edges', False)
@@ -127,140 +148,149 @@ class DecisionModule:
         max_concept_similarity = understanding_signals.get('max_concept_similarity', 0.0)
         most_similar_concept_id = understanding_signals.get('most_similar_concept_id', None)
 
+        # Validate types of incoming signals if needed, or be defensive in logic.
+        # Boolean signals (high_audio_energy, etc.) are fine if get() defaults to False.
+        # Numerical signals (similarity_score, max_concept_similarity) should ideally be numeric, check isinstance before comparison.
+        # most_similar_concept_id can be int or None.
 
-        # Gelen sinyallerin tiplerini doğrulayalım veya karar mantığında defansif olalım.
-        # Bool beklenenler (high_audio_energy, high_visual_edges, is_bright, is_dark) get() ile False dönerse sorun olmaz.
-        # Sayısal beklenenler (similarity_score, max_concept_similarity) için karar mantığında kontrol yapalım.
-        # most_similar_concept_id None veya int olabilir.
+        logger.debug(f"DecisionModule.decide: Received understanding signals - Sim:{similarity_score:.4f}, Audio:{high_audio_energy}, Visual:{high_visual_edges}, Bright:{is_bright}, Dark:{is_dark}, ConceptSim:{max_concept_similarity:.4f}, ConceptID:{most_similar_concept_id}. Current Curiosity: {self.curiosity_level:.2f}. Making decision.")
 
-        logger.debug(f"DecisionModule.decide: Anlama sinyalleri alindi - Sim:{similarity_score:.4f}, Audio:{high_audio_energy}, Visual:{high_visual_edges}, Bright:{is_bright}, Dark:{is_dark}, ConceptSim:{max_concept_similarity:.4f}, ConceptID:{most_similar_concept_id}. Mevcut Merak: {self.curiosity_level:.2f}. Karar veriliyor.")
-
-        # Hangi temel bellek/benzerlik durumu oluştuğunu belirle (merak güncellemesi için de ipucu verir)
-        # Bu, process sinyalleri ve kavram tanıma OVERRIDE etmeden önceki temel durumdur.
-        # similarity_score sayısal ve eşiğe eşit veya üstünde ise tanıdık.
+        # Determine the fundamental memory/similarity state (provides a hint for curiosity update too)
+        # This is the base state BEFORE process signals and concept recognition override.
+        # Is fundamentally familiar if similarity_score is numeric and above/equal to the threshold.
         is_fundamentally_familiar = False
-        if isinstance(similarity_score, (int, float)) and similarity_score >= self.familiarity_threshold:
+        if isinstance(similarity_score, (int, float)) and float(similarity_score) >= float(self.familiarity_threshold):
              is_fundamentally_familiar = True
 
-        is_fundamentally_new = not is_fundamentally_familiar # Temel durum ya tanıdıktır ya yenidir.
+        is_fundamentally_new = not is_fundamentally_familiar # The base state is either familiar or new.
 
 
         try:
-            # Karar Alma Mantığı (Faz 3/4): Öncelikli Mantık
-            # Öncelik Sırası: Merak > Ses > Görsel Kenar > Parlaklık/Karanlık > Kavram Tanıma > Bellek Tanıdıklığı > Varsayılan (Yeni)
+            # Decision Making Logic (Phase 3/4): Priority-based Logic
+            # Priority Order: Curiosity > Audio > Visual Edge > Brightness/Darkness > Concept Recognition > Memory Familiarity > Default (New)
 
-            # 1. Merak Eşiği Aşıldı mı? (En yüksek öncelik)
-            # self.curiosity_level'ın sayısal olduğunu kontrol et.
+            # 1. Has the Curiosity Threshold been exceeded? (Highest priority)
+            # Check if self.curiosity_level is numeric.
             if isinstance(self.curiosity_level, (int, float)) and float(self.curiosity_level) >= float(self.curiosity_threshold):
-                 # Merak eşiği aşıldysa rastgele bir keşif/sinyal kararı ver
+                 # If curiosity threshold is exceeded, make a random exploration/signal decision.
                  decision = random.choice(["explore_randomly", "make_noise"])
-                 logger.debug(f"DecisionModule.decide: Karar: '{decision}'. Merak eşiği ({self.curiosity_level:.2f} >= {self.curiosity_threshold:.2f}) aşıldı.")
+                 logger.debug(f"DecisionModule.decide: Decision: '{decision}'. Curiosity threshold ({self.curiosity_level:.2f} >= {self.curiosity_threshold:.2f}) exceeded.")
 
-            # 2. Yüksek ses enerjisi var mı? (İkinci öncelik)
-            elif isinstance(high_audio_energy, bool) and high_audio_energy: # high_audio_energy bool mu kontrol et
+            # 2. Is there high audio energy? (Second priority)
+            # Check if high_audio_energy is boolean before using it.
+            elif isinstance(high_audio_energy, bool) and high_audio_energy:
                  decision = "sound_detected"
-                 logger.debug(f"DecisionModule.decide: Karar: '{decision}'. Yüksek ses enerjisi algılandı.")
+                 logger.debug(f"DecisionModule.decide: Decision: '{decision}'. High audio energy detected.")
 
-            # 3. Yüksek görsel kenar yoğunluğu var mı? (Üçüncü öncelik)
-            elif isinstance(high_visual_edges, bool) and high_visual_edges: # high_visual_edges bool mu kontrol et
+            # 3. Is there high visual edge density? (Third priority)
+            # Check if high_visual_edges is boolean before using it.
+            elif isinstance(high_visual_edges, bool) and high_visual_edges:
                  decision = "complex_visual_detected"
-                 logger.debug(f"DecisionModule.decide: Karar: '{decision}'. Yüksek görsel kenar yoğunluğu algılandı.")
+                 logger.debug(f"DecisionModule.decide: Decision: '{decision}'. High visual edge density detected.")
 
-            # 4. Ortam Parlak mı veya Karanlık mı? (Dördüncü öncelik)
-            elif isinstance(is_bright, bool) and is_bright: # is_bright bool mu kontrol et
+            # 4. Is the environment Bright or Dark? (Fourth priority)
+            # Check if is_bright is boolean before using it.
+            elif isinstance(is_bright, bool) and is_bright:
                  decision = "bright_light_detected"
-                 logger.debug(f"DecisionModule.decide: Karar: '{decision}'. Ortam parlak algılandı.")
+                 logger.debug(f"DecisionModule.decide: Decision: '{decision}'. Environment detected as bright.")
 
-            elif isinstance(is_dark, bool) and is_dark: # is_dark bool mu kontrol et
+            # Check if is_dark is boolean before using it.
+            elif isinstance(is_dark, bool) and is_dark:
                  decision = "dark_environment_detected"
-                 logger.debug(f"DecisionModule.decide: Karar: '{decision}'. Ortam karanlık algılandı.")
+                 logger.debug(f"DecisionModule.decide: Decision: '{decision}'. Environment detected as dark.")
 
-            # 5. Kavram Tanındı mı? (Beşinci öncelik)
-            # Kavram benzerlik skoru sayısal mı, ID None değil mi ve benzerlik eşiği aşıyor mu?
-            elif isinstance(max_concept_similarity, (int, float)) and float(max_concept_similarity) >= float(self.concept_recognition_threshold) and most_similar_concept_id is not None:
-                 # most_similar_concept_id'nin int olduğundan emin olalım (f-string içinde int() kullanılıyordu)
+            # 5. Was a Concept Recognized? (Fifth priority)
+            # Is concept similarity score numeric, is ID not None, and is similarity above/equal to threshold?
+            if isinstance(max_concept_similarity, (int, float)) and float(max_concept_similarity) >= float(self.concept_recognition_threshold) and most_similar_concept_id is not None:
+                 # Ensure the concept ID is an integer before using it in f-string.
                  if isinstance(most_similar_concept_id, int):
                       decision = f"recognized_concept_{most_similar_concept_id}"
-                      logger.debug(f"DecisionModule.decide: Karar: '{decision}'. Kavram tanındı (Benzerlik: {max_concept_similarity:.4f} >= Eşik {self.concept_recognition_threshold:.4f}, ID: {most_similar_concept_id}).")
+                      logger.debug(f"DecisionModule.decide: Decision: '{decision}'. Concept recognized (Similarity: {max_concept_similarity:.4f} >= Threshold {self.concept_recognition_threshold:.4f}, ID: {most_similar_concept_id}).")
                  else:
-                      # ID geçerli tipte değilse kavram tanıma kararı verilmez, bir sonraki önceliğe düşer.
-                      logger.debug(f"DecisionModule.decide: Kavram tanıma benzerliği yüksek ({max_concept_similarity:.4f}) ancak ConceptID geçerli int değil ({type(most_similar_concept_id)}). Kavram tanıma atlandi.")
+                      # If ID is not a valid type, skip concept recognition decision and fall through to the next priority.
+                      logger.debug(f"DecisionModule.decide: Concept recognition similarity high ({max_concept_similarity:.4f}) but ConceptID is not a valid integer ({type(most_similar_concept_id)}). Skipping concept recognition decision.")
 
 
-            # 6. Bellek benzerlik skoru eşiği aşıyor mu? (Altıncı öncelik)
-            # is_fundamentally_familiar değişkeni en başta doğru hesaplandı.
-            # Bu kontrol, ancak yukarıdaki Process/Kavram tanıma sinyalleri yoksa yapılır.
-            elif is_fundamentally_familiar:
+            # 6. Is the memory similarity score above the threshold? (Sixth priority)
+            # The is_fundamentally_familiar variable was calculated correctly initially.
+            # This check is performed only if the higher priority Process/Concept recognition signals were not present or did not trigger a decision.
+            # Check if a decision was already made by a higher priority rule.
+            elif decision is None and is_fundamentally_familiar:
                  decision = "familiar_input_detected"
-                 logger.debug(f"DecisionModule.decide: Karar: '{decision}'. Bellek benzerlik skoru ({similarity_score:.4f}) >= Eşik ({self.familiarity_threshold:.4f}).")
+                 logger.debug(f"DecisionModule.decide: Decision: '{decision}'. Memory similarity score ({similarity_score:.4f}) >= Threshold ({self.familiarity_threshold:.4f}).")
 
 
-            # 7. Hiçbir öncelikli koşul sağlanmazsa (Varsayılan)
-            # Bu durumda temel durum is_fundamentally_new olmalıdır.
-            # else: # is_fundamentally_new'e düşer.
+            # 7. If none of the higher priority conditions were met (Default)
+            # In this case, the fundamental state should be is_fundamentally_new.
+            # else: # Falls through to the is_fundamentally_new case.
             #     decision = "new_input_detected"
-            #     logger.debug(f"DecisionModule.decide: Karar: '{decision}'. Hiçbir öncelikli durum algılanamadı (Temel Durum: Yeni).")
+            #     logger.debug(f"DecisionModule.decide: Decision: '{decision}'. No higher priority condition detected (Fundamental State: New).")
 
-            # Daha net bir fallback: Eğer yukarıdaki elif zinciri decision'ı hala None bırakmışsa
+            # More explicit fallback: If the elif chain above left decision as None
             if decision is None:
-                 decision = "new_input_detected" # Varsayılan karar
-                 logger.debug(f"DecisionModule.decide: Karar: '{decision}'. Hiçbir öncelikli durum algılanamadı.")
+                 decision = "new_input_detected" # Default decision
+                 logger.debug(f"DecisionModule.decide: Decision: '{decision}'. No higher priority condition detected.")
 
 
-            # Gelecekte daha karmaşık mantıklar:
-            # - Başka anlama çıktılarından gelen bilgileri karara dahil etme.
-            # - Birden fazla kriteri birleştirme (örn: hem benzerlik yüksek hem de anlama çıktısı spesifik bir nesne algıladı).
-            # - Başka içsel durumları karara dahil etme (boredom, hunger vb.).
-            # - Farklı karar türleri (örn: "hareket et", "ses çıkar").
+            # TODO: More complex logic in the future:
+            # - Incorporate information from other understanding outputs into the decision.
+            # - Combine multiple criteria (e.g., high similarity AND understanding detected a specific object).
+            # - Include other internal states in the decision (boredom, hunger, etc.).
+            # - Different types of decisions (e.g., "move", "make noise").
 
         except Exception as e:
-            # Karar alma işlemi sırasında beklenmedik bir hata olursa logla.
-            logger.error(f"DecisionModule.decide: Karar alma sırasında beklenmedik hata: {e}", exc_info=True)
-            # Merak seviyesi hata durumunda güncellenmez (finally bloğunda kontrol ediliyor).
-            return None # Hata durumunda None döndür.
+            # Catch any unexpected error that occurs during the decision making process.
+            # Log the error.
+            logger.error(f"DecisionModule.decide: Unexpected error during decision making: {e}", exc_info=True)
+            # Curiosity level is not updated in case of error (checked in finally block).
+            return None # Return None in case of error to allow the main loop to continue.
 
         finally:
-            # --- Merak Seviyesini Güncelle ---
-            # Sadece Karar başarılı bir şekilde belirlendiyse (decision is not None) merakı güncelle.
-            # curiosity_level'ın sayısal olduğundan emin ol.
+            # --- Update Curiosity Level ---
+            # Update curiosity level ONLY if a decision was successfully made (decision is not None).
+            # Ensure self.curiosity_level is numeric.
             if decision is not None and isinstance(self.curiosity_level, (int, float)):
                 try:
                     curiosity_before_decay = float(self.curiosity_level)
 
-                    # Merak seviyesini ALINAN karara göre artır/azalt
-                    # Process sinyalleri veya Merak eşiği kararları (explore_randomly, make_noise) merak seviyesini sadece decay ettirir.
-                    # Sadece "new" veya "familiar/recognized" kararları inc/dec uygular.
-                    # Dikkat: Kararlar string karşılaştırmasıyla kontrol ediliyor.
-                    if decision == "new_input_detected" or decision == "new_input_detected_fallback":
+                    # Increase/decrease curiosity based on the DECISION MADE.
+                    # Decisions based on Process signals or Curiosity threshold (explore_randomly, make_noise) only apply decay.
+                    # Only "new" or "familiar/recognized" decisions apply inc/dec.
+                    # Note: Decisions are compared using string comparison.
+                    if decision == "new_input_detected" or decision == "new_input_detected_fallback": # Added fallback string check for safety
                          curiosity_before_decay += self.curiosity_increment_new
-                         logger.debug(f"DecisionModule: Merak artışı ({self.curiosity_increment_new:.2f}) kararı: '{decision}'.")
+                         logger.debug(f"DecisionModule: Curiosity increment ({self.curiosity_increment_new:.2f}) based on decision: '{decision}'.")
                     elif decision == "familiar_input_detected" or (isinstance(decision, str) and decision.startswith("recognized_concept_")):
                          curiosity_before_decay -= self.curiosity_decrement_familiar
-                         logger.debug(f"DecisionModule: Merak azalışı ({self.curiosity_decrement_familiar:.2f}) kararı: '{decision}'.")
+                         logger.debug(f"DecisionModule: Curiosity decrement ({self.curiosity_decrement_familiar:.2f}) based on decision: '{decision}'.")
                     else:
-                         # Ses, Görsel Kenar, Parlak/Karanlık, Explore/Noise kararları. Merakı artırmaz/azaltmaz, sadece decay olur.
-                         # curiosity_before_decay zaten güncellenmedi.
-                         logger.debug(f"DecisionModule: Merak değişimi yok (sadece decay). Karar: '{decision}'.")
+                         # Decisions based on Audio, Visual Edges, Bright/Dark, Explore/Noise. Do not increment/decrement curiosity, only decay applies.
+                         # curiosity_before_decay remains unchanged here before decay.
+                         logger.debug(f"DecisionModule: No curiosity change (only decay). Decision: '{decision}'.")
 
 
-                    # Her döngü adımında merak seviyesini azalt (decay).
-                    self.curiosity_level = max(0.0, curiosity_before_decay - float(self.curiosity_decay)) # Decay uygula
+                    # Apply decay to curiosity level in every loop iteration where a decision was made.
+                    self.curiosity_level = max(0.0, curiosity_before_decay - float(self.curiosity_decay)) # Ensure curiosity doesn't go below 0.0
 
-                    # Güncel merak seviyesini logla.
-                    logger.debug(f"DecisionModule: Güncel Merak Seviyesi: {self.curiosity_level:.2f}")
+                    # Log the updated curiosity level.
+                    logger.debug(f"DecisionModule: Current Curiosity Level: {self.curiosity_level:.2f}")
 
                 except Exception as e:
-                     logger.error(f"DecisionModule: Merak seviyesi güncellenirken beklenmedik hata: {e}", exc_info=True)
-            # else: decision None idi, merak güncellenmedi.
+                     # Catch errors during curiosity update but do not interrupt the main flow (already made a decision).
+                     logger.error(f"DecisionModule: Unexpected error while updating curiosity level: {e}", exc_info=True)
+            # else: If decision was None, curiosity is not updated (handled by the if decision is not None check).
 
 
-        return decision # Alınan karar stringi veya None döndürülür.
+        return decision # Return the decision string or None.
 
     def cleanup(self):
         """
-        DecisionModule kaynaklarını temizler.
-        ... (Docstring aynı) ...
+        Cleans up DecisionModule resources.
+
+        Currently, it doesn't use specific resources.
+        TODO: Saving internal state (like curiosity level) could go here (future TODO).
+        Called by module_loader.py when the program terminates (if it exists).
         """
-        logger.info("DecisionModule objesi temizleniyor.")
-        # TODO: İçsel durumun kaydedilmesi buraya gelebilir (gelecek TODO).
+        logger.info("DecisionModule object cleaning up.")
+        # TODO: Add logic here to save internal state (future TODO).
         pass

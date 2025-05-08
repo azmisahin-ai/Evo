@@ -44,6 +44,7 @@ class AudioProcessor:
         # Get sample rate and output dimension from config using get_config_value.
         # These settings are under the 'processors.audio' key.
         # Note: audio_rate also exists under 'audio' key. Using 'processors.audio' for consistency with VisionProcessor.
+        # Path should use 'processors', then 'audio', then the key name.
         self.audio_rate = get_config_value(config, 'processors', 'audio', 'audio_rate', default=44100, expected_type=int, logger_instance=logger)
         self.output_dim = get_config_value(config, 'processors', 'audio', 'output_dim', default=2, expected_type=int, logger_instance=logger)
 

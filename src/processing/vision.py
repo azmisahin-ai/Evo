@@ -1,8 +1,8 @@
 # src/processing/vision.py
 #
-# Görsel duyu verisini işler.
-# Ham piksel verisinden temel görsel özellikleri (örn. yeniden boyutlandırma, gri tonlama, kenarlar) çıkarır.
-# Evo'nın Faz 1'deki işleme yeteneklerinin bir parçasıdır.
+# Processes visual sensory data.
+# Extracts basic visual features (e.g., resizing, grayscale, edges) from raw pixel data.
+# Part of Evo's Phase 1 processing capabilities.
 
 import cv2 # OpenCV library, for camera capture and basic image processing. Should be in requirements.txt.
 import time # For timing or simulation if needed. Not directly used currently.
@@ -35,7 +35,7 @@ class VisionProcessor:
         Args:
             config (dict): Processor configuration settings (full config dict).
                            Settings for this module are read from the 'processors.vision' section
-                           and also brightness thresholds from the 'cognition' section.
+                           and also thresholds from the 'cognition' section.
         """
         self.config = config # VisionProcessor receives the full config
         logger.info("VisionProcessor initializing...")
@@ -47,9 +47,12 @@ class VisionProcessor:
         self.canny_low_threshold = get_config_value(config, 'processors', 'vision', 'canny_low_threshold', default=50, expected_type=int, logger_instance=logger)
         self.canny_high_threshold = get_config_value(config, 'processors', 'vision', 'canny_high_threshold', default=150, expected_type=int, logger_instance=logger)
 
-        # Get brightness thresholds from config (These are under the 'cognition' key)
+        # Get thresholds from config (These are under the 'cognition' key)
+        # Added these attributes and read them from config.
         self.brightness_threshold_high = get_config_value(config, 'cognition', 'brightness_threshold_high', default=200.0, expected_type=(float, int), logger_instance=logger)
         self.brightness_threshold_low = get_config_value(config, 'cognition', 'brightness_threshold_low', default=50.0, expected_type=(float, int), logger_instance=logger)
+        # Corrected: Add visual_edges_threshold which is also under cognition.
+        self.visual_edges_threshold = get_config_value(config, 'cognition', 'visual_edges_threshold', default=50.0, expected_type=(float, int), logger_instance=logger)
 
         # Ensure valid output dimensions (must be positive)
         if self.output_width <= 0 or self.output_height <= 0:
@@ -164,6 +167,8 @@ class VisionProcessor:
 
 
         # Corrected: Use a general Exception catch as cv2.Error might not inherit from BaseException in all environments.
+        # This also catches the AttributeError if self.visual_edges_threshold was not defined.
+        # However, defining it in __init__ is the correct fix.
         except Exception as e:
             # Catch any unexpected error during processing steps (e.g., opencv, numpy, or other errors).
             # These errors are logged, and an empty dictionary is returned.
