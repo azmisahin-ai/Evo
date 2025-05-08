@@ -27,7 +27,7 @@ processors:
     canny_high_threshold: 150 # Canny kenar tespiti yüksek eşiği
   audio:
     # output_dim: AudioProcessor'ın döndüreceği özellik sayısı (Enerji, Spectral Centroid).
-    # Implementation şu an 2 özellik döndürüyor.
+    # Kod implementasyonu şu anda 2 özellik döndürüyor.
     output_dim: 2
     # audio_rate AudioSensor'dan gelebilir, ama burada da belirtilebilir.
     audio_rate: 44100 # İsteğe bağlı olarak burada belirtilebilir
@@ -44,86 +44,76 @@ representation:
 memory:
   max_memory_size: 1000 # Saklanacak maksimum temsil sayısı (core/working memory)
   num_retrieved_memories: 5 # Retrieve metodunda varsayılan olarak geri çağrılacak anı sayısı
-  # Kalıcı depolama ayarları
   memory_file_path: data/core_memory.pkl # Belleğin kaydedileceği/yükleneceği dosya yolu. data/ dizini oluşturulacak.
-  # retrieval_method: similarity # Gelecekte farklı method seçimi olabilir.
 
 # Cognition modülleri ayarları
 cognition:
   # Anlama (Understanding) ve Karar (Decision) ayarları
-  familiarity_threshold: 0.8 # Varsayılan değer
-  audio_energy_threshold: 1000.0 # Yüksek Ses Enerjisi Eşiği
-  visual_edges_threshold: 50.0 # Yüksek Görsel Kenar Eşiği
-  brightness_threshold_high: 200.0 # Parlak Ortam Eşiği
-  brightness_threshold_low: 50.0 # Karanlık Ortam Eşiği
-  # Öğrenme (Learning) ve Kavram Tanıma ayarları
-  learning_frequency: 100
-  learning_memory_sample_size: 50
-  new_concept_threshold: 0.7
-  concept_recognition_threshold: 0.85
-  # İçsel Durum (Curiosity) ayarları
+  familiarity_threshold: 0.8
+  audio_energy_threshold: 1000.0
+  visual_edges_threshold: 50.0
+  brightness_threshold_high: 200.0
+  brightness_threshold_low: 50.0
+  # İçsel Durum (Curiosity - DecisionModule içinde kullanılır)
   curiosity_threshold: 5.0
   curiosity_increment_new: 1.0
   curiosity_decrement_familiar: 0.5
   curiosity_decay: 0.1
+  # Kavram Tanıma eşiği (DecisionModule kullanır)
+  concept_recognition_threshold: 0.85
+  # Öğrenme (Learning) ayarları (LearningModule ve ilgili CognitionCore parametreleri)
   learning:
     concept_file_path: data/concepts.pkl # Öğrenilen kavramların kaydedileceği dosya yolu
     learning_frequency: 100 # Öğrenme sıklığı (her 100 döngüde bir öğrenme işlemi yapılır)
+    learning_memory_sample_size: 50 # Öğrenme için bellekten alınacak örnek sayısı
+    new_concept_threshold: 0.7 # Yeni bir kavramın oluşması için eşik
 
 # Motor Control modülleri ayarları
 motor_control:
-  # Örneğin, çıktı tipi (metin, ses vb.) veya sentezleyici ayarları
-  # default_output_type: text
+  # default_output_type: text # Örnek ayar
 
 # Interaction modülleri ayarları
 interaction:
-  enabled_channels: ["console", "web_api"] # List of active output channels. 'console', 'web_api', etc.
-  channel_configs: # Channel-specific settings
-    console: {} # Console-specific settings can be left empty if none.
+  enabled_channels: ["console", "web_api"]
+  channel_configs:
+    console: {}
     web_api:
       port: 5000
-      # host: 127.0.0.1 # Future
+      # host: "0.0.0.0" # Tüm arayüzlerden erişim için
 
 # Loglama Ayarları
 logging:
-  level: INFO
+  level: INFO # Ana loglama seviyesi
   handlers:
     - type: console
-      level: DEBUG
+      level: DEBUG # Konsol için daha detaylı loglama (geliştirme sırasında)
       color: true
     - type: file
       filename: logs/evo_all.log
-      level: DEBUG
+      level: DEBUG # Dosyaya tüm DEBUG logları
       color: false
-    # - type: webapi # Temporarily disabled for testing 'no output' issue
-    #   url: http://localhost:5000/log
-    #   level: ERROR
     - type: socket
       host: 127.0.0.1
       port: 9000
       udp: true
       level: WARNING
   modules:
-    # SENSORS
-    src.senses.vision: [DEBUG, INFO, WARNING, ERROR, CRITICAL]
-    src.senses.audio: [DEBUG, INFO, WARNING, ERROR, CRITICAL]
-    # PROCESSORS
-    src.processing.vision: [DEBUG, INFO, WARNING, ERROR, CRITICAL]
-    src.processing.audio: [DEBUG, INFO, WARNING, ERROR, CRITICAL]
-    # REPRESENTERS
-    src.representation.models: [DEBUG, INFO, WARNING, ERROR, CRITICAL]
-    # MEMORIES
-    src.memory.core: [DEBUG, INFO, WARNING, ERROR, CRITICAL]
-    # COGNITION
-    src.cognition.core: [DEBUG, INFO, WARNING, ERROR, CRITICAL]
-    src.cognition.understanding: [DEBUG, INFO, WARNING, ERROR, CRITICAL] # Added Debug for Understanding
-    src.cognition.decision: [DEBUG, INFO, WARNING, ERROR, CRITICAL] # Added Debug for Decision
-    src.cognition.learning: [DEBUG, INFO, WARNING, ERROR, CRITICAL] # Added Debug for Learning
-    # MOTOR CONTROL
-    src.motor_control.core: [DEBUG, INFO, WARNING, ERROR, CRITICAL]
-    src.motor_control.expression: [DEBUG, INFO, WARNING, ERROR, CRITICAL] # Added Debug for Expression
-    # INTERACTION
-    src.interaction.api: [DEBUG, INFO, WARNING, ERROR, CRITICAL]
-    src.interaction.output_channels.console:
-      [DEBUG, INFO, WARNING, ERROR, CRITICAL]
-    src.interaction.output_channels.web_api: [DEBUG, INFO, WARNING, ERROR, CRITICAL] # Added Debug for WebAPI channel
+    # Belirli modüller için log seviyeleri override edilebilir
+    src.senses.vision: DEBUG
+    src.senses.audio: DEBUG
+    src.processing.vision: DEBUG
+    src.processing.audio: DEBUG
+    src.representation.models: DEBUG
+    src.memory.core: DEBUG
+    src.cognition.core: DEBUG
+    src.cognition.understanding: DEBUG
+    src.cognition.decision: DEBUG
+    src.cognition.learning: DEBUG
+    src.motor_control.core: DEBUG
+    src.motor_control.expression: DEBUG
+    src.interaction.api: DEBUG
+    src.interaction.output_channels.console: INFO # Konsol çıktısı kanalı için INFO
+    src.interaction.output_channels.web_api: INFO
+
+    # __main__ (test_module.py ve run_evo.py gibi scriptler için)
+    __main__: INFO # Ana scriptler için varsayılan INFO, testlerde DEBUG olabilir

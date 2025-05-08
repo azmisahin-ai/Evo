@@ -38,7 +38,7 @@ def _initialize_single_module(module_name, module_class, config, category_name, 
     Args:
         module_name (str): Modülün adı (örn: 'vision', 'core_memory').
         module_class (class): Başlatılacak modül sınıfı.
-        config (dict): Genel yapılandırma sözlüğü.
+        config (dict): Genel yapılandırma sözlüğü. <<< TÜM CONFIG BURAYA GELİYOR
         category_name (str): Modülün ait olduğu kategori adı (örn: 'sensors', 'processors').
         is_critical_category (bool): Bu modülün ait olduğu kategorinin kritik olup olmadığı.
         **extra_args: Alt modül init metoduna iletilecek ekstra keyword argümanları.
@@ -51,7 +51,8 @@ def _initialize_single_module(module_name, module_class, config, category_name, 
     """
     instance = None
     critical_error_occurred = False
-    module_config = config.get(module_name, {}) # Konfigürasyondan ilgili modülün ayarlarını al
+    # Artık modül config'ini burada ayıklamaya gerek yok, tüm config'i init'e vereceğiz.
+    # module_config = config.get(category_name, {}).get(module_name, {}) # Bu satır kaldırıldı/değiştirildi
 
     logger.info(f"Başlatılıyor: {module_class.__name__} ({module_name})...")
 
@@ -59,10 +60,11 @@ def _initialize_single_module(module_name, module_class, config, category_name, 
     # run_safely, exception yakalarsa None döner ve loglar.
     # Başlatma sırasında hata oluştuğunda log seviyesi CRITICAL olmalı.
     # Alt modül init metotlarına config ve **extra_args dictionary'sindeki anahtarları ilet.
+    # <<< DEĞİŞİKLİK: İlk argüman olarak alt config yerine TÜM config'i geçiyoruz >>>
     instance = run_safely(
         module_class, # Çalıştırılacak fonksiyon (sınıf __init__ metodu çağrılır)
-        module_config, # Fonksiyonun (init) ilk argümanı (config)
-        **extra_args, # Ekstra keyword argümanları (**extra_args dictionary'sini unpack et) <<< BURADA DEĞİŞİKLİK YAPILDI
+        config,       # Fonksiyonun (init) ilk argümanı (TÜM config) <<< DEĞİŞTİ
+        **extra_args, # Ekstra keyword argümanları (**extra_args dictionary'sini unpack et)
         logger_instance=logger, # Loglama için bu modülün logger'ını gönder
         error_message=f"Modül '{module_name}' ({module_class.__name__}) başlatılırken kritik hata oluştu", # Log mesajı
         error_level=logging.CRITICAL # Log seviyesi
@@ -99,33 +101,31 @@ def _cleanup_single_module(module_name, module_instance, category_name):
     if module_instance:
         # Temizleme metotlarını çağırırken cleanup_safely kullan.
         # Temizleme sırasında hata oluştuğunda log seviyesi ERROR olmalı.
+        method_to_call = None
+        method_name = None
 
         # Öncelikle genel cleanup metodunu dene
         if hasattr(module_instance, 'cleanup'):
-            logger.info(f"Temizleniyor: {category_name.capitalize()} - {module_name} ({type(module_instance).__name__})...")
-            cleanup_safely(
-                module_instance.cleanup, # Çalıştırılacak temizleme fonksiyonu
-                logger_instance=logger, # Loglama için bu modülün logger'ını gönder
-                error_message=f"Temizleme sırasında hata: {category_name.capitalize()} - {module_name} ({type(module_instance).__name__})", # Log mesajı
-                error_level=logging.ERROR # Log seviyesi
-            )
-            # logger.info(f"Temizlendi: {category_name.capitalize()} - {module_name}.") # cleanup_safely başarı durumunda loglamaz
-
+            method_to_call = module_instance.cleanup
+            method_name = 'cleanup'
         # Sensörler için özel olarak stop_stream metodunu çağır (cleanup'ları olmayabilir).
         # TODO: Sensörlerin stop_stream mantığını kendi cleanup metotlarına taşımak daha temiz olur. (Gelecekte refactoring).
         elif category_name == 'sensors' and hasattr(module_instance, 'stop_stream'):
-             logger.info(f"Temizleniyor (stream): {category_name.capitalize()} - {module_name} ({type(module_instance).__name__})...")
-             cleanup_safely(
-                 module_instance.stop_stream, # Çalıştırılacak temizleme fonksiyonu
-                 logger_instance=logger, # Loglama için bu modülün logger'ını gönder
-                 error_message=f"Temizleme (stream) sırasında hata: {category_name.capitalize()} - {module_name} ({type(module_instance).__name__})", # Log mesajı
-                 error_level=logging.ERROR # Log seviyesi
-             )
-             # logger.info(f"Temizlendi (stream): {category_name.capitalize()} - {module_name}.") # cleanup_safely başarı durumunda loglamaz
+             method_to_call = module_instance.stop_stream
+             method_name = 'stop_stream'
 
+        if method_to_call:
+            logger.info(f"Temizleniyor ({method_name}): {category_name.capitalize()} - {module_name} ({type(module_instance).__name__})...")
+            cleanup_safely(
+                method_to_call, # Çalıştırılacak temizleme fonksiyonu
+                logger_instance=logger, # Loglama için bu modülün logger'ını gönder
+                error_message=f"Temizleme ({method_name}) sırasında hata: {category_name.capitalize()} - {module_name} ({type(module_instance).__name__})", # Log mesajı
+                error_level=logging.ERROR # Log seviyesi
+            )
         # Eğer obje None değil ama cleanup/stop_stream metotları yoksa bilgilendirici log (DEBUG seviyesinde)
-        # elif not hasattr(module_instance, 'cleanup') and not hasattr(module_instance, 'stop_stream'):
-        #      logger.debug(f"Temizleme metodu yok: {category_name.capitalize()} - {module_name} ({type(module_instance).__name__}). Temizleme atlandı.")
+        elif not hasattr(module_instance, 'cleanup') and not hasattr(module_instance, 'stop_stream'):
+             logger.debug(f"Temizleme metodu yok: {category_name.capitalize()} - {module_name} ({type(module_instance).__name__}). Temizleme atlandı.")
+
     # else:
          # Obje zaten None ise temizlemeye gerek yok, loglamaya da gerek yok.
          # logger.debug(f"Temizleniyor: {category_name.capitalize()} - {module_name}: Obje None, temizleme atlandı.")
@@ -200,10 +200,11 @@ def initialize_modules(config):
             # Diğer modüller şimdilik sadece config argümanı bekliyor.
             extra_init_args = {}
             if category_name == 'cognition': # Eğer bu kategori Cognition ise
-                 extra_init_args['module_objects'] = module_objects # module_objects dictionary'sini ilet. <<< BURADA DEĞİŞİKLİK YAPILDI
+                 # CognitionCore'a diğer modül objelerini içeren dict'i ilet.
+                 extra_init_args['module_objects'] = module_objects
 
             instance, error_occurred_for_single_module = _initialize_single_module(
-                module_name, module_class, config, category_name, is_critical_category, **extra_init_args # Extra argümanları ilet. <<< BURADA DEĞİŞİKLİK YAPILDI
+                module_name, module_class, config, category_name, is_critical_category, **extra_init_args # Extra argümanları ilet.
             )
             module_objects[category_name][module_name] = instance # Başlatılan instance'ı veya None'ı kaydet
 
@@ -214,12 +215,24 @@ def initialize_modules(config):
         if is_critical_category and critical_error_in_category:
              can_run_main_loop = False
              # Kritik hata _initialize_single_module içinde loglandı.
-             # Burada sadece ana döngü bayrağının değiştiğini loglayabiliriz.
 
 
     # Sensör başlatma durumu hakkında özel log (hepsi None olsa bile ana döngü engellenmiyor policy'mize göre)
-    active_sensors = [name for name, sensor in module_objects.get('sensors', {}).items() # sensors dict'i init hatasıyla None olabilir
-                      if sensor and (getattr(sensor, 'is_camera_available', False) or getattr(sensor, 'is_audio_available', False))]
+    # Aktif sensörleri kontrol et (init başarılı ve stream/kamera aktif ise)
+    active_sensors = []
+    sensors_dict = module_objects.get('sensors', {})
+    if sensors_dict:
+        for name, sensor in sensors_dict.items():
+            if sensor: # Eğer sensör None değilse
+                is_active = False
+                if name == 'vision' and hasattr(sensor, 'is_camera_available') and sensor.is_camera_available:
+                    is_active = True
+                elif name == 'audio' and hasattr(sensor, 'is_audio_available') and sensor.is_audio_available:
+                    is_active = True
+                # Başka sensör tipleri eklenirse buraya kontrol eklenebilir
+                if is_active:
+                    active_sensors.append(name)
+
     if not active_sensors and can_run_main_loop: # Ana döngü çalışacak ama sensör yok
          logger.warning("Hiçbir duyusal sensör aktif değil. Evo girdi alamayacak, ancak temel iskelet başlatıldı.")
 
@@ -229,7 +242,8 @@ def initialize_modules(config):
          # Sadece kritik modüllerin başlatılması ana döngü için yeterlidir.
          logger.info("Tüm kritik modüller başarıyla başlatıldı. Evo bilişsel döngüye hazır.")
          # Interaction modülü başlatılamadıysa initialize_modules içinde warning loglandı.
-         if module_objects.get('interaction', {}).get('core_interaction') is None:
+         interaction_instance = module_objects.get('interaction', {}).get('core_interaction')
+         if interaction_instance is None:
               logger.warning("Interaction modülü başlatılamadı. Evo çıktı veremeyebilir.")
 
     else:
@@ -266,19 +280,15 @@ def cleanup_modules(module_objects):
     # Her modül kategorisini temizleme sırasında ele al
     for category_name in module_categories_in_cleanup_order:
         # Eğer initialize_modules bu kategori için bir sözlük oluşturabildiyse (None değilse)
-        category_dict = module_objects.get(category_name, {})
-        if category_dict: # Sözlük boş değilse veya en azından dict objesi varsa
+        category_dict = module_objects.get(category_name) # .get() ile al, None olabilir
+        if category_dict: # Sözlük None değilse (boş olsa bile)
             # Kategori içindeki her modül objesini _cleanup_single_module yardımcı fonksiyonu ile temizle
             # Sözlük üzerinde dönerken değişiklik yapmamak veya None objeleri atlamak için .items() yerine listesi kullanılır.
+            # None objeler _cleanup_single_module içinde zaten atlanıyor.
             for module_name, module_instance in list(category_dict.items()):
-                 # _cleanup_single_module obje None olsa bile güvenli çalışır.
                  _cleanup_single_module(module_name, module_instance, category_name)
-
-        # Sensörler için stop_stream metotları var, cleanup metotları değil (mevcut kodda).
-        # Bunları manuel olarak veya cleanup metodlarına taşımalıyız.
-        # Mevcut run_evo.py'deki finally bloğunda yapılıyordu, şimdi _cleanup_single_module içine taşıdık.
-        # _cleanup_single_module already handles calling stop_stream for 'sensors' category
-        # based on hasattr check. So no extra logic needed here anymore.
+        else:
+            logger.debug(f"Temizleme: '{category_name}' kategorisi bulunamadı veya None, atlanıyor.")
 
 
     logger.info("Tüm Evo kaynakları temizlendi.")
