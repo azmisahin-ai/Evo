@@ -17,36 +17,29 @@ from src.core.utils import check_input_not_none, check_numpy_input # <<< Utils i
 # 'src.processing.vision' adında bir logger döndürür.
 logger = logging.getLogger(__name__)
 
+# src/processing/vision.py
+# ... (imports) ...
+
 class VisionProcessor:
     """
     Evo'nın görsel veriyi işleyen sınıfı (Faz 1 implementasyonu).
-
-    VisionSensor'dan gelen ham görsel girdiyi (kare) alır,
-    üzerinde temel işlemler yaparak (yeniden boyutlandırma, gri tonlama, kenar tespiti)
-    RepresentationLearner için uygun hale getirir.
-    İşleme sırasında oluşabilecek hataları yönetir ve akışın devamlılığını sağlar.
-    Çıktı olarak işlenmiş farklı özellikleri içeren bir sözlük döndürür.
+    ... (Docstring aynı) ...
     """
     def __init__(self, config):
         """
         VisionProcessor'ı başlatır.
-
-        Args:
-            config (dict): İşlemci yapılandırma ayarları.
-                           'output_width': İşlenmiş görsel çıktının genişliği (int, varsayılan 64).
-                           'output_height': İşlenmiş görsel çıktının yüksekliği (int, varsayılan 64).
-                           'canny_low_threshold': Canny kenar tespiti düşük eşiği (int, varsayılan 50).
-                           'canny_high_threshold': Canny kenar tespiti yüksek eşiği (int, varsayılan 150).
+        ... (Docstring aynı) ...
         """
         self.config = config
         logger.info("VisionProcessor başlatılıyor...")
 
         # Yapılandırmadan çıktı boyutlarını ve Canny eşiklerini alırken get_config_value kullan.
-        # Bu, tip kontrolü ve varsayılan değer atamayı sadeleştirir ve loglar.
-        self.output_width = get_config_value(config, 'output_width', 64, expected_type=int, logger_instance=logger)
-        self.output_height = get_config_value(config, 'output_height', 64, expected_type=int, logger_instance=logger)
-        self.canny_low_threshold = get_config_value(config, 'canny_low_threshold', 50, expected_type=int, logger_instance=logger)
-        self.canny_high_threshold = get_config_value(config, 'canny_high_threshold', 150, expected_type=int, logger_instance=logger)
+        # Düzeltme: get_config_value çağrılarını default=keyword formatına çevir.
+        # Config'e göre bu ayarlar 'processors.vision' altında.
+        self.output_width = get_config_value(config, 'processors', 'vision', 'output_width', default=64, expected_type=int, logger_instance=logger)
+        self.output_height = get_config_value(config, 'processors', 'vision', 'output_height', default=64, expected_type=int, logger_instance=logger)
+        self.canny_low_threshold = get_config_value(config, 'processors', 'vision', 'canny_low_threshold', default=50, expected_type=int, logger_instance=logger)
+        self.canny_high_threshold = get_config_value(config, 'processors', 'vision', 'canny_high_threshold', default=150, expected_type=int, logger_instance=logger)
 
 
         # Geçerli çıktı boyutları olduğundan emin ol (negatif veya sıfır olmamalı)
@@ -58,7 +51,7 @@ class VisionProcessor:
 
         logger.info(f"VisionProcessor başlatıldı. Çıktı boyutu: {self.output_width}x{self.output_height}, Canny Eşikleri: [{self.canny_low_threshold}, {self.canny_high_threshold}]")
 
-
+    # ... (process and cleanup methods - same as before) ...
     def process(self, visual_input):
         """
         Ham görsel girdiyi işler, temel özellikleri çıkarır.

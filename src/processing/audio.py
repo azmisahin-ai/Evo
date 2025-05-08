@@ -16,35 +16,28 @@ from src.core.utils import check_input_not_none, check_numpy_input # <<< Utils i
 # 'src.processing.audio' adında bir logger döndürür.
 logger = logging.getLogger(__name__)
 
+# src/processing/audio.py
+# ... (imports) ...
+
 class AudioProcessor:
     """
     Evo'nın işitsel veriyi işleyen sınıfı (Faz 1 implementasyonu).
-
-    AudioSensor'dan gelen ham ses girdisini (chunk) alır,
-    üzerinde temel işlemler yaparak (enerji, Spectral Centroid hesaplama)
-    RepresentationLearner için uygun hale getirir.
-    İşleme sırasında oluşabilecek hataları yönetir ve akışın devamlılığını sağlar.
-    Çıktı olarak temel işitsel özellikleri içeren bir numpy array döndürür.
+    ... (Docstring aynı) ...
     """
     def __init__(self, config):
         """
         AudioProcessor'ı başlatır.
-
-        Args:
-            config (dict): İş işlemci yapılandırma ayarları.
-                           'audio_rate': Ses örnekleme oranı (int, varsayılan 44100 Hz).
-                                         Spectral Centroid hesaplaması için gereklidir.
-                           'output_dim': İşlenmiş ses çıktısının boyutu (int, varsayılan 2).
-                                         Şimdilik enerji ve Spectral Centroid için 2 beklenir.
-                                         Gelecekte farklı özellikler için bu sayı artabilir.
+        ... (Docstring aynı) ...
         """
         self.config = config
         logger.info("AudioProcessor başlatılıyor...")
 
         # Yapılandırmadan örnekleme oranını ve çıktı boyutunu alırken get_config_value kullan.
-        self.audio_rate = get_config_value(config, 'audio_rate', 44100, expected_type=int, logger_instance=logger)
-        # Artık enerji ve Spectral Centroid döndüreceğimiz için varsayılan output_dim 2.
-        self.output_dim = get_config_value(config, 'output_dim', 2, expected_type=int, logger_instance=logger)
+        # Düzeltme: get_config_value çağrılarını default=keyword formatına çevir.
+        # Config'e göre audio_rate hem 'audio' hem 'processors.audio' altında var.
+        # Processing modülleri için 'processors' altındaki ayarları kullanmak daha tutarlı olur.
+        self.audio_rate = get_config_value(config, 'processors', 'audio', 'audio_rate', default=44100, expected_type=int, logger_instance=logger)
+        self.output_dim = get_config_value(config, 'processors', 'audio', 'output_dim', default=2, expected_type=int, logger_instance=logger)
 
         # output_dim kontrolü (gelecekte birden fazla özellik dönerse anlamlı olacak)
         # Şu an enerji ve Spectral Centroid olmak üzere 2 özellik döndürüyoruz.
@@ -56,7 +49,7 @@ class AudioProcessor:
 
         logger.info(f"AudioProcessor başlatıldı. Örnekleme Oranı: {self.audio_rate} Hz, Çıktı Boyutu (implemente edilen): {self.output_dim}")
 
-
+    # ... (process and cleanup methods - same as before) ...
     def process(self, audio_input):
         """
         Ham işitsel girdiyi işler, temel işitsel özellikleri çıkarır.

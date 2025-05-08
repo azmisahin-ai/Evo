@@ -16,6 +16,9 @@ from src.core.config_utils import get_config_value
 
 logger = logging.getLogger(__name__)
 
+# src/cognition/decision.py
+# ... (imports) ...
+
 class DecisionModule:
     """
     Evo'nın denetimsiz öğrenme (kavram keşfi) yeteneğini sağlayan sınıf (Faz 4 implementasyonu).
@@ -30,59 +33,60 @@ class DecisionModule:
         logger.info("DecisionModule başlatılıyor (Faz 3/4)...")
 
         # Yapılandırmadan eşikleri ve merak ayarlarını alırken get_config_value kullan.
-        # NOT: Bu çağrılar get_config_value(config, 'key', default_value, ...) formatındadır.
-        # config_utils.py'deki workaround bu çağrılara uyum sağlar. İdeal çözüm, default=default_value kullanmaktır.
-        self.familiarity_threshold = get_config_value(config, 'familiarity_threshold', 0.8, expected_type=(float, int), logger_instance=logger)
-        self.audio_energy_threshold = get_config_value(config, 'audio_energy_threshold', 1000.0, expected_type=(float, int), logger_instance=logger)
-        self.visual_edges_threshold = get_config_value(config, 'visual_edges_threshold', 50.0, expected_type=(float, int), logger_instance=logger)
-        self.brightness_threshold_high = get_config_value(config, 'brightness_threshold_high', 200.0, expected_type=(float, int), logger_instance=logger)
-        self.brightness_threshold_low = get_config_value(config, 'brightness_threshold_low', 50.0, expected_type=(float, int), logger_instance=logger)
-        self.concept_recognition_threshold = get_config_value(config, 'concept_recognition_threshold', 0.85, expected_type=(float, int), logger_instance=logger)
-        self.curiosity_threshold = get_config_value(config, 'curiosity_threshold', 5.0, expected_type=(float, int), logger_instance=logger)
-        self.curiosity_increment_new = get_config_value(config, 'curiosity_increment_new', 1.0, expected_type=(float, int), logger_instance=logger)
-        self.curiosity_decrement_familiar = get_config_value(config, 'curiosity_decrement_familiar', 0.5, expected_type=(float, int), logger_instance=logger)
-        self.curiosity_decay = get_config_value(config, 'curiosity_decay', 0.1, expected_type=(float, int), logger_instance=logger)
+        # Düzeltme: get_config_value çağrılarını default=keyword formatına çevir.
+        # Config'e göre bu ayarlar 'cognition' anahtarı altında, Understanding/Decision altında değil.
+        self.familiarity_threshold = get_config_value(config, 'cognition', 'familiarity_threshold', default=0.8, expected_type=(float, int), logger_instance=logger)
+        self.audio_energy_threshold = get_config_value(config, 'cognition', 'audio_energy_threshold', default=1000.0, expected_type=(float, int), logger_instance=logger)
+        self.visual_edges_threshold = get_config_value(config, 'cognition', 'visual_edges_threshold', default=50.0, expected_type=(float, int), logger_instance=logger)
+        self.brightness_threshold_high = get_config_value(config, 'cognition', 'brightness_threshold_high', default=200.0, expected_type=(float, int), logger_instance=logger)
+        self.brightness_threshold_low = get_config_value(config, 'cognition', 'brightness_threshold_low', default=50.0, expected_type=(float, int), logger_instance=logger)
+        self.concept_recognition_threshold = get_config_value(config, 'cognition', 'concept_recognition_threshold', default=0.85, expected_type=(float, int), logger_instance=logger)
+        self.curiosity_threshold = get_config_value(config, 'cognition', 'curiosity_threshold', default=5.0, expected_type=(float, int), logger_instance=logger)
+        self.curiosity_increment_new = get_config_value(config, 'cognition', 'curiosity_increment_new', default=1.0, expected_type=(float, int), logger_instance=logger)
+        self.curiosity_decrement_familiar = get_config_value(config, 'cognition', 'curiosity_decrement_familiar', default=0.5, expected_type=(float, int), logger_instance=logger)
+        self.curiosity_decay = get_config_value(config, 'cognition', 'curiosity_decay', default=0.1, expected_type=(float, int), logger_instance=logger)
 
 
         # Eşik değerleri için basit değer kontrolü (0.0-1.0 arası benzerlik, negatif olmamalı diğerleri)
-        # get_config_value artık None dönmemeli (workaround sayesinde), bu kontroller TypeError vermemeli.
-        if not (0.0 <= float(self.familiarity_threshold) <= 1.0): # float() ekledim tip dönüşümü için
+        # get_config_value artık doğru varsayılanları döndürmeli. Kendi aralık kontrolümüzü float değerler üzerinde yapalım.
+        # float() ekledim tip dönüşümü için
+        if not (0.0 <= float(self.familiarity_threshold) <= 1.0):
              logger.warning(f"DecisionModule: Konfig 'familiarity_threshold' beklenmeyen aralıkta ({self.familiarity_threshold}). Varsayılan 0.8 kullanılıyor.")
              self.familiarity_threshold = 0.8
-        if float(self.audio_energy_threshold) < 0.0: # float() ekledim
+        if float(self.audio_energy_threshold) < 0.0:
              logger.warning(f"DecisionModule: Konfig 'audio_energy_threshold' negatif ({self.audio_energy_threshold}). Varsayılan 1000.0 kullanılıyor.")
              self.audio_energy_threshold = 1000.0
-        if float(self.visual_edges_threshold) < 0.0: # float() ekledim
+        if float(self.visual_edges_threshold) < 0.0:
              logger.warning(f"DecisionModule: Konfig 'visual_edges_threshold' negatif ({self.visual_edges_threshold}). Varsayılan 50.0 kullanılıyor.")
              self.visual_edges_threshold = 50.0
         # Parlaklık eşik kontrolü: Hem pozitif olmalı hem de low < high olmalı
-        if float(self.brightness_threshold_high) < 0.0: # float() ekledim
+        if float(self.brightness_threshold_high) < 0.0:
              logger.warning(f"DecisionModule: Konfig 'brightness_threshold_high' negatif ({self.brightness_threshold_high}). Varsayılan 200.0 kullanılıyor.")
              self.brightness_threshold_high = 200.0
-        if float(self.brightness_threshold_low) < 0.0: # float() ekledim
+        if float(self.brightness_threshold_low) < 0.0:
              logger.warning(f"DecisionModule: Konfig 'brightness_threshold_low' negatif ({self.brightness_threshold_low}). Varsayılan 50.0 kullanılıyor.")
              self.brightness_threshold_low = 50.0
         # Önceki kontrollerden sonra güncel değerleri kontrol et
-        if float(self.brightness_threshold_low) >= float(self.brightness_threshold_high): # float() ekledim
+        if float(self.brightness_threshold_low) >= float(self.brightness_threshold_high):
              logger.warning(f"DecisionModule: Konfig 'brightness_threshold_low' ({self.brightness_threshold_low}) 'brightness_threshold_high'dan ({self.brightness_threshold_high}) büyük veya eşit. Varsayılan 50.0 ve 200.0 kullanılıyor.")
              self.brightness_threshold_low = 50.0
              self.brightness_threshold_high = 200.0 # Hem low hem high resetlendi ki low < high olsun.
 
-        if not (0.0 <= float(self.concept_recognition_threshold) <= 1.0): # float() ekledim
+        if not (0.0 <= float(self.concept_recognition_threshold) <= 1.0):
              logger.warning(f"DecisionModule: Konfig 'concept_recognition_threshold' beklenmeyen aralıkta ({self.concept_recognition_threshold}). 0.0 ile 1.0 arası bekleniyordu. Varsayılan 0.85 kullanılıyor.")
              self.concept_recognition_threshold = 0.85
         # Merak eşiği ve güncelleme miktarları negatif olmamalı
-        if float(self.curiosity_threshold) < 0.0: # float() ekledim
+        if float(self.curiosity_threshold) < 0.0:
              logger.warning(f"DecisionModule: Konfig 'curiosity_threshold' negatif ({self.curiosity_threshold}). Varsayılan 5.0 kullanılıyor.")
              self.curiosity_threshold = 5.0
-        if float(self.curiosity_increment_new) < 0.0: # float() ekledim
+        if float(self.curiosity_increment_new) < 0.0:
              logger.warning(f"DecisionModule: Konfig 'curiosity_increment_new' negatif ({self.curiosity_increment_new}). Varsayılan 1.0 kullanılıyor.")
              self.curiosity_increment_new = 1.0
-        if float(self.curiosity_decrement_familiar) < 0.0: # float() ekledim
+        if float(self.curiosity_decrement_familiar) < 0.0:
              logger.warning(f"DecisionModule: Konfig 'curiosity_decrement_familiar' negatif ({self.curiosity_decrement_familiar}). Varsayılan 0.5 kullanılıyor.")
              self.curiosity_decrement_familiar = 0.5
         # Merak decay negatif olmamalı
-        if float(self.curiosity_decay) < 0.0: # float() ekledim
+        if float(self.curiosity_decay) < 0.0:
              logger.warning(f"DecisionModule: Konfig 'curiosity_decay' negatif ({self.curiosity_decay}). Varsayılan 0.1 kullanılıyor.")
              self.curiosity_decay = 0.1
 
@@ -93,7 +97,7 @@ class DecisionModule:
         logger.info(f"DecisionModule başlatıldı. Tanıdıklık Eşiği: {self.familiarity_threshold}, Ses Eşiği: {self.audio_energy_threshold}, Görsel Eşiği: {self.visual_edges_threshold}, Parlaklık Yüksek Eşiği: {self.brightness_threshold_high}, Parlaklık Düşük Eşiği: {self.brightness_threshold_low}, Kavram Tanıma Eşiği: {self.concept_recognition_threshold}, Merak Eşiği: {self.curiosity_threshold}")
         logger.debug(f"DecisionModule: Merak Artış (Yeni): {self.curiosity_increment_new}, Azalış (Tanıdık): {self.curiosity_decrement_familiar}, Decay: {self.curiosity_decay}")
 
-
+    # ... (decide and cleanup methods - same as before) ...
     def decide(self, understanding_signals, relevant_memory_entries, internal_state=None):
         """
         Anlama sinyallerine ve içsel duruma (curiosity_level) göre bir eylem kararı alır.

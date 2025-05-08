@@ -51,24 +51,21 @@ memory:
 # Cognition modülleri ayarları
 cognition:
   # Anlama (Understanding) ve Karar (Decision) ayarları
-  # familiarity_threshold: Bellek benzerliğine dayalı "tanıdık" kabul etmek için gereken en düşük bellek benzerlik skoru (0.0 ile 1.0 arası float).
   familiarity_threshold: 0.8 # Varsayılan değer
-  # Process çıktısı eşikleri (Process çıktı değerlerine göre ayarlanmalı. DEBUG loglarına bakın.)
-  audio_energy_threshold: 1000.0 # Yüksek Ses Enerjisi Eşiği (Örnek: 1000.0 çok yüksek, ortamınıza göre ayarlayın. DEBUG loglarına bakın.)
-  visual_edges_threshold: 50.0 # Yüksek Görsel Kenar Eşiği (Örnek: 50.0 orta düzeyde, ortamınıza göre ayarlayın. DEBUG loglarına bakın.)
-  brightness_threshold_high: 200.0 # Parlak Ortam Eşiği (0-255 ortalama gri değerine göre. Örn: 200.0 parlak bir oda olabilir.)
-  brightness_threshold_low: 50.0 # Karanlık Ortam Eşiği (0-255 ortalama gri değerine göre. Örn: 50.0 loş veya karanlık bir ortam olabilir.)
+  audio_energy_threshold: 1000.0 # Yüksek Ses Enerjisi Eşiği
+  visual_edges_threshold: 50.0 # Yüksek Görsel Kenar Eşiği
+  brightness_threshold_high: 200.0 # Parlak Ortam Eşiği
+  brightness_threshold_low: 50.0 # Karanlık Ortam Eşiği
   # Öğrenme (Learning) ve Kavram Tanıma ayarları
-  learning_frequency: 100 # LearningModule'ün kaç bilişsel döngü adımında bir tetikleneceği
-  learning_memory_sample_size: 50 # LearningModule için Memory'den alınacak Representation sayısı
-  new_concept_threshold: 0.7 # Bir Representation'ın yeni kavram sayılması için mevcut kavramlara olan en yüksek benzerlik eşiği (0.0-1.0)
-  concept_recognition_threshold: 0.85 # Bir Representation'ın bilinen bir kavrama ait sayılması için gereken en yüksek benzerlik eşiği (0.0-1.0)
+  learning_frequency: 100
+  learning_memory_sample_size: 50
+  new_concept_threshold: 0.7
+  concept_recognition_threshold: 0.85
   # İçsel Durum (Curiosity) ayarları
-  curiosity_threshold: 5.0 # Merak seviyesinin keşif/sinyal kararı için ulaşması gereken eşik
-  curiosity_increment_new: 1.0 # "Yeni" input algılandığında merak seviyesi artış miktarı
-  curiosity_decrement_familiar: 0.5 # "Tanıdık" input algılandığında merak seviyesi azalış miktarı
-  curiosity_decay: 0.1 # Her döngü adımında merak seviyesinin otomatik azalışı
-  # LearningModule kalıcılık ayarı eklendi
+  curiosity_threshold: 5.0
+  curiosity_increment_new: 1.0
+  curiosity_decrement_familiar: 0.5
+  curiosity_decay: 0.1
   learning:
     concept_file_path: data/concepts.pkl # Öğrenilen kavramların kaydedileceği dosya yolu
 
@@ -81,6 +78,7 @@ motor_control:
 interaction:
   enabled_channels: ["console"] # Aktif çıktı kanalları listesi. 'console', 'web_api' vb.
   channel_configs: # Kanal bazlı özel ayarlar
+    console: {} # Konsol için özel ayar yoksa boş bırakılabilir.
     web_api:
       port: 5000
       # host: 127.0.0.1 # Gelecekte
