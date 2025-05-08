@@ -4,6 +4,9 @@
 # Belirli bir modülü başlatır, sahte girdi verir ve çıktısını loglar.
 # Bu script, geliştirme sırasında modüllerin beklenen davranışı sergilediğinden emin olmak için kullanılır.
 
+# DEBUG: Add a print statement right at the very beginning to guarantee some output
+print("--- Evo Test Script Started (Diagnostic Print) ---")
+
 import argparse
 import logging
 import sys
@@ -375,7 +378,7 @@ def run_module_test(module_path, class_name, config):
     Returns:
         tuple: (success, output_data)
                success (bool): Test başarılı mı? (Modül başlatıldı mı ve metot hata fırlatmadan çalıştı mı?)
-               output_data (any): Modülün işleme metodından dönen çıktı veya metot çağrılamadıysa/hata durumında None.
+               output_data (any): Modülün işleme metodından dönen çıktı veya metot çağrılamadıysa/hata durumunda None.
     """
     logger.info(f"--- Modül Testi Başlatılıyor: {class_name} ({module_path}) ---")
     module_class = load_module_class(module_path, class_name)
@@ -393,7 +396,7 @@ def run_module_test(module_path, class_name, config):
         # --- Modülü Başlat ---
         # Çoğu modül sadece config ile başlar. CognitionCore module_objects bekler.
         # Alt modül init argümanlarını hazırlayalım.
-        # Config objesi, bu test scripti içinde get_config_value ile okunduğunda doğru değerleri döndürececektir.
+        # Config objesi, bu test scripti içinde get_config_value ile okundığında doğru değerleri döndürececektir.
         init_args = [config] # İlk argüman her zaman config
 
         # Eğer CognitionCore ise, dummy_module_objects dictionary'sini de init argümanı olarak ekle.
@@ -420,6 +423,8 @@ def run_module_test(module_path, class_name, config):
         # Eğer init başarıyla tamamlandıysa module_instance None değildir (Sensor init'leri None döndürme ihtimali hariç).
         # Eğer Sensor init hata yönetimi yaparak None döndürdüyse, başlatma başarısız kabul edilir.
         if module_instance is None:
+             # VisionSensor ve AudioSensor'ın init'i hata durumunda None veya False döndürebilir.
+             # Bu durumda test başarısız kabul edilir.
              logger.error(f"'{class_name}' modülü başlatılırken hata oluştu (init None veya False döndürdü).")
              test_success = False # Başlatma başarısızsa test başarısız.
              return False, None # Başlatma başarısız.
@@ -439,7 +444,7 @@ def run_module_test(module_path, class_name, config):
              # test_success True kaldıysa init başarılıdır.
              final_success_status = test_success # Init başarısı test_success'te.
              logger.debug(f"'{class_name}': İşleme metodu testi atlandı. Başlatma Başarılı: {final_success_status}")
-             # Cleanup finally bloğunda yapılacak.
+             # Cleanup finally bloğında yapılacak.
              return final_success_status, None # Metot çağrılmadığı için çıktı yok.
 
         else:
@@ -517,8 +522,7 @@ def run_module_test(module_path, class_name, config):
                       # Eğer çıktı None değilse logla.
                       if output_data is not None:
                            logger.debug(f"'{class_name}.{method_name}' çıktısı:")
-                           # log_output_data(output_data) # Yeni yardımcı fonksiyonu kullan
-                           print(output_data) # log_output_data yerine print kullanıldı, log_output_data fonksiyonu yok.
+                           log_output_data(output_data) # Yeni yardımcı fonksiyonu kullan
                       else:
                           logger.debug(f"'{class_name}.{method_name}' çıktısı: None")
 
@@ -532,7 +536,7 @@ def run_module_test(module_path, class_name, config):
     except Exception as e:
         # Modül başlatılırken beklenmedik hata oluşursa (module_instance None kalır).
         logger.error(f"'{class_name}' modülü başlatılırken beklenmedik hata oluştu: {e}", exc_info=True)
-        test_success = False # Başlatma başarısızsa test başarısız.
+        test_success = False # Başlatma başarısı False.
         method_call_success = False # Metot çağrılamadı bile.
         output_data = None # Çıktı alınamadı.
 
@@ -551,9 +555,168 @@ def run_module_test(module_path, class_name, config):
 
     final_success_status = test_success # Başlatma başarısı
 
-    if dummy_method_inputs is not None: # İşleme metodu test edildiyse...
-         final_success_status = final_success_status and method_call_success # Başlatma ve metod başarısı birlikte.
+    if dummy_method_inputs is not None: # İşleme metodu testi denendiyse...
+         # Başarı durumu, başlatma başarılıysa VE metod çağrısı başarılıysa True olur.
+         final_success_status = final_success_status and (method_call_success is True) # method_call_success None, True, False olabilir. Sadece True ise başarılıdır.
+    # else: Eğer işleme metodu testi denendiyse (dummy_method_inputs is None), final_success_status init başarısını yansıtır.
 
     logger.info(f"'{class_name}': Nihai başarı durumu hesaplandı: {final_success_status}")
 
     return final_success_status, output_data
+
+
+def log_output_data(data):
+    """
+    Farklı tiplerdeki çıktı verisini anlamlı bir şekilde loglar.
+    """
+    if data is None:
+        logger.debug("  Output: None")
+    elif isinstance(data, np.ndarray):
+        logger.debug(f"  Output: numpy.ndarray, Shape: {data.shape}, Dtype: {data.dtype}")
+        # Küçük arrayler için değerleri de logla
+        if data.size > 0 and data.size < 20: # Rastgele eşik, çok büyük arraylerin değerlerini basmasın
+             # NumPy array'ini stringe çevirirken oluşan hataları (örn: çok büyük/küçük sayılar) yakala
+             try:
+                 logger.debug(f"  Output Values: {data}")
+             except Exception as e:
+                 logger.debug(f"  Output Values (error converting to string): {e}")
+
+        elif data.size > 0 and (data.ndim == 1 or data.ndim == 2): # 1D/2D arrayler için min/max/mean logla
+             # ValueError: cannot convert float NaN to integer hatasını önlemek için isfinite kontrolü.
+             finite_data = data[np.isfinite(data)]
+             if finite_data.size > 0:
+                 logger.debug(f"  Output Stats (min/max/mean): {finite_data.min():.4f}/{finite_data.max():.4f}/{finite_data.mean():.4f}")
+             else:
+                 logger.debug("  Output Stats: (All values are NaN or Inf)")
+        elif data.size == 0:
+             logger.debug("  Output: Empty numpy array.")
+
+    elif isinstance(data, dict):
+        logger.debug(f"  Output: dict, Keys: {list(data.keys())}")
+        # Dict içeriğini JSON formatında logla (daha okunabilir)
+        try:
+             # NumPy arrayları JSON'a çevirirken hata olabilir, özel encoder gerekebilir.
+             # Şimdilik basit json.dumps kullanalım, hata verirse yakalarız.
+             # default lambda ile numpy arrayleri veya diğer non-serializable tipleri yakala
+             def default_json_encoder(obj):
+                 if isinstance(obj, np.ndarray):
+                     return obj.tolist() # NumPy array'leri listeye çevir
+                 # Başka özel tipler buraya eklenebilir
+                 return f"<not serializable: {type(obj).__name__}>"
+
+             logger.debug(f"  Output Content: {json.dumps(data, indent=2, sort_keys=True, default=default_json_encoder)}")
+        except Exception as e:
+             # JSON'a çevrilemezse raw dict gösterelim ve hatayı loglayalım.
+             logger.debug(f"  Output Content (raw): {data}")
+             logger.error(f"Error serializing dict to JSON for logging: {e}", exc_info=True)
+
+    elif isinstance(data, list):
+        logger.debug(f"  Output: list, Length: {len(data)}")
+        if len(data) > 0:
+            logger.debug(f"  First element type: {type(data[0])}")
+            # Listenin ilk birkaç öğesini logla (numpy array veya dict ise)
+            for i, item in enumerate(data[:3]): # İlk 3 öğeyi logla
+                 logger.debug(f"  Element {i}:")
+                 # log_output_data(item) # Rekürsif çağrı çok derinleşebilir veya hata verebilir, şimdilik sadece tip ve kısa repr gösterelim.
+                 try:
+                     item_repr = repr(item)
+                     if len(item_repr) > 100: item_repr = item_repr[:97] + "..." # Çok uzun repr'ları kısalt
+                     logger.debug(f"    Type: {type(item).__name__}, Value (repr): {item_repr}")
+                 except Exception as e:
+                      logger.debug(f"    Type: {type(item).__name__}, Error getting repr: {e}")
+
+        # Boş liste için özel bir şey yapmaya gerek yok, length 0 loglandı.
+    else:
+        # Diğer temel tipler (str, int, float, bool)
+        logger.debug(f"  Output: type {type(data).__name__}, Value: {data}")
+
+
+def main():
+    """
+    Script'in ana çalıştırma fonksiyonu. Modül testlerini başlatır.
+    """
+    # Loglama sistemini yapılandır (config dosyası olmadan varsayılan ayarlar veya temel config)
+    # Config yüklenmeden temel loglama için (isteğe bağlı, setup_logging config alabiliyor)
+    # setup_logging(config=None)
+
+    # Yapılandırma dosyasını yükle (modül başlatırken kullanılacak).
+    config_path = "config/main_config.yaml"
+    config = load_config_from_yaml(config_path) # Hata durumunda boş dict döner.
+
+    # Config yüklenemezse testi sonlandır.
+    if not config:
+        # Loglama zaten setup_logging içinde ayarlandıysa, hata load_config_from_yaml içinde loglanmıştır.
+        # Burada sadece çıkış yapalım.
+        sys.exit(1)
+
+    # Loglama sistemini yüklenen config ile yeniden yapılandır (config'deki ayarlar kullanılır)
+    setup_logging(config=config)
+
+    # Script'in kendi logger'ını al (Loglama setup'ından sonra).
+    global logger # Global logger'ı kullanacağımızı belirt
+    logger = logging.getLogger(__name__)
+    logger.info("Test scripti başlatıldı (Belirli modüllər test ediliyor).")
+
+
+    # --- Test Edilecek Modülleri Tanımla ---
+    # ROADMAP ve STRUCTURE.md'deki ana modülleri hedefleyelim.
+    modules_to_test = [
+        # Senses
+        ('src.senses.vision', 'VisionSensor'),
+        ('src.senses.audio', 'AudioSensor'),
+        # Processing
+        ('src.processing.vision', 'VisionProcessor'),
+        ('src.processing.audio', 'AudioProcessor'),
+        # Representation
+        ('src.representation.models', 'RepresentationLearner'),
+        # Memory
+        ('src.memory.core', 'Memory'), # Test store metodu varsayımıyla
+        # Cognition
+        ('src.cognition.understanding', 'UnderstandingModule'),
+        ('src.cognition.decision', 'DecisionModule'),
+        ('src.cognition.learning', 'LearningModule'),
+        ('src.cognition.core', 'CognitionCore'), # Test decide metodu varsayımıyla
+        # Motor Control
+        ('src.motor_control.expression', 'ExpressionGenerator'),
+        ('src.motor_control.core', 'MotorControlCore'), # Test generate_response metodu varsayımıyla
+        # Interaction
+        ('src.interaction.api', 'InteractionAPI'), # Test send_output metodu varsayımıyla
+        # Placeholder modülleri şimdilik test etmiyoruz
+        # ('src.memory.episodic', 'EpisodicMemory'),
+        # ('src.memory.semantic', 'SemanticMemory'),
+        # ('src.motor_control.manipulation', 'Manipulator'),
+        # ('src.motor_control.locomotion', 'LocomotionController'),
+    ]
+
+    # Tüm test sonuçlarını toplamak için liste
+    overall_success = True
+    test_results = {} # {'ModuleName': True/False}
+
+    # Her modül için testi çalıştır
+    for module_path, class_name in modules_to_test:
+        logger.info(f"\n>>> TEST EDİLİYOR: {class_name} ({module_path}) <<<")
+        # run_module_test artık boolean başarıyı ve çıktıyı döndürüyor.
+        success, _ = run_module_test(module_path, class_name, config) # Çıktıyı burada kullanmıyoruz, loglandı.
+        test_results[class_name] = success
+        if not success:
+            overall_success = False # Bir test bile başarısız olursa genel sonucu False yap.
+        logger.info(f">>> TEST SONUCU: {class_name}: {'BAŞARILI' if success else 'BAŞARISIZ'} <<<")
+
+
+    # Genel test sonucunu raporla.
+    logger.info("\n--- TÜM MODÜL TESTLERİ TAMAMLANDI ---")
+    for class_name, success in test_results.items():
+        logger.info(f"Test Sonucu '{class_name}': {'BAŞARILI' if success else 'BAŞARISIZ'}")
+
+    logger.info(f"\nGENEL TEST SONUCU: { 'TÜM TESTLER BAŞARILI' if overall_success else 'BAZI TESTLER BAŞARISIZ OLDU' }")
+
+    # Eğer herhangi bir test başarısız olursa, script hata koduyla çıksın.
+    if not overall_success:
+        sys.exit(1) # Hata kodu ile çıkış
+
+    logger.info("Test scripti sonlandırıldı.")
+
+
+if __name__ == '__main__':
+    # Direkt script çalıştırıldığında main'i çağır.
+    main()
