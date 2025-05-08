@@ -30,7 +30,7 @@ except ImportError as e:
 # logging.basicConfig(level=logging.DEBUG) # Set general level to DEBUG
 # logging.getLogger('src.cognition.decision').setLevel(logging.DEBUG)
 # logging.getLogger('src.core.utils').setLevel(logging.DEBUG) # To see logs from utils logger
-# logging.getLogger('src.core.config_utils').setLevel(logging.DEBUG) # To see logs from config utils logger
+# logging.getLogger('src.core.config_utils').setLevel(logging.DEBUG)
 
 
 class TestDecisionModule(unittest.TestCase):
@@ -40,7 +40,7 @@ class TestDecisionModule(unittest.TestCase):
         # Default, valid configuration structure reflecting main_config.yaml.
         # DecisionModule needs settings under the 'cognition' key.
         self.default_config = {
-            'cognition': {
+            'cognition': { # These settings are directly under the 'cognition' key in main_config.yaml
                 'familiarity_threshold': 0.8,
                 'audio_energy_threshold': 1000.0,
                 'visual_edges_threshold': 50.0,
@@ -54,6 +54,7 @@ class TestDecisionModule(unittest.TestCase):
             }
         }
         # Initialize the module with the default config.
+        # DecisionModule's __init__ expects the full config dict.
         self.module = DecisionModule(self.default_config)
 
         # Reset curiosity level to default (0.0) at the start of each test for isolation.
@@ -93,11 +94,12 @@ class TestDecisionModule(unittest.TestCase):
         # The get_config_value calls inside __init__ should use their default values for missing keys.
         # The structure must match the expected path, even if values are missing.
         incomplete_config = {
-            'cognition': { # Must include cognition key for path to work
-                'familiarity_threshold': 0.9,
-                # Other cognition settings are missing, defaults should be used.
-            }
+             'cognition': { # Must include cognition key for path to work
+                 'familiarity_threshold': 0.9, # This value should be read
+                 # Other cognition settings are missing, defaults should be used by get_config_value.
+             }
         }
+        # Initialize the module with the incomplete config.
         module = DecisionModule(incomplete_config)
         # Verify that specified values were read and default values were used for missing keys.
         self.assertEqual(module.familiarity_threshold, 0.9) # Should be read from the provided incomplete config
@@ -120,7 +122,7 @@ class TestDecisionModule(unittest.TestCase):
         invalid_type_config = {
             'cognition': { # Must include cognition key for path to work
                 'audio_energy_threshold': "not a float", # Invalid type -> default 1000.0 should be used
-                'visual_edges_threshold': 60, # Valid int -> should be read and converted to float
+                'visual_edges_threshold': 60, # Valid int -> should be read and converted to float by init code
                 'brightness_threshold_high': [250], # Invalid type -> default 200.0 should be used
                 'brightness_threshold_low': 30.0, # Valid float -> should be read
             }
@@ -149,31 +151,32 @@ class TestDecisionModule(unittest.TestCase):
 
 
     def test_init_thresholds_out_of_range(self):
-        """Tests when some thresholds are set outside the valid range."""
-        # The __init__ method's internal range checks should reset the value to the default.
-        out_of_range_config = {
-            'cognition': { # Must include cognition key
-                'familiarity_threshold': 1.1, # Should be reset to 0.8 by DecisionModule's own check
-                'concept_recognition_threshold': -0.1, # Should be reset to 0.85 by DecisionModule's own check
-                'audio_energy_threshold': -10.0, # Should be reset to 1000.0 by DecisionModule's own check
-                'brightness_threshold_low': 100.0, # lower > higher -> should be reset to 50.0 (low)
-                'brightness_threshold_high': 80.0, # lower > higher -> should be reset to 200.0 (high)
-                'curiosity_increment_new': -5.0, # Should be reset to 1.0 by DecisionModule's own check
-            }
-        }
-        module = DecisionModule(out_of_range_config)
-        # Verify that DecisionModule's own range checks reset the values to defaults.
-        self.assertEqual(module.familiarity_threshold, 0.8)
-        self.assertEqual(module.concept_recognition_threshold, 0.85)
-        self.assertEqual(module.audio_energy_threshold, 1000.0)
-        self.assertEqual(module.brightness_threshold_low, 50.0) # Reset
-        self.assertEqual(module.brightness_threshold_high, 200.0) # Reset
-        self.assertEqual(module.curiosity_increment_new, 1.0)
-        # Check other curiosity settings (they should also be reset by range check if applicable, or keep defaults if not in config)
-        self.assertEqual(module.curiosity_threshold, 5.0) # Default as not in config_high
-        self.assertEqual(module.curiosity_decrement_familiar, 0.5) # Default
-        self.assertEqual(module.curiosity_decay, 0.1) # Default
-        self.assertEqual(module.curiosity_level, 0.0)
+        """Tests when some thresholds are set outside the 0.0-1.0 range."""
+        # The __init__ method's internal range checks should reset the value to the default 0.7.
+        # Provide configs with out-of-range values and the expected nested structure.
+        config_high = {'cognition': {'familiarity_threshold': 1.5, 'concept_recognition_threshold': 1.1, 'audio_energy_threshold': -10.0, 'brightness_threshold_high': 260.0, 'brightness_threshold_low': -10.0, 'curiosity_increment_new': -5.0}} # Provide relevant out-of-range values
+        module_high = DecisionModule(config_high)
+        self.assertEqual(module_high.familiarity_threshold, 0.8) # Should be reset
+        self.assertEqual(module_high.concept_recognition_threshold, 0.85) # Should be reset
+        self.assertEqual(module_high.audio_energy_threshold, 1000.0) # Should be reset
+        self.assertEqual(module_high.brightness_threshold_high, 200.0) # Should be reset
+        self.assertEqual(module_high.brightness_threshold_low, 50.0) # Should be reset (negative)
+        self.assertEqual(module_high.curiosity_increment_new, 1.0) # Should be reset (negative)
+
+        # Test the low > high brightness case
+        config_low_high_swap = {'cognition': {'brightness_threshold_low': 100.0, 'brightness_threshold_high': 80.0}} # lower > higher
+        module_low_high_swap = DecisionModule(config_low_high_swap)
+        self.assertEqual(module_low_high_swap.brightness_threshold_low, 50.0) # Both should be reset to defaults
+        self.assertEqual(module_low_high_swap.brightness_threshold_high, 200.0)
+
+        # Test boundary values - they should be accepted.
+        config_at_boundaries = {'cognition': {'familiarity_threshold': 0.0, 'concept_recognition_threshold': 1.0, 'curiosity_threshold': 0.0, 'curiosity_decrement_familiar': 0.0, 'curiosity_decay': 0.0}} # Test 0 boundaries
+        module_boundaries = DecisionModule(config_at_boundaries)
+        self.assertEqual(module_boundaries.familiarity_threshold, 0.0) # Boundary should be accepted
+        self.assertEqual(module_boundaries.concept_recognition_threshold, 1.0) # Boundary should be accepted
+        self.assertEqual(module_boundaries.curiosity_threshold, 0.0) # Boundary should be accepted
+        self.assertEqual(module_boundaries.curiosity_decrement_familiar, 0.0) # Boundary should be accepted
+        self.assertEqual(module_boundaries.curiosity_decay, 0.0) # Boundary should be accepted
 
 
     # --- decide Input Validation Tests ---
@@ -394,7 +397,7 @@ class TestDecisionModule(unittest.TestCase):
         self.module.curiosity_level = initial_curiosity
 
         signals = {
-            'similarity_score': 0.1, # Below memory familiarity threshold
+            'similarity_score': self.module.concept_recognition_threshold, # Exactly at threshold (0.85)
             'high_audio_energy': False,
             'high_visual_edges': False,
             'is_bright': False,
@@ -593,7 +596,7 @@ class TestDecisionModule(unittest.TestCase):
             'max_concept_similarity': self.module.concept_recognition_threshold + 0.01, 'most_similar_concept_id': 77, # 0.86
         }
 
-        # Expected curiosity: initial - decrement - decay
+        # Curiosity level update: Start < threshold -> Decision is "recognized_concept_77" -> Triggers decrement -> Decay applies.
         expected_curiosity = initial_curiosity - self.module.curiosity_decrement_familiar - self.module.curiosity_decay # 1.0 - 0.5 - 0.1 = 0.4
         expected_curiosity = max(0.0, expected_curiosity) # Ensure curiosity is not negative.
 
@@ -659,7 +662,7 @@ class TestDecisionModule(unittest.TestCase):
         initial_curiosity = self.module.curiosity_threshold + 1.0 # Set curiosity above threshold (e.g., 6.0)
         self.module.curiosity_level = initial_curiosity
 
-        signals = { # Signals that trigger the curiosity decision (others are low priority)
+        signals = { # Signals that will trigger the curiosity decision (others are low priority)
             'similarity_score': 0.1,
             'high_audio_energy': False, 'high_visual_edges': False, 'is_bright': False, 'is_dark': False,
             'max_concept_similarity': 0.1, 'most_similar_concept_id': None,
@@ -673,6 +676,7 @@ class TestDecisionModule(unittest.TestCase):
         result = self.module.decide(signals, [], []) # Add empty list for current_concepts
 
         self.assertEqual(result, "explore_randomly") # Should be the value returned by mocked random.choice
+        mock_random_choice.assert_called_once_with(["explore_randomly", "make_noise"]) # Verify random.choice was called with correct options
         self.assertAlmostEqual(self.module.curiosity_level, expected_curiosity, places=6) # Curiosity should only decay.
 
 
