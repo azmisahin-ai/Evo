@@ -40,6 +40,10 @@ def dummy_vision_processor_config():
              'brightness_threshold_low': 50.0,
              'visual_edges_threshold': 50.0 # Edge threshold is also under cognition for UnderstandingModule
         },
+        'vision': { # Vision sensor dummy dimensions are needed for creating dummy input frame
+            'dummy_height': 480,
+            'dummy_width': 640,
+        }
         # ... other general config sections if VisionProcessor needs them ...
     }
     test_logger.debug("Dummy vision processor config fixture created.")
@@ -65,7 +69,7 @@ def vision_processor_instance(dummy_vision_processor_config):
         pytest.fail(f"VisionProcessor initialization failed: {e}")
 
 
-def test_vision_processor_init_with_valid_config(vision_processor_instance, dummy_vision_processor_config):
+def test_vision_processor_init_with_valid_config(vision_processor_instance):
     """Tests that VisionProcessor initializes successfully with a valid config."""
     test_logger.info("test_vision_processor_init_with_valid_config test started.")
     # The fixture itself ensures successful initialization.
@@ -76,7 +80,8 @@ def test_vision_processor_init_with_valid_config(vision_processor_instance, dumm
     assert vision_processor_instance.canny_high_threshold == 150
     assert vision_processor_instance.brightness_threshold_high == 200.0
     assert vision_processor_instance.brightness_threshold_low == 50.0
-    # Note: visual_edges_threshold is not read by VisionProcessor itself, but needed for logging in process method.
+    assert vision_processor_instance.visual_edges_threshold == 50.0 # Check that visual_edges_threshold was read
+
 
     test_logger.info("test_vision_processor_init_with_valid_config test completed successfully.")
 
@@ -89,15 +94,13 @@ def test_vision_processor_process_basic(vision_processor_instance, dummy_vision_
     test_logger.info("test_vision_processor_process_basic test started.")
 
     # Dummy input data for VisionProcessor.process method (BGR numpy array).
-    # Use dummy sensor dimensions for the input image size.
-    dummy_input_height = get_config_value(dummy_vision_processor_config, 'vision', 'dummy_height', default=480, expected_type=int) # These might not be in processor config
-    dummy_input_width = get_config_value(dummy_vision_processor_config, 'vision', 'dummy_width', default=640, expected_type=int) # Check main_config.yaml if vision section is available at top level
+    # Use dummy sensor dimensions from the config fixture.
+    dummy_input_height = get_config_value(dummy_vision_processor_config, 'vision', 'dummy_height', default=480, expected_type=int)
+    dummy_input_width = get_config_value(dummy_vision_processor_config, 'vision', 'dummy_width', default=640, expected_type=int)
 
-    # Let's assume the VisionProcessor init takes the full config and can get vision sensor params itself if needed,
-    # or just use arbitrary input size here. The test should focus on processing logic relative to output size.
-    # Use a fixed input size for the dummy frame, common webcam resolution.
-    input_height = 480
-    input_width = 640
+    # Use the retrieved dummy input size for the dummy frame.
+    input_height = dummy_input_height
+    input_width = dummy_input_width
     dummy_frame = np.random.randint(0, 256, size=(input_height, input_width, 3), dtype=np.uint8)
     test_logger.debug(f"Created dummy input image: {dummy_frame.shape}, {dummy_frame.dtype}")
 
@@ -139,7 +142,7 @@ def test_vision_processor_process_basic(vision_processor_instance, dummy_vision_
     assert processed_output is not None, "Process output should not be None."
     test_logger.debug("Assertion passed: Output is not None.")
 
-    test_logger.info("test_vision_processor_process_basic test completed successfully.")
+    test_logger.info("test_vision_processor_basic_processing test completed successfully.")
 
 
 # TODO: More test scenarios for VisionProcessor:

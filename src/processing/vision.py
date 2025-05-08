@@ -54,6 +54,7 @@ class VisionProcessor:
         # Corrected: Add visual_edges_threshold which is also under cognition.
         self.visual_edges_threshold = get_config_value(config, 'cognition', 'visual_edges_threshold', default=50.0, expected_type=(float, int), logger_instance=logger)
 
+
         # Ensure valid output dimensions (must be positive)
         if self.output_width <= 0 or self.output_height <= 0:
              logger.error(f"VisionProcessor: Invalid output dimensions in config: {self.output_width}x{self.output_height}. Using defaults (64x64).")
@@ -163,6 +164,7 @@ class VisionProcessor:
             if 'edges' in processed_features and processed_features['edges'].size > 0:
                  avg_edges = np.mean(processed_features['edges'])
                  # Log comparing the mean edges to config threshold.
+                 # Use self.visual_edges_threshold which is now assigned in __init__
                  logger.debug(f"VisionProcessor.process: Avg Edges: {avg_edges:.2f} (Threshold: {self.visual_edges_threshold:.2f})")
 
 
