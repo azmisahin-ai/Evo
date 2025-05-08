@@ -46,8 +46,8 @@ def load_config_from_yaml(filepath="config/main_config.yaml"):
 
 
 # --- get_config_value function (supports nested key paths) ---
-# Signature changed: Only config and keys are positional, default and expected_type are keyword only.
-# Workaround removed.
+# SIGNATURE CHANGED: Only config and keys are positional, default and expected_type are keyword only.
+# Positional default workaround removed.
 def get_config_value(config: dict, *keys: str, default=None, expected_type=None, logger_instance=None):
     """
     Retrieves a value from a nested dictionary using a chain of keys (*keys).
@@ -73,7 +73,7 @@ def get_config_value(config: dict, *keys: str, default=None, expected_type=None,
     """
     log = logger_instance if logger_instance is not None else logger
 
-    # Workaround for positional defaults is removed.
+    # Positional default workaround is removed.
     # Calls must now conform to the new signature (keys are strings, default is keyword).
 
     path_str = ' -> '.join(map(str, keys)) # keys should always be strings
@@ -92,13 +92,18 @@ def get_config_value(config: dict, *keys: str, default=None, expected_type=None,
          log.debug("get_config_value: No keys specified. Returning the config dict itself.")
          final_value = config # The found value is the config dict itself
 
+         # Type check can also be done when the key path is empty (e.g., expected_type=dict).
+         # This block is the same as the general type check below, can skip repetition.
+         pass # Normal flow continues
+
 
     try:
         # Traverse the key path
         for i, key in enumerate(keys):
             # If the key is not a string, it's likely an old positional default format error.
+            # With the new signature *keys can only be strings anyway, but this adds robustness.
             if not isinstance(key, str):
-                 log.error(f"get_config_value: Key step in path '{path_str}' is not a string: type {type(key)} (step {i+1}/{len(keys)}, key '{key}'). Returning default ({default}).", exc_info=True)
+                 log.error(f"get_config_value: Key step in path '{path_str}' is not a string: type {type(key)} (step {i+1}/{len(keys)}). Returning default ({default}).", exc_info=True)
                  return default # Return default if key is not a string
 
             # If the current value is not a dict and we are still in the middle of the path, the path is invalid.
@@ -116,13 +121,13 @@ def get_config_value(config: dict, *keys: str, default=None, expected_type=None,
 
             except (KeyError, TypeError):
                  # Key not found (at the end or in the middle of the path) or current_value was not a dict (TypeError).
-                 # The TypeError case should be caught by the isinstance check above, but catching here adds robustness.
+                 # The TypeError case should ideally be caught by the isinstance check above, but catching here adds robustness.
                  # Make the log message clearer.
                  log.debug(f"get_config_value: Key '{key}' not found or intermediate value was not a dictionary along path '{path_str}' (step {i+1}/{len(keys)}, current type: {type(current_value)}). Returning default ({default}).")
                  return default # Return default if key is missing or intermediate value is not a dict.
 
             except Exception as e:
-                 # Other unexpected errors (e.g., if key type is not valid for dict access, although handled by isinstance(key, str))
+                 # Other unexpected errors
                  log.error(f"get_config_value: Unexpected error during path traversal for '{path_str}' (step {i+1}/{len(keys)}, key '{key}'): {e}", exc_info=True)
                  log.debug(f"get_config_value: Returning default value ({default}) after error.")
                  return default
@@ -159,8 +164,8 @@ def get_config_value(config: dict, *keys: str, default=None, expected_type=None,
                       if isinstance(final_value, np.ndarray):
                            is_correct_type = True
                            break # Found correct type in tuple, break the loop.
-                 # Normal type check (int, float, str, list, dict, etc.)
-                 elif isinstance(final_value, t):
+                 # Normal type check (int, float, str, list, dict etc.)
+                 elif isinstance(final_value, expected_type): # Use expected_type directly for normal types
                     is_correct_type = True
                     break # Found correct type in tuple, break the loop.
         # If expected_type is not a tuple, check against the single type
