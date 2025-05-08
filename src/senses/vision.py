@@ -38,60 +38,66 @@ class VisionSensor:
                            'is_dummy': Simüle mod etkin mi (bool, varsayılan False).
         """
         self.config = config
-        logger.info("VisionSensor başlatılıyor...")
+        logger.info("VisionSensor initializing...")
 
-        # Yapılandırmadan ayarları alırken get_config_value kullan
-        # audio config anahtarı altındaki değerleri okuyoruz
-        # Düzeltme: get_config_value çağrılarını default=keyword formatına çevir.
+        # Get configuration settings using get_config_value with keyword arguments
+        # These settings are under the 'vision' key in the config.
+        # Corrected: Use default= keyword format for all calls.
         self.camera_index = get_config_value(config, 'vision', 'camera_index', default=0, expected_type=int, logger_instance=logger)
         self.dummy_width = get_config_value(config, 'vision', 'dummy_width', default=640, expected_type=int, logger_instance=logger)
         self.dummy_height = get_config_value(config, 'vision', 'dummy_height', default=480, expected_type=int, logger_instance=logger)
         self.is_dummy = get_config_value(config, 'vision', 'is_dummy', default=False, expected_type=bool, logger_instance=logger)
 
 
-        self.cap = None # cv2.VideoCapture objesi. Kamera başarılı başlatılırsa atanır.
-        self.is_camera_available = False # Gerçek kameranın şu an aktif olup olmadığını tutar. Başlangıçta False.
+        self.cap = None # cv2.VideoCapture object. Assigned if camera starts successfully.
+        self.is_camera_available = False # Tracks if the real camera stream is currently active. Starts as False.
 
-        # Eğer is_dummy True ise gerçek kamerayı başlatmaya çalışma
+        # If is_dummy is True, don't try to initialize the real camera
         if self.is_dummy:
-             logger.info("VisionSensor: is_dummy=True. Simüle edilmiş görsel girdi kullanılacak.")
+             logger.info("VisionSensor: is_dummy=True. Using simulated visual input.")
              self.is_camera_available = False
-             self.cap = None # Cap objesi None kalmalı
+             self.cap = None # cap object should remain None
         else:
-            # Gerçek kamerayı başlatmayı dene
+            # Try to initialize the real camera
             try:
                 self.cap = cv2.VideoCapture(self.camera_index)
 
-                # isOpened() metodu, VideoCapture objesinin video kaynağına başarılı bir şekilde bağlanıp bağlanmadığını kontrol eder.
-                if not self.cap or not self.cap.isOpened(): # cap'in None olup olmadığını da kontrol et
-                    # Kamera açılamazsa uyarı logu ver.
-                    logger.warning(f"VisionSensor: Kamera {self.camera_index} açılamadı. Simüle edilmiş görsel girdi kullanılacak.")
-                    self.is_camera_available = False # Kamera aktif değil bayrağını False yap.
-                    # Başarısız olursa self.cap objesini temizle
+                # Check if the camera was opened successfully.
+                # isOpened() method checks if the VideoCapture object successfully connected to a video source.
+                if not self.cap or not self.cap.isOpened(): # Also check if cap is None in case of very early failure
+                    # Log a warning if the camera couldn't be opened.
+                    logger.warning(f"VisionSensor: Could not open camera {self.camera_index}. Using simulated visual input.")
+                    self.is_camera_available = False # Set the flag to False.
+                    # Release the cap object if it exists but couldn't be opened
                     if self.cap:
                         try:
                             self.cap.release()
-                        except Exception: pass
-                    self.cap = None
+                        except Exception: pass # Ignore errors during release
+                    self.cap = None # Set cap to None
+
+
                 else:
-                    # Kamera başarıyla açıldıysa
-                    # Kameradan gerçek kare boyutlarını almayı dene (opsiyonel ama bilgilendirici).
+                    # If the camera was opened successfully
+                    # Try to get the real frame dimensions (optional but informative).
                     width = int(self.cap.get(cv2.CAP_PROP_FRAME_WIDTH))
                     height = int(self.cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
-                    logger.info(f"VisionSensor: Kamera {self.camera_index} başarıyla başlatıldı. Boyut: {width}x{height}")
-                    self.is_camera_available = True # Kamera aktif bayrağını True yap.
+                    logger.info(f"VisionSensor: Camera {self.camera_index} initialized successfully. Dimensions: {width}x{height}")
+                    self.is_camera_available = True # Set the flag to True.
 
             except Exception as e:
-                logger.error(f"VisionSensor başlatılırken hata oluştu: {e}", exc_info=True)
-                self.is_camera_available = False
+                # Catch any unexpected exceptions during initialization.
+                logger.error(f"VisionSensor initialization failed: {e}", exc_info=True)
+                self.is_camera_available = False # Set the flag to False in case of error.
+                # Try to clean up any resources that might have been opened.
                 if self.cap:
                      try:
                           self.cap.release()
-                     except Exception: pass
-                self.cap = None # Hata durumunda cap objesini None yap.
+                     except Exception: pass # Ignore errors during release
+                self.cap = None # Set cap to None in case of error.
 
 
-        logger.info(f"VisionSensor başlatıldı. Kamera aktif: {self.is_camera_available}, Simüle Mod: {self.is_dummy}")
+        # Log the result of the initialization process.
+        logger.info(f"VisionSensor initialized. Camera active: {self.is_camera_available}, Simulated Mode: {self.is_dummy}")
 
 
     # ... (capture_frame, stop_stream, cleanup methods - same as before) ...

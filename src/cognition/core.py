@@ -4,212 +4,238 @@
 # Gelen temsilleri, bellek girdilerini, işlenmiş anlık duyu özelliklerini kullanarak dünyayı anlamaya çalışır, kavramları öğrenir ve bir eylem kararı alır.
 # UnderstandingModule, DecisionModule ve LearningModule alt modüllerini koordine eder.
 
-import logging # Loglama için.
-# numpy gerekli (parametre tipi için)
+import logging # For logging.
+# numpy is required (for parameter types)
 import numpy as np
-import random # LearningModule için örneklem almak için
+import random # For sampling for LearningModule
 
-# Yardımcı fonksiyonları import et
+# Import utility functions
 from src.core.config_utils import get_config_value
-# check_input_not_none, check_numpy_input, check_input_type şu an cognition/core'da kullanılmıyor, kaldırılabilir.
-# from src.core.utils import check_input_not_none, check_numpy_input, check_input_type # <<< Utils importları
+# check_input_not_none, check_numpy_input, check_input_type are currently not used in cognition/core, can be removed.
+# from src.core.utils import check_input_not_none, check_numpy_input, check_input_type # <<< Utils imports
 
-# Alt modül sınıflarını import et
+# Import sub-module classes
 from .understanding import UnderstandingModule
 from .decision import DecisionModule
-from .learning import LearningModule # LearningModule'ü import et
+from .learning import LearningModule # Import LearningModule
 
 
-# Bu modül için bir logger oluştur
+# Create a logger for this module
 logger = logging.getLogger(__name__)
 
 
 class CognitionCore:
     """
-    Evo'nın bilişsel çekirdek sınıfı.
-
-    Bil bilgi akışını (işlenmiş girdiler, Representation, bellek) alır.
-    Bu bilgileri Anlama modülüne ileterek anlama çıktısını alır (dictionary sinyaller).
-    Anlama çıktısını ve bellek girdilerini Karar Alma modülüne ileterek bir karar alır.
-    Bellekteki Representationları kullanarak periyodik olarak Kavramları (LearningModule) öğrenir.
-    UnderstandingModule, DecisionModule ve LearningModule alt modüllerini koordine eder.
-    Hata durumlarında işlemleri loglar ve programın çökmesini engeller.
+    Evo's cognitive core class.
+    ... (Docstring same) ...
     """
-    def __init__(self, config, module_objects): # module_objects dictionary'sini init sırasında al.
+    def __init__(self, config, module_objects): # Receive the module_objects dictionary during init.
         """
-        CognitionCore modülünü başlatır.
+        Initializes the CognitionCore module.
 
-        Alt modülleri (UnderstandingModule, DecisionModule, LearningModule) başlatır.
-        Memory modülü referansını saklar.
-        Başlatma sırasında hata oluşursa alt modüllerin objeleri None kalabilir.
+        Initializes sub-modules (UnderstandingModule, DecisionModule, LearningModule).
+        Stores reference to the Memory module.
+        Sub-module objects might remain None if initialization fails.
 
         Args:
-            config (dict): Bilişsel çekirdek yapılandırma ayarları.
-                           Alt modüllere ait ayarlar kendi adları altında beklenir
-                           (örn: {'understanding': {...}, 'decision': {...}, 'learning': {...}}).
-                           'learning_frequency': LearningModule'ün kaç bilişsel döngü adımında bir tetikleneceği (int, varsayılan 100).
-                           'learning_memory_sample_size': LearningModule için Memory'den alınacak Representation sayısı (int, varsayılan 50).
+            config (dict): Cognitive core configuration settings.
+                           Settings for sub-modules are expected under their own keys
+                           (e.g., {'understanding': {...}, 'decision': {...}, 'learning': {...}}).
+                           'learning_frequency': How often the LearningModule should be triggered (int, default 100).
+                           'learning_memory_sample_size': Number of Representations to sample from Memory for LearningModule (int, default 50).
         """
         self.config = config
-        logger.info("Cognition modülü başlatılıyor...")
+        logger.info("Cognition module initializing...")
 
-        self.understanding_module = None # Anlama modülü objesi.
-        self.decision_module = None # Karar alma modülü objesi.
-        self.learning_module = None # Öğrenme modülü objesi.
+        self.understanding_module = None # Understanding module object.
+        self.decision_module = None # Decision making module object.
+        self.learning_module = None # Learning module object.
 
-        # Memory modülü referansını sakla.
-        # module_objects geçerli bir dict ise içından Memory objesini al. None olabilir.
-        # run_evo tarafından initialize_modules çağrılırken module_objects dictionary'si CognitiveCore init'ine iletilecektir.
+        # Store the Memory module reference.
+        # Get the Memory object from the module_objects dict if it is a valid dict. It might be None.
+        # The module_objects dictionary will be passed to the CognitiveCore init when initialize_modules is called by run_evo.
         self.memory_instance = module_objects.get('memories', {}).get('core_memory')
         if self.memory_instance is None:
-             logger.warning("CognitionCore: Memory modülü referansı alınamadı. Öğrenme (LearningModule) ve bazı karar mekanizmaları (Bellek tabanlı) çalışmayabilir.")
+             logger.warning("CognitionCore: Could not obtain Memory module reference. Learning (LearningModule) and some decision mechanisms (Memory-based) may not function.")
 
 
-        # Learning Module'ün çalışma sıklığı ve Memory'den alınacak Representation sayısı.
-        # config'ten alırken get_config_value kullan.
-        # Düzeltme: get_config_value çağrılarını default=keyword formatına çevir.
-        # Config'e göre bu ayarlar 'cognition' altındaki 'learning' anahtarında.
+        # Learning Module's operating frequency and the number of Representations to sample from Memory.
+        # Get from config using get_config_value.
+        # Corrected: Use default= keyword format for all calls.
+        # Based on config, these settings are under the 'cognition.learning' key.
         self.learning_frequency = get_config_value(config, 'cognition', 'learning', 'learning_frequency', default=100, expected_type=int, logger_instance=logger)
         self.learning_memory_sample_size = get_config_value(config, 'cognition', 'learning', 'learning_memory_sample_size', default=50, expected_type=int, logger_instance=logger)
 
-        self._loop_counter = 0 # LearningModule'ü tetiklemek için döngü sayacı.
+        self._loop_counter = 0 # Loop counter to trigger the LearningModule.
 
 
-        # Alt modülleri başlatmayı dene. Başlatma hataları kendi içlerinde loglanır.
+        # Try to initialize sub-modules. Initialization errors are logged internally by the sub-modules.
         try:
-            # Anlama modülünü yapılandırmasından başlat
-            # UnderstandingModule init'i tüm config dict'ini alıyor ve kendi içinde okuyor.
-            # Dolayısıyla buraya tüm ana config gönderilmeli ki UnderstandingModule cognition altındaki eşikleri alabilsin.
-            understanding_config = config # Send the whole config to UnderstandingModule init
+            # Initialize the understanding module from its configuration
+            # UnderstandingModule init receives the entire config dict and reads its own required values internally.
+            # So, the entire main config should be passed here.
+            understanding_config = config # Pass the whole config to UnderstandingModule init
             self.understanding_module = UnderstandingModule(understanding_config)
-            # UnderstandingModule init hata fırlatmazsa ve None döndürmezse başlatılmış kabul edilir.
-            # Alt modüllerin kendi init hatalarını loglaması beklenir.
-            # if self.understanding_module is None: # Bu kontrol kaldırılabilir, __init__ None döndürmemeli.
-            #      logger.error("CognitionCore: UnderstandingModule başlatılamadı.")
+            # If UnderstandingModule init does not raise an exception and does not return None, it is considered initialized.
+            # Sub-modules are expected to log their own initialization errors.
+            # if self.understanding_module is None: # This check can be removed, __init__ should ideally raise exception or set state.
+            #      logger.error("CognitionCore: UnderstandingModule initialization failed.")
 
 
-            # Karar alma modülünü yapılandırmasından başlat
-            # DecisionModule init'i tüm config dict'ini alıyor ve kendi içinde okuyor.
-            # Dolayısıyla buraya tüm ana config gönderilmeli ki DecisionModule cognition altındaki eşikleri alabilsin.
-            decision_config = config # Send the whole config to DecisionModule init
+            # Initialize the decision making module from its configuration
+            # DecisionModule init receives the entire config dict and reads its own required values internally.
+            # So, the entire main config should be passed here.
+            decision_config = config # Pass the whole config to DecisionModule init
             self.decision_module = DecisionModule(decision_config)
-            # if self.decision_module is None: # Bu kontrol kaldırılabilir.
-            #      logger.error("CognitionCore: DecisionModule başlatılamadı.")
+            # if self.decision_module is None: # This check can be removed.
+            #      logger.error("CognitionCore: DecisionModule initialization failed.")
 
 
-            # Öğrenme modülünü yapılandırmasından başlat
-            # LearningModule init'i tüm config dict'ini alıyor ve kendi içinde okuyor.
-            # Özellikle representation_dim'e ve cognition.learning altındaki ayarları alabilmeli.
-            learning_config_for_module = config # Send the whole config to LearningModule init
+            # Initialize the learning module from its configuration
+            # LearningModule init receives the entire config dict and reads its own required values internally.
+            # Especially needs representation_dim from 'representation' section and other settings from 'cognition.learning'.
+            # The entire main config should be passed here so LearningModule can access all relevant parts.
+            learning_config_for_module = config # Pass the whole config to LearningModule init
             self.learning_module = LearningModule(learning_config_for_module)
-            # if self.learning_module is None: # Bu kontrol kaldırılabilir.
-            #      logger.error("CognitionCore: LearningModule başlatılamadı.")
+            # if self.learning_module is None: # This check can be removed.
+            #      logger.error("CognitionCore: LearningModule initialization failed.")
 
 
         except Exception as e:
-             # Alt modül başlatma sırasında beklenmedik hata olursa
-             logger.critical(f"CognitionCore: Alt modülleri başlatılırken hata oluştu: {e}", exc_info=True)
-             # Hata durumında alt modül objeleri None kalır.
+             # If an unexpected error occurs during sub-module initialization.
+             logger.critical(f"CognitionCore: Error during sub-module initialization: {e}", exc_info=True)
+             # In case of error, sub-module objects might remain None.
 
 
-        # Learning sıklığı ve örneklem boyutu kontrolü (negatif veya sıfır olmamalı)
+        # Learning frequency and sample size checks (must be positive)
         if self.learning_frequency <= 0:
-             logger.warning(f"CognitionCore: Konfig 'learning_frequency' geçersiz ({self.learning_frequency}). Varsayılan 100 kullanılıyor.")
+             logger.warning(f"CognitionCore: Invalid 'learning_frequency' config value ({self.learning_frequency}). Using default 100.")
              self.learning_frequency = 100
         if self.learning_memory_sample_size <= 0:
-             logger.warning(f"CognitionCore: Konfig 'learning_memory_sample_size' geçersiz ({self.learning_memory_sample_size}). Varsayılan 50 kullanılıyor.")
+             logger.warning(f"CognitionCore: Invalid 'learning_memory_sample_size' config value ({self.learning_memory_sample_size}). Using default 50.")
              self.learning_memory_sample_size = 50
 
 
-        logger.info(f"Cognition modülü başlatıldı. Öğrenme Sıklığı: {self.learning_frequency} döngüde bir, Bellek Örneklem Boyutu: {self.learning_memory_sample_size}")
+        logger.info(f"Cognition module initialized. Learning Frequency: {self.learning_frequency} cycles, Memory Sample Size: {self.learning_memory_sample_size}")
 
 
-    # run_evo.py bu metodu çağırıyor. processed_inputs, learned_representation, relevant_memory_entries, current_concepts argümanlarını alıyor.
-    # Düzeltme: decide metodunun imzası, run_evo.py'deki çağrıya uyumlu hale getirildi.
+    # run_evo.py calls this method. It receives processed_inputs, learned_representation, relevant_memory_entries, current_concepts arguments.
+    # Corrected: The signature of the decide method matches the call in run_evo.py.
     def decide(self, processed_inputs, learned_representation, relevant_memory_entries, current_concepts):
         """
-        İşlenmiş girdiler, öğrenilmiş temsil ve ilgili bellek girdilerine dayanarak bir eylem kararı alır.
-
-        Gelen bilgileri önce anlama modülüne ileterek anlama çıktısını (dictionary sinyaller) alır.
-        Anlama çıktısını ve bellek girdilerini Karar Alma modülüne ileterek bir karar alır.
-        Periyodik olarak LearningModule'ü çağırarak kavramları öğrenir.
-
-        Args:
-            processed_inputs (dict or None): Processor modüllerinden gelen işlenmiş ham veriler.
-                                            Beklenen format: {'visual': dict, 'audio': np.ndarray} veya None/boş dict.
-            learned_representation (numpy.ndarray or None): RepresentationLearner'dan gelen en son öğrenilmiş temsil vektörü
-                                                         veya işleme sırasında hata oluştuysa None.
-                                                         Beklenen format: shape (D,), dtype sayısal, veya None.
-            relevant_memory_entries (list or None): Memory modülünden gelen ilgili bellek girdileri listesi.
-                                            Bellek boşsa veya sorgu sırasında hata oluştuysa boş liste `[]` olabilir.
-                                            Beklenen format: list or None.
-
-        Returns:
-            str or None: Alınan karar (string)
-                         veya anlama/karar alma sırasında hata durumunda None.
+        Makes an action decision based on processed inputs, learned representation, and relevant memory entries.
+        ... (Docstring same) ...
         """
-        # Döngü sayacını artır.
+        # Increment the loop counter.
         self._loop_counter += 1
 
-        # current_concepts bilgisi artık decide metoduna dışarıdan (run_evo.py'den) iletiliyor.
-        # CognitionCore décide metodunun kendisi LearningModule'den kavramları almaz.
-        # Bu, decide metodunu test etmeyi kolaylaştırır, çünkü kavramları da mocklayabiliriz.
+        # The current_concepts information is now passed to the decide method externally (from run_evo.py).
+        # The CognitionCore decide method itself does not retrieve concepts from the LearningModule at the start of the cycle.
+        # This makes the decide method easier to test in isolation, as concepts can be mocked.
 
-        # LearningModule'ü tetikleme kontrolü. LearningModule ve Memory modülü varsa ve sıklık zamanı geldiyse.
-        # Learning step'i ana karar akışını kesintiye uğratmamalı, bu yüzden kendi try/except bloğunda çalışır.
-        # Bu try/except bloğu, get_all_representations, random.sample, learn_concepts çağrılarını kapsar.
-        # LearningModule instance'ı self.learning_module olarak tutuluyor.
+        # LearningModule trigger check. If the LearningModule and Memory module exist, and it's time based on frequency.
+        # The learning step should not interrupt the main decision flow, so it runs in its own try/except block.
+        # This try/except block covers calls to get_all_representations, random.sample, and learn_concepts.
+        # The LearningModule instance is held as self.learning_module.
         if self.learning_module is not None and self.memory_instance is not None and self._loop_counter % self.learning_frequency == 0:
-             logger.info(f"CognitionCore: Öğrenme döngüsü tetiklendi (döngü #{self._loop_counter}).")
+             logger.info(f"CognitionCore: Learning cycle triggered (cycle #{self._loop_counter}).")
              try:
                   # Memory'den öğrenme için Representation örneklemi al.
                   if hasattr(self.memory_instance, 'get_all_representations'):
                       all_memory_representations = self.memory_instance.get_all_representations()
 
-                      # Alınan Representation listesinin numpy array listesi olduğundan emin olalım.
-                      # LearningModule'ün beklediği boyutta olanları alalım.
-                      # LearningModule instance'ının representation_dim attribute'una erişelim.
+                      # Ensure the retrieved list of Representations is a list of numpy arrays.
+                      # Filter for representations that are valid and match the LearningModule's expected dimension.
+                      # Access the representation_dim attribute from the LearningModule instance.
                       learning_rep_dim = self.learning_module.representation_dim if self.learning_module else None
 
                       valid_representations_for_learning = [
                           rep for rep in all_memory_representations
                           if rep is not None
                           and isinstance(rep, np.ndarray)
-                          and np.issubdtype(rep.dtype, np.number) # Düzeltme burada yapılmıştı
+                          and np.issubdtype(rep.dtype, np.number) # Check for numeric dtype
                           and rep.ndim == 1
-                          and learning_rep_dim is not None # LearningModule'ün rep dim'i varsa
-                          and rep.shape[0] == learning_rep_dim # Boyut kontrolü
+                          and learning_rep_dim is not None # Check if LearningModule's rep dim is available
+                          and rep.shape[0] == learning_rep_dim # Dimension check
                       ]
 
                       if valid_representations_for_learning:
-                           # Öğrenme için rastgele bir örneklem alalım (eğer bellek çok büyükse).
-                           # random.sample boş liste ile çağrılırsa ValueError fırlatır, bu yüzden valid_representations_for_learning boş değilse çağırıyoruz.
+                           # Take a random sample for learning (if memory is very large).
+                           # Use min() to handle cases where memory size is smaller than the sample size.
+                           # random.sample raises ValueError if the sample size is larger than the population.
                            learning_sample = random.sample(valid_representations_for_learning, min(self.learning_memory_sample_size, len(valid_representations_for_learning)))
-                           logger.debug(f"CognitionCore: Memory'den öğrenme için {len(learning_sample)} representation örneği alındı.")
-                           # LearningModule'ü Representation örneklemi ile çağır. learn_concepts'in hata fırlatması da yakalanır.
+                           logger.debug(f"CognitionCore: Sampled {len(learning_sample)} representations from Memory for learning.")
+                           # Call the LearningModule with the sample of Representations. Exceptions from learn_concepts are also caught here.
                            self.learning_module.learn_concepts(learning_sample)
                       else:
-                           logger.debug("CognitionCore: Memory'de öğrenme için yeterli geçerli Representation yok.")
+                           logger.debug("CognitionCore: Not enough valid Representations in Memory for learning.")
                   else:
-                      logger.warning("CognitionCore: Memory modülünde 'get_all_representations' metodu bulunamadı. LearningModule için Representation alınamadı.")
+                      logger.warning("CognitionCore: Memory module does not have 'get_all_representations' method. Cannot obtain Representations for LearningModule.")
 
              except Exception as e:
-                  # Öğrenme döngüsü sırasındaki hataları yakala ama ana decide akışını kesme.
-                  logger.error(f"CognitionCore: Öğrenme döngüsü sırasında beklenmedik hata: {e}", exc_info=True)
+                  # Catch errors during the learning cycle but do not interrupt the main decide flow.
+                  logger.error(f"CognitionCore: Unexpected error during learning cycle: {e}", exc_info=True)
 
 
-        # CognitionCore'un kritik alt modülleri başlatılamamışsa işlem yapma.
-        # Understanding ve Decision modülleri karar alma için gereklidir. Learning optional.
-        # self.understanding_module ve self.decision_module None kontrolü yapılıyor.
+        # If critical sub-modules of CognitionCore were not initialized, do not proceed with decision making.
+        # Understanding and Decision modules are required for decision making. Learning is optional.
+        # Check for None instances of self.understanding_module and self.decision_module.
         if self.understanding_module is None or self.decision_module is None:
-            logger.error("CognitionCore.decide: Kritik alt modüller (Understanding/Decision) başlatılmamış veya None. Karar alınamıyor.")
+            logger.error("CognitionCore.decide: Critical sub-modules (Understanding/Decision) are not initialized or are None. Cannot make a decision.")
             return None
 
 
-        understanding_signals = None # Anlama modülünden gelecek sinyaller dictionary'si.
-        decision = None # Karar alma modülünden gelecek karar.
+        understanding_signals = None # Dictionary of signals from the understanding module.
+        decision = None # The decision from the decision making module.
 
-        # Understanding ve Decision modüllerinin çağrılarını ana try/except blokl<ctrl63>
+        # Place the calls to Understanding and Decision modules in the main try/except block.
+        # Errors in these modules are considered critical and will stop the decision making process for this cycle.
+        try:
+            # 1. Pass the incoming information to the understanding module.
+            # The UnderstandingModule.process method returns a dictionary of signals.
+            # We are passing processed_inputs, learned_representation, relevant_memory_entries, AND current_concepts as arguments.
+            understanding_signals = self.understanding_module.process(
+                processed_inputs, # Processed instantaneous sensory inputs (dict/None)
+                learned_representation, # Learned Representation (None/array)
+                relevant_memory_entries, # Relevant memories from Memory (list/None)
+                current_concepts # Current concepts from LearningModule (list), passed from run_evo.py
+            )
+            # DEBUG Log: The understanding signals dictionary (already logged inside UnderstandingModule).
+            # if isinstance(understanding_signals, dict): ...
+
+
+            # 2. Pass the understanding output and memory entries to the decision making module.
+            # The DecisionModule.decide expects understanding_signals (dict/None) and relevant_memory_entries (list/None).
+            # It manages its own internal state (curiosity). current_concepts is also passed.
+            decision = self.decision_module.decide(
+                understanding_signals, # Output of the understanding module (dictionary signals)
+                relevant_memory_entries, # Memory entries (list/None)
+                current_concepts # Concepts (list), can be used by the decision module
+            )
+
+            # DEBUG Log: The decision result (already logged inside DecisionModule).
+            # if decision is not None: ...
+
+
+        except Exception as e:
+            # Catch any unexpected error when calling methods of Understanding or Decision modules,
+            # or if an unhandled exception occurs within those methods.
+            # This is a critical error and will halt the decision making process for this cycle.
+            logger.error(f"CognitionCore.decide: Critical error during understanding or decision making: {e}", exc_info=True)
+            return None # Return None in case of error.
+
+        # Return the decision obtained if successful.
+        # return decision # The decision string or None is returned.
+
+        # Add a final DEBUG log for the decision result, if it's not None, before returning.
+        if decision is not None:
+            logger.debug(f"CognitionCore.decide: Final decision reached: '{decision}'.")
+        else:
+            logger.debug("CognitionCore.decide: No specific decision reached (result is None).")
+
+        return decision # Return the decision string or None.
+
+    # ... (cleanup method - same as before) ...
 
 
     def cleanup(self):

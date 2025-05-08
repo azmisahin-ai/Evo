@@ -40,25 +40,25 @@ class VisionProcessor:
                            'canny_high_threshold': Canny kenar tespiti yüksek eşiği (int, varsayılan 150).
         """
         self.config = config
-        logger.info("VisionProcessor başlatılıyor...")
+        logger.info("VisionProcessor initializing...")
 
-        # Yapılandırmadan çıktı boyutlarını ve Canny eşiklerini alırken get_config_value kullan.
-        # Düzeltme: get_config_value çağrılarını default=keyword formatına çevir.
-        # Config'e göre bu ayarlar 'processors.vision' altında.
+        # Get output dimensions and Canny thresholds from config using get_config_value.
+        # Corrected: Use default= keyword format for all calls.
+        # Based on config, these settings are under the 'processors.vision' key.
         self.output_width = get_config_value(config, 'processors', 'vision', 'output_width', default=64, expected_type=int, logger_instance=logger)
         self.output_height = get_config_value(config, 'processors', 'vision', 'output_height', default=64, expected_type=int, logger_instance=logger)
         self.canny_low_threshold = get_config_value(config, 'processors', 'vision', 'canny_low_threshold', default=50, expected_type=int, logger_instance=logger)
         self.canny_high_threshold = get_config_value(config, 'processors', 'vision', 'canny_high_threshold', default=150, expected_type=int, logger_instance=logger)
 
 
-        # Geçerli çıktı boyutları olduğundan emin ol (negatif veya sıfır olmamalı)
+        # Ensure valid output dimensions (must be positive)
         if self.output_width <= 0 or self.output_height <= 0:
-             logger.error(f"VisionProcessor: Konfigurasyonda geçersiz çıktı boyutları: {self.output_width}x{self.output_height}. Varsayılan (64x64) kullanılıyor.")
+             logger.error(f"VisionProcessor: Invalid output dimensions in config: {self.output_width}x{self.output_height}. Using defaults (64x64).")
              self.output_width = 64
              self.output_height = 64
-             # Bu durumda başlatmayı kritik yapmıyoruz, sadece loglayıp varsayılanlarla devam ediyoruz (Policy).
+             # Policy: Don't make initialization critical in this case, just log and use defaults.
 
-        logger.info(f"VisionProcessor başlatıldı. Çıktı boyutu: {self.output_width}x{self.output_height}, Canny Eşikleri: [{self.canny_low_threshold}, {self.canny_high_threshold}]")
+        logger.info(f"VisionProcessor initialized. Output dimensions: {self.output_width}x{self.output_height}, Canny Thresholds: [{self.canny_low_threshold}, {self.canny_high_threshold}]")
 
     # ... (process and cleanup methods - same as before) ...
 

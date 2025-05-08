@@ -5,127 +5,112 @@
 # Belleğe dosya tabanlı kalıcılık kazandırır.
 # Gelecekte episodik ve semantik bellek gibi alt modülleri koordine edecektir.
 
-import numpy as np # Temsil vektörleri (numpy array) için.
-import time # Anıların zaman damgası için.
-import random # Placeholder retrieve (rastgele seçim) için.
-import logging # Loglama için.
-import pickle # Belleği dosyaya kaydetmek ve yüklemek için
-import os # Dosya sistemi işlemleri için (kontrol etme, dizin oluşturma)
+import numpy as np # For representation vectors (numpy array).
+import time # For memory entry timestamps.
+import random # For placeholder retrieve (random selection).
+import logging # For logging.
+import pickle # For saving and loading memory to file
+import os # For filesystem operations (checking existence, creating directories)
 
-# Yardımcı fonksiyonları import et
-# setup_logging burada çağrılmayacak. check_* fonksiyonları yerine isinstance kullanıldı.
-from src.core.utils import run_safely, cleanup_safely # Sadece run_safely ve cleanup_safely kullanıldı
-from src.core.config_utils import get_config_value # get_config_value buradan import ediliyor
+# Import utility functions
+# setup_logging will not be called here. isinstance is used instead of check_* functions.
+from src.core.utils import run_safely, cleanup_safely # Only run_safely and cleanup_safely are used here
+from src.core.config_utils import get_config_value # get_config_value is imported from here
 
-# Alt bellek modüllerini import et (Placeholder sınıflar)
-# EpisodicMemory ve SemanticMemory sınıfları henüz implemente edilmediyse veya test edilmiyorsa
-# import hatalarını önlemek için bu satırlar şimdilik yorum satırı yapılabilir.
+# Import sub-memory modules (Placeholder classes)
+# Commenting out imports for now if they are just placeholders and might cause import errors
+# if the files/classes don't fully exist or are not intended to be tested/used yet.
 # from .episodic import EpisodicMemory
 # from .semantic import SemanticMemory
 
 
-# Bu modül için bir logger oluştur
-# 'src.memory.core' adında bir logger döndürür.
-# Loglama seviyesi ve handler'lar dışarıdan (conftest.py veya main run scripti) ayarlanacak.
+# Create a logger for this module
+# Returns a logger named 'src.memory.core'.
+# Logging level and handlers are configured externally (by conftest.py or the main run script).
 logger = logging.getLogger(__name__)
 
 
 class Memory:
     """
-    Evo'nın bellek sistemi ana sınıfı (Koordinatör/Yönetici).
-
-    RepresentationLearner'dan gelen öğrenilmiş temsil vektörlerini alır.
-    Bu temsilleri ve/veya ilgili bilgileri farklı bellek türlerine (core/working,
-    episodik, semantik) yönlendirir ve yönetir.
-    Temel list tabanlı depolama (core/working memory) implementasyonu içerir
-    ve bu belleğe dosya tabanlı kalıcılık (pickle) kazandırılmıştır.
-    Hata durumlarında işlemleri loglar ve programın çökmesini engeller.
+    Evo's primary memory system class (Coordinator/Manager).
+    ... (Docstring same) ...
     """
     def __init__(self, config):
         """
-        Memory modülünü başlatır.
-
-        Temel depolama yapısını (şimdilik liste) başlatır, kalıcı bellekten yükler
-        ve alt bellek modüllerini (EpisodicMemory, SemanticMemory) başlatmayı dener (gelecekte).
-
-        Args:
-            config (dict): Bellek sistemi yapılandırma ayarları.
-                           'max_memory_size': Core/Working bellekte saklanacak maksimum temsil sayısı (int, varsayılan 1000).
-                           'num_retrieved_memories': retrieve metodunda varsayılan olarak geri çağrılacak anı sayısı (int, varsayılan 5).
-                           'memory_file_path': Belleğin kaydedileceği/yükleneceği dosya yolu (str, varsayılan 'data/core_memory.pkl').
-                           'representation_dim': Saklanacak temsil vektörlerinin boyutu (int, varsayılan 128).
-                           Alt modüllere ait ayarlar kendi adları altında beklenir
-                           (örn: {'episodic': {...}, 'semantic': {...}}).
+        Initializes the Memory module.
+        ... (Docstring same) ...
         """
         self.config = config
-        logger.info("Memory modülü başlatılıyor...")
+        logger.info("Memory module initializing...")
 
-        # Yapılandırmadan ayarları alırken get_config_value kullan
-        # logger_instance=logger'ı her çağrıya ekleyerek get_config_value içindeki logların görünmesini sağla.
-        # Düzeltme: get_config_value çağrılarını default=keyword formatına çevir.
-        # Config'e göre bu ayarlar 'memory' anahtarı altında.
+        # Get configuration settings using get_config_value
+        # Pass logger_instance=logger to each call to ensure logs within get_config_value are visible.
+        # Corrected: Use default= keyword format for all calls.
+        # Based on config, these settings are under the 'memory' key.
         self.max_memory_size = get_config_value(config, 'memory', 'max_memory_size', default=1000, expected_type=int, logger_instance=logger)
         self.num_retrieved_memories = get_config_value(config, 'memory', 'num_retrieved_memories', default=5, expected_type=int, logger_instance=logger)
-        # Representation boyutu config'in 'representation' anahtarı altında. Memory'nin kendi config'inde yok.
+        # The representation dimension is under the 'representation' key in the main config.
+        # The Memory module needs to know this dimension.
+        # Get it from the main config's representation section.
         self.representation_dim = get_config_value(config, 'representation', 'representation_dim', default=128, expected_type=int, logger_instance=logger)
 
-        # memory_file_path config'den alınıyor.
+        # memory_file_path is retrieved from config.
         self.memory_file_path = get_config_value(config, 'memory', 'memory_file_path', default='data/core_memory.pkl', expected_type=str, logger_instance=logger)
 
 
-        # num_retrieved_memories için negatif değer kontrolü
+        # Check for negative values for num_retrieved_memories
         if self.num_retrieved_memories < 0:
-             logger.warning(f"Memory: Konfigürasyonda num_retrieved_memories geçersiz ({self.num_retrieved_memories}). Varsayılan 5 kullanılıyor.")
+             logger.warning(f"Memory: Invalid num_retrieved_memories config value ({self.num_retrieved_memories}). Using default 5.")
              self.num_retrieved_memories = 5
 
-        # max_memory_size için negatif değer kontrolü
+        # Check for negative values for max_memory_size
         if self.max_memory_size < 0:
-             logger.warning(f"Memory: Konfigürasyonda max_memory_size geçersiz ({self.max_memory_size}). Varsayılan 1000 kullanılıyor.")
+             logger.warning(f"Memory: Invalid max_memory_size config value ({self.max_memory_size}). Using default 1000.")
              self.max_memory_size = 1000
 
-        # representation_dim için pozitif değer kontrolü
+        # Check for non-positive values for representation_dim
         if self.representation_dim <= 0:
-             logger.warning(f"Memory: Konfigürasyonda representation_dim geçersiz ({self.representation_dim}). Pozitif bir değer bekleniyordu. Varsayılan 128 kullanılıyor.")
+             logger.warning(f"Memory: Invalid representation_dim config value ({self.representation_dim}). Expected a positive value. Using default 128.")
              self.representation_dim = 128
 
 
-        # Config'den alınan memory_file_path değerini logla - DEBUG loglarını görmek önemli!
-        # Bu log, get_config_value çağrısının sonucunu net gösterecek.
-        logger.info(f"Memory __init__: Config'den alınan memory_file_path ayarlandı: {self.memory_file_path}")
+        # Log the memory_file_path obtained from config - important for DEBUG logs!
+        # This log will clearly show the result of the get_config_value call.
+        logger.info(f"Memory __init__: memory_file_path set from config: {self.memory_file_path}")
 
 
-        # Bellek depolama yapıları. Şimdilik sadece temel list tabanlı (core/working memory).
-        # Her öğe bir sözlüktür: {'representation': numpy_array, 'metadata': dict, 'timestamp': float}
-        self.core_memory_storage = [] # Temel / Çalışma Belleği Depolama
+        # Memory storage structures. For now, just a simple list-based core/working memory.
+        # Each element is a dictionary: {'representation': numpy_array, 'metadata': dict, 'timestamp': float}
+        self.core_memory_storage = [] # Core / Working Memory Storage
 
-        # Alt bellek modülü objeleri (varsa)
+        # Sub-memory module objects (if they exist)
         self.episodic_memory = None
         self.semantic_memory = None
 
-        # Kalıcı bellekten yükleme mantığı
+        # Logic to load from persistent storage
         self._load_from_storage()
 
 
-        # Alt bellek modüllerini başlatmayı dene (Gelecek TODO).
-        # TODO: Alt bellek modüllerini burada başlatma mantığı eklenecek.
+        # Try to initialize sub-memory modules (Future TODO).
+        # TODO: Add logic here to initialize sub-memory modules.
         # try:
         #     episodic_config = config.get('episodic', {})
-        #     # EpisodicMemory sınıfı import edildiyse ve varsa başlat
+        #     # If EpisodicMemory class is imported and exists, initialize it
         #     if 'EpisodicMemory' in globals() and EpisodicMemory:
         #         self.episodic_memory = EpisodicMemory(episodic_config)
-        #     if self.episodic_memory is None: logger.error("Memory: EpisodicMemory başlatılamadı.")
-        # except Exception as e: logger.error(f"Memory: EpisodicMemory başlatılırken hata: {e}", exc_info=True); self.episodic_memory = None
+        #     if self.episodic_memory is None: logger.error("Memory: EpisodicMemory initialization failed.")
+        # except Exception as e: logger.error(f"Memory: Error during EpisodicMemory initialization: {e}", exc_info=True); self.episodic_memory = None
 
         # try:
         #     semantic_config = config.get('semantic', {})
-        #     # SemanticMemory sınıfı import edildiyse ve varsa başlat
+        #     # If SemanticMemory class is imported and exists, initialize it
         #     if 'SemanticMemory' in globals() and SemanticMemory:
         #         self.semantic_memory = SemanticMemory(semantic_config)
-        #     if self.semantic_memory is None: logger.error("Memory: SemanticMemory başlatılamadı.")
-        # except Exception as e: logger.error(f"Memory: SemanticMemory başlatılırken hata: {e}", exc_info=True); self.semantic_memory = None
+        #     if self.semantic_memory is None: logger.error("Memory: SemanticMemory initialization failed.")
+        # except Exception as e: logger.error(f"Memory: Error during SemanticMemory initialization: {e}", exc_info=True); self.semantic_memory = None
 
 
-        logger.info(f"Memory modülü başlatıldı. Maksimum Core Bellek boyutu: {self.max_memory_size}. Varsayılan geri çağrı sayısı: {self.num_retrieved_memories}. Kalıcılık dosyası: {self.memory_file_path}. Yüklenen anı sayısı: {len(self.core_memory_storage)}")
+        logger.info(f"Memory module initialized. Maximum Core Memory size: {self.max_memory_size}. Default retrieval count: {self.num_retrieved_memories}. Persistence file: {self.memory_file_path}. Loaded memories count: {len(self.core_memory_storage)}")
 
 
     # ... (_load_from_storage, _save_to_storage, store, retrieve, get_all_representations, cleanup methods - same as before) ...

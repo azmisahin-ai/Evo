@@ -16,47 +16,36 @@ from src.core.utils import check_input_not_none, check_numpy_input # <<< Utils i
 # 'src.representation.models' adında bir logger döndürür.
 logger = logging.getLogger(__name__)
 
-# Basit bir Dense (Tam Bağlantılı) Katman sınıfı
-# TODO: İleride src/core/nn_components.py'deki versiyonu merkezi olarak kullanmak daha temiz olacaktır.
+# A simple Dense (Fully Connected) Layer class
+# TODO: In the future, using the central version from src/core/nn_components.py would be cleaner.
 class Dense:
     """
-    Tek bir tam bağlantılı (fully connected) katman implementasyonu.
-
-    Ağırlık ve bias parametrelerini içerir.
-    ReLU aktivasyon fonksiyonunu destekler.
-    İleri geçiş (forward pass) hesaplamasını yapar.
+    A basic implementation of a dense (fully connected) layer.
+    ... (Docstring same) ...
     """
     def __init__(self, input_dim, output_dim, activation='relu'):
         """
-        Dense katmanını başlatır.
-
-        Ağırlıkları ve bias'ları rastgele başlatır.
-
-        Args:
-            input_dim (int): Girdi özelliğinin boyutu.
-            output_dim (int): Çıktı özelliğinin boyutu.
-            activation (str, optional): Kullanılacak aktivasyon fonksiyonunun adı ('relu'). Varsayılan 'relu'.
+        Initializes the Dense layer.
+        ... (Docstring same) ...
         """
         self.input_dim = input_dim
         self.output_dim = output_dim
         self.activation = activation
-        # Logger, RepresentationLearner tarafından zaten başlatılmış olmalı, burada tekrar getirmek yerine
-        # doğrudan module-level logger'ı kullanabiliriz.
-        # Logging burada RepresentationLearner'ın logger'ını kullanmak yerine kendi logger'ını kullanıyor gibi görünüyor.
-        # RepresentationLearner init'te logger'ı pass etmiyor. Refactoring hedefi.
-        logger.info(f"Dense katmanı başlatılıyor: Input={input_dim}, Output={output_dim}, Activation={activation}")
+        # Create a logger for this specific class instance or use module logger.
+        # Currently using the module logger, which is fine.
+        logger.info(f"Dense layer initializing: Input={input_dim}, Output={output_dim}, Activation={activation}")
 
-        # Ağırlıkları ve bias'ları rastgele başlat.
-        # Daha iyi başlangıç yöntemleri (He, Xavier) kullanılabilir (Gelecek TODO).
-        # np.random.randn normal dağımdan örnekler çeker.
-        # Çok küçük değerlerle başlamak (0.01 çarpanı) genellikle iyidir.
-        # Eğer PyTorch kullanılıyorsa, ağırlıkların PyTorch tensörleri olması ve GPU'ya taşınması gerekebilir.
-        # Şimdilik NumPy ile CPU üzerinde kalıyoruz.
-        limit = np.sqrt(1. / input_dim) # Basit başlatma ölçeği (fan-in)
+        # Initialize weights and biases.
+        # Better initialization methods (He, Xavier) could be used (Future TODO).
+        # Using np.random.uniform for a simple initialization.
+        # Scaling by sqrt(1. / input_dim) (fan-in) is a common heuristic.
+        # If using PyTorch, weights would be PyTorch tensors and could be moved to GPU.
+        # For now, staying on CPU with NumPy.
+        limit = np.sqrt(1. / input_dim) # Simple initialization scale (fan-in)
         self.weights = np.random.uniform(-limit, limit, (input_dim, output_dim))
-        self.bias = np.zeros(output_dim) # Bias'ı genellikle sıfır başlatmak yaygındır.
+        self.bias = np.zeros(output_dim) # Biases are commonly initialized to zero.
 
-        logger.info("Dense katmanı başlatıldı.")
+        logger.info("Dense layer initialized.")
 
     # ... (forward and cleanup methods - same as before) ...
 
@@ -148,96 +137,80 @@ class Dense:
         pass
 
 
-# Basit bir Representation Learner sınıfı
+# A simple Representation Learner class
 class RepresentationLearner:
     """
-    İşlenmiş duyusal veriden içsel temsiller (latent vektörler) öğrenir veya çıkarır.
-
-    Processing modüllerinden gelen işlenmiş duyu verilerini (sözlük formatında) alır.
-    Bu verileri birleştirerek birleşik bir girdi vektörü oluşturur.
-    Girdi vektörünü bir Encoder katmanından (Dense) geçirerek düşük boyutlu,
-    anlamlı bir temsil vektörü (latent) oluşturur.
-    Bir Decoder katmanı (Dense) da içerir (Autoencoder prensibi için),
-    bu katman latent vektörden orijinal girdi boyutunda bir rekonstrüksiyon üretir.
-    Gelecekte daha karmaşık modeller (CNN, RNN, Transformer temelli) buraya gelecek.
-    Modül başlatılamazsa veya temsil öğrenme/çıkarma sırasında hata oluşursa None döndürür.
+    Learns or extracts internal representations (latent vectors) from processed sensory data.
+    ... (Docstring same) ...
     """
     def __init__(self, config):
         """
-        RepresentationLearner modülünü başlatır.
-
-        Representation modelinin (şimdilik Encoder ve Decoder Dense katmanları) yapısını ayarlar.
-        input_dim ve representation_dim yapılandırmadan alınır.
-
-        Args:
-            config (dict): RepresentationLearner yapılandırma ayarları.
-                           'input_dim': Encoder'ın beklediği toplam girdi boyutu (int, varsayılan 8194).
-                                         Bu boyut, learn metodunda birleştirilen tüm özelliklerin toplam boyutuna eşit olmalıdır.
-                                         Örn: (64x64 gri görsel) + (64x64 kenar haritası) + (enerji, centroid) = 4096 + 4096 + 2 = 8194.
-                           'representation_dim': Encoder'ın üreteceği ve Decoder'ın alacağı temsil vektörünün boyutu (int, varsayılan 128).
-                           Gelecekte farklı model türleri veya katman ayarları buraya gelebilir.
+        Initializes the RepresentationLearner module.
+        ... (Docstring same) ...
         """
         self.config = config
-        logger.info("RepresentationLearner başlatılıyor...")
+        logger.info("RepresentationLearner initializing...")
 
-        # Yapılandırmadan input ve representation boyutlarını alırken get_config_value kullan.
-        # Düzeltme: get_config_value çağrılarını default=keyword formatına çevir.
-        # Config'e göre bu ayarlar 'representation' anahtarı altında.
+        # Get input and representation dimensions from config using get_config_value.
+        # Corrected: Use default= keyword format for all calls.
+        # Based on config, these settings are under the 'representation' key.
         self.input_dim = get_config_value(config, 'representation', 'input_dim', default=8194, expected_type=int, logger_instance=logger)
         self.representation_dim = get_config_value(config, 'representation', 'representation_dim', default=128, expected_type=int, logger_instance=logger)
 
-        self.encoder = None # Encoder katmanı (şimdilik Dense).
-        self.decoder = None # Decoder katmanı (şimdilik Dense).
-        self.is_initialized = False # Modülün başarıyla başlatılıp başlatılmadığını tutar.
+        self.encoder = None # Encoder layer (currently Dense).
+        self.decoder = None # Decoder layer (currently Dense).
+        self.is_initialized = False # Tracks if the module was initialized successfully.
 
-        # TODO: Gelecekte: Farklı modalitelerden gelen girdilerin boyutlarını buradan config'ten alıp,
-        # TODO: input_dim değerinin bu boyutların toplamına eşit olduğunu doğrulayabiliriz.
-        # Processor çıktı boyutları RepresentationLearner için config'ten alınıyor, bu doğru.
-        # AudioProcessor çıktı boyutu da burada alınıp kullanılabilir.
-        # Config'ten processor çıktı boyutlarını alırken de get_config_value kullanmak tutarlı olur.
+        # TODO: In the future: Get input dimensions from different modalities from config,
+        # TODO: and verify that the input_dim value matches the sum of these dimensions.
+        # Processor output dimensions are used by RepresentationLearner for calculating the expected input_dim.
+        # Get processor output dimensions using get_config_value for consistency.
         visual_config = config.get('processors', {}).get('vision', {})
         audio_config = config.get('processors', {}).get('audio', {})
-        # get_config_value kullanarak alt anahtarlardan değer alalım.
+        # Use get_config_value to retrieve values from the nested config structures.
         visual_out_width = get_config_value(visual_config, 'output_width', default=64, expected_type=int, logger_instance=logger) # Use visual_config here
         visual_out_height = get_config_value(visual_config, 'output_height', default=64, expected_type=int, logger_instance=logger) # Use visual_config here
         audio_features_dim = get_config_value(audio_config, 'output_dim', default=2, expected_type=int, logger_instance=logger) # Use audio_config here
 
         visual_gray_size = visual_out_width * visual_out_height
-        visual_edges_size = visual_out_width * visual_out_height # Genellikle aynı boyut
+        visual_edges_size = visual_out_width * visual_out_height # Assume same dimensions for simplicity
         expected_input_dim_calc = visual_gray_size + visual_edges_size + audio_features_dim
 
         if self.input_dim != expected_input_dim_calc:
-             logger.warning(f"RepresentationLearner: Config'teki input_dim ({self.input_dim}) beklenen hesaplanmış değer ({expected_input_dim_calc}) ile eşleşmiyor. Lütfen config dosyasındaki 'representation.input_dim' ayarını ve Processor'ların çıktı boyutlarını ('processors.vision.output_width/height', 'processors.audio.output_dim') kontrol edin.")
-             # İsteğe bağlı: Bu durumda self.input_dim'i hesaplanan değere set edilebilir
+             logger.warning(f"RepresentationLearner: Configured input_dim ({self.input_dim}) does not match calculated expected value ({expected_input_dim_calc}). Please check the 'representation.input_dim' setting in the config file and the output dimensions of the Processors ('processors.vision.output_width/height', 'processors.audio.output_dim'). Calculated dimension is based on Processor output dimensions.")
+             # Optional: Could set self.input_dim to the calculated value in this case.
              # self.input_dim = expected_input_dim_calc
 
 
         try:
-            # Encoder katmanı oluştur (Girdi boyutu: self.input_dim, Çıktı boyutu: self.representation_dim).
-            # Genellikle encoder'ın son katmanında aktivasyon olmaz veya linear olur (latent uzay).
-            # Dense sınıfına None aktivasyon seçeneği ekledim. Burada None aktivasyon kullanalım.
-            self.encoder = Dense(self.input_dim, self.representation_dim, activation=None) # Latent uzayda aktivasyon yok
+            # Create the Encoder layer (Input dimension: self.input_dim, Output dimension: self.representation_dim).
+            # The last layer of an encoder typically has no activation or linear activation (latent space).
+            # Added None activation option to Dense class. Using None activation here.
+            self.encoder = Dense(self.input_dim, self.representation_dim, activation=None) # No activation in latent space
 
-            # Decoder katmanı oluştur (Girdi boyutu: self.representation_dim, Çıktı boyutu: self.input_dim).
-            # Decoder çıktısı orijinal girdi boyutunda bir rekonstrüksiyon olmalı.
-            # Decoder'ın son katmanında çıktının temsil ettiği veri türüne uygun aktivasyon olabilir (örn: görsel için sigmoid/tanh, sayısal için linear).
-            # Şimdilik yine None aktivasyon kullanalım.
-            self.decoder = Dense(self.representation_dim, self.input_dim, activation=None) # Rekonstruksiyon çıktısı
+            # Create the Decoder layer (Input dimension: self.representation_dim, Output dimension: self.input_dim).
+            # The decoder output should be a reconstruction of the original input dimensions.
+            # The last layer of the decoder might have an activation suitable for the output data type (e.g., sigmoid/tanh for images, linear for numerical).
+            # For now, using None activation again.
+            self.decoder = Dense(self.representation_dim, self.input_dim, activation=None) # Reconstruction output
 
 
-            # Başlatma başarılı bayrağı: Encoder ve Decoder objeleri başarıyla oluşturulduysa True yap.
+            # Initialization successful flag: Set to True if Encoder and Decoder objects were created successfully.
             self.is_initialized = (self.encoder is not None and self.decoder is not None)
 
         except Exception as e:
-            # Model katmanlarını başlatma sırasında beklenmedik bir hata olursa.
-            # Bu hata init sırasında kritik kabul edilebilir (eğer model yoksa Represent iş yapamaz).
-            logger.critical(f"RepresentationLearner başlatılırken kritik hata oluştu: {e}", exc_info=True)
-            self.is_initialized = False # Hata durumunda başlatılamadı olarak işaretle.
+            # Catch any unexpected error during model layer initialization.
+            # This error can be considered critical during initialization (Represent module cannot function without a model).
+            logger.critical(f"RepresentationLearner initialization failed critically: {e}", exc_info=True)
+            self.is_initialized = False # Mark as not initialized in case of error.
             self.encoder = None
             self.decoder = None
 
 
-        logger.info(f"RepresentationLearner başlatıldı. Girdi boyutu: {self.input_dim}, Temsil boyutu: {self.representation_dim}. Başlatma Başarılı: {self.is_initialized}")
+        logger.info(f"RepresentationLearner initialized. Input dimension: {self.input_dim}, Representation dimension: {self.representation_dim}. Initialization Successful: {self.is_initialized}")
+
+
+    # ... (learn, decode, cleanup methods - same as before) ...
 
 
     def learn(self, processed_inputs):

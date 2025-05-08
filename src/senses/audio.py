@@ -45,130 +45,119 @@ class AudioSensor:
                            'is_dummy': Simüle mod etkin mi (bool, varsayılan False).
         """
         self.config = config
-        logger.info("AudioSensor başlatılıyor...")
+        logger.info("AudioSensor initializing...")
 
-        # Yapılandırmadan ayarları alırken get_config_value kullan
-        # audio config anahtarı altındaki değerleri okuyoruz
-        # Düzeltme: get_config_value çağrılarını default=keyword formatına çevir.
+        # Get configuration settings using get_config_value with keyword arguments
+        # These settings are under the 'audio' key in the config.
+        # Corrected: Use default= keyword format for all calls.
         self.audio_rate = get_config_value(config, 'audio', 'audio_rate', default=44100, expected_type=int, logger_instance=logger)
         self.audio_chunk_size = get_config_value(config, 'audio', 'audio_chunk_size', default=1024, expected_type=int, logger_instance=logger)
-        # Düzeltme: audio_input_device_index için default=None kullan.
         self.audio_input_device_index = get_config_value(config, 'audio', 'audio_input_device_index', default=None, expected_type=(int, type(None)), logger_instance=logger)
-        # Düzeltme: is_dummy config'te audio altında.
+        # Corrected: is_dummy config is under 'audio' key.
         self.is_dummy = get_config_value(config, 'audio', 'is_dummy', default=False, expected_type=bool, logger_instance=logger)
 
 
-        self.audio_format = pyaudio.paInt16 # 16-bit integer formatı yaygın ve basit
-        self.audio_channels = 1 # Mono ses
+        self.audio_format = pyaudio.paInt16 # 16-bit integer format is common and simple
+        self.audio_channels = 1 # Mono audio
 
 
-        self.p = None # PyAudio objesi. PyAudio başlatılırsa atanır.
-        self.stream = None # PyAudio Stream objesi. Ses akışı açılırsa atanır.
-        self.is_audio_available = False # Gerçek ses akışının şu an aktif olup olmadığını tutar. Başlangıçta False.
+        self.p = None # PyAudio object. Assigned if PyAudio is initialized.
+        self.stream = None # PyAudio Stream object. Assigned if audio stream is opened.
+        self.is_audio_available = False # Tracks if the real audio stream is currently active. Starts as False.
 
-        # Eğer is_dummy True ise gerçek mikrofonu başlatmaya çalışma
+        # If is_dummy is True, don't try to initialize the real microphone
         if self.is_dummy:
-             logger.info("AudioSensor: is_dummy=True. Simüle edilmiş işitsel girdi kullanılacak.")
+             logger.info("AudioSensor: is_dummy=True. Using simulated audio input.")
              self.is_audio_available = False
-             self.p = None # PyAudio objesi None kalmalı
-             self.stream = None # Akış objesi None kalmalı
+             self.p = None # PyAudio object should remain None
+             self.stream = None # Stream object should remain None
         else:
-            # Gerçek mikrofonu başlatmayı dene
+            # Try to initialize the real microphone
             try:
-                # PyAudio objesini başlat.
+                # Initialize the PyAudio object.
                 self.p = pyaudio.PyAudio()
 
-                # Eğer config'te belirli bir cihaz indeksi belirtilmemişse (None ise)
-                device_index_to_open = self.audio_input_device_index # Başlangıç değeri config'den gelen
+                # If a specific device index is not specified in config (is None)
+                device_index_to_open = self.audio_input_device_index # Initial value comes from config
                 if device_index_to_open is None:
                      try:
-                          # PyAudio'nın varsayılan input cihazını getir.
-                          # Bu satır mocklanmalı veya gerçek sistemde PyAudio doğru çalışmalı.
-                          # Test çıktısındaki hata 'PyAudio' object has no attribute 'getDefaultInputDeviceInfo'
-                          # PyAudio'nın mocklanmadığı test ortamlarında veya eski PyAudio versiyonlarında olabilir.
-                          # Bu test scripti için, PyAudio mocklanmadığından bu hata gerçek bir PyAudio problemi.
-                          # Eğer gerçek sistemde çalışıyorsa problem yoktur. Test ortamını PyAudio mocklayacak şekilde ayarlayacağız (GÖREV 3).
-                          # Şimdilik kodda bir değişiklik yapmaya gerek yok, hata test ortamından kaynaklı.
+                          # Get PyAudio's default input device.
+                          # This line might fail if PyAudio setup is incomplete or no device exists.
                           default_device_info = self.p.getDefaultInputDeviceInfo()
-                          # Varsayılan cihazın indeksini kullan.
+                          # Use the default device's index.
                           device_index_to_open = default_device_info['index']
-                          # Varsayılan cihazın adını ve indeksini logla.
-                          logger.info(f"AudioSensor: Varsayılan ses input cihazı bulundu: {default_device_info['name']} (Index: {device_index_to_open})")
+                          # Log the default device's name and index.
+                          logger.info(f"AudioSensor: Found default audio input device: {default_device_info['name']} (Index: {device_index_to_open})")
                      except Exception as e:
-                          # Varsayılan cihaz bulunamazsa uyarı logla.
-                          logger.warning(f"AudioSensor: Varsayılan ses input cihazı bulunamadı: {e}. Akış başlatma device_index=None ile denenecek.")
-                          # İndeks None kaldığı için PyAudio'nın open stream metodunun hata verme ihtimali yüksekdir.
-                          # Bu durum open stream try-except bloğunda yakalanacaktır.
-                          # Eğer config'te audio_input_device_index None ise ve getDefaultInputDeviceInfo hata verirse,
-                          # device_index_to_open None kalır. open(input_device_index=None) genellikle varsayılanı dener.
+                          # Log a warning if the default device cannot be found.
+                          logger.warning(f"AudioSensor: Default audio input device not found: {e}. Attempting to open stream with device_index=None.")
+                          # If index remains None, PyAudio's open stream method might still attempt to use the default.
+                          # Any error during open will be caught in the try-except block below.
 
 
-                # Ses akışını başlatmak için PyAudio'nın open methodunu kullan.
-                # format=pyaudio.paInt16, channels=1 yaygın ayarlardır.
-                # frames_per_buffer chunk_size ile aynı olmalı.
-                # input=True input akışı için.
-                # Test çıktısındaki ValueError: input_device_index must be integer (or None) hatası,
-                # device_index_to_open değişkeninin int veya None dışında bir şey olduğunu gösteriyor.
-                # get_config_value doğru çalıştıysa ve expected_type=(int, type(None)) kontrolünden geçtiyse
-                # bu hata olmamalı. Ya get_config_value'da sorun var ya da PyAudio beklenmeyen bir değer alıyor.
-                # config_utils workaround'u düzelttik, bu hata test scriptinin setup'ından veya ortamından kaynaklı olabilir.
-                # Şimdilik kodda bir değişiklik yapmıyoruz.
+                # Use PyAudio's open method to start the audio stream.
+                # format=pyaudio.paInt16, channels=1 are common settings.
+                # frames_per_buffer should match chunk_size.
+                # input=True for input stream.
+                # The ValueError: input_device_index must be integer (or None) error seen in logs suggests
+                # that device_index_to_open ended up being something other than an integer or None.
+                # Since get_config_value is now fixed and checks expected_type=(int, type(None)),
+                # this error is likely due to the PyAudio environment setup or a transient issue,
+                # not the get_config_value call itself anymore.
                 self.stream = self.p.open(format=self.audio_format,
                                           channels=self.audio_channels,
-                                          rate=self.audio_rate, # config'ten int olarak alındı
+                                          rate=self.audio_rate, # Retrieved from config as int
                                           input=True,
-                                          input_device_index=device_index_to_open, # Belirlenen (config'ten veya varsayılan) cihaz indeksi (int veya None)
-                                          frames_per_buffer=self.audio_chunk_size) # config'ten int olarak alındı
+                                          input_device_index=device_index_to_open, # The determined (from config or default) device index (int or None)
+                                          frames_per_buffer=self.audio_chunk_size) # Retrieved from config as int
 
 
-                # Akış objesi başarıyla oluşturulduysa (None değilse)
+                # If the stream object was created successfully (is not None)
                 if self.stream is not None:
-                     logger.info(f"AudioSensor: Akış başarıyla başlatıldı. Cihaz: {device_index_to_open}, Rate: {self.audio_rate}, Chunk: {self.audio_chunk_size}")
-                     self.is_audio_available = True # Akış aktif.
-                     # Akış hazırsa is_active() ile kontrol de edilebilir
+                     logger.info(f"AudioSensor: Stream started successfully. Device: {device_index_to_open}, Rate: {self.audio_rate}, Chunk: {self.audio_chunk_size}")
+                     self.is_audio_available = True # Stream is active.
+                     # Can also check self.stream.is_active() here if needed.
                      # if self.stream.is_active(): logger.info("Audio stream is active.")
 
                 else:
-                     # Akış objesi oluşturulamadıysa (örneğin cihaz indeksi None kaldıysa ve open hata verdiyse)
-                     # open() metodundan exception gelirse buraya gelinmez.
-                     # open() None döndürüyorsa buraya gelinir.
-                     logger.warning(f"AudioSensor: Ses akışı başlatılamadı (open None döndürdü). Simüle edilmiş işitsel girdi kullanılacak.")
+                     # If the stream object could not be created (e.g., if open returned None, which is unlikely for PyAudio on failure)
+                     # Exceptions from open() are caught below. This else block might be redundant.
+                     logger.warning(f"AudioSensor: Audio stream could not be started (open returned None). Using simulated audio input.")
                      self.is_audio_available = False
-                     # Başarısız olursa PyAudio instance'ını temizle.
+                     # Clean up the PyAudio instance on failure.
                      if self.p:
                          try:
                               self.p.terminate()
-                         except Exception: pass
-                     self.p = None # PyAudio instance'ı None yap.
-                     # Init başarısız olduğu için None döndürmeliyiz, ancak __init__ None döndüremez.
-                     # Başlatma hatasını run_module_test'in yakalaması gerekiyor.
-                     # Hata durumunda self.is_audio_available False ayarlandı. Bu yeterli.
+                         except Exception: pass # Ignore errors during terminate
+                     self.p = None # Set PyAudio instance to None.
+                     # Note: __init__ cannot return None. Initialization failure should be handled by setting state (is_audio_available = False)
+                     # and potentially logging, letting the caller (run_module_test or module_loader) handle the failure based on state/exceptions.
 
 
             except Exception as e:
-                # PyAudio başlatma veya akış açma sırasında beklenmedik bir istisna oluşursa.
-                # Bu hata run_module_test tarafından yakalanacak ve test başarısız sayılacak.
-                logger.error(f"AudioSensor başlatılırken hata oluştu: {e}", exc_info=True)
-                self.is_audio_available = False # Hata durumunda ses aktif değil.
-                # Hata durumunda açılmış olabilecek kaynakları temizlemeyi dene.
+                # Catch any unexpected exceptions during PyAudio initialization or opening the stream.
+                # This exception will be caught by run_module_test's try block, leading to test failure reporting.
+                logger.error(f"AudioSensor initialization failed: {e}", exc_info=True)
+                self.is_audio_available = False # Set the flag to False in case of error.
+                # Try to clean up any resources that might have been opened.
                 if self.stream:
                      try:
                           self.stream.stop_stream()
                           self.stream.close()
-                     except Exception: pass
+                     except Exception: pass # Ignore errors during cleanup
                 self.stream = None
                 if self.p:
                      try:
                           self.p.terminate()
-                     except Exception: pass
+                     except Exception: pass # Ignore errors during terminate
                 self.p = None
-                # Init metodu exception fırlatmaz, sadece loglar ve state'i ayarlar (is_audio_available = False).
-                # Bu, run_module_test'in try bloğunda yakaladığı hatadır.
+                # __init__ method itself does not raise exceptions, it logs and sets state.
+                # The exception is raised by the PyAudio calls within the try block.
 
 
-        # Başlatma işleminin sonucunu logla.
-        # Başarılı veya başarısız (is_audio_available state'ine göre) durum loglanır.
-        logger.info(f"AudioSensor başlatıldı. Ses aktif: {self.is_audio_available}, Simüle Mod: {self.is_dummy}")
+        # Log the result of the initialization process.
+        # The status (active or not based on is_audio_available state) is logged.
+        logger.info(f"AudioSensor initialized. Audio active: {self.is_audio_available}, Simulated Mode: {self.is_dummy}")
 
 
     # ... (capture_chunk, stop_stream, terminate_pyaudio, cleanup methods - same as before) ...

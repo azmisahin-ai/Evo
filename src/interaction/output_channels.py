@@ -3,78 +3,69 @@
 # Evo'nın dış dünyaya yönelik çıktı kanallarını tanımlar.
 # Farklı türdeki çıktılar (metin, ses vb.) belirli kanallara yönlendirilir.
 
-import logging # Loglama için.
-# import time # Gerekirse zamanlama için.
-# import requests # WebAPI'ye istek göndermek için gerekebilir (Gelecek).
-# import json # JSON formatı için gerekebilir (Gelecek).
-# import flask # WebAPI sunucusu için gerekebilir (Gelecek).
+import logging # For logging.
+# import time # For timing if needed.
+# import requests # Might be needed for sending requests to WebAPI (Future).
+# import json # Might be needed for JSON format (Future).
+# import flask # Might be needed for WebAPI server (Future).
 
-# Yardımcı fonksiyonları import et
+# Import utility functions
 from src.core.config_utils import get_config_value
-from src.core.utils import check_input_type # <<< check_input_type import edildi
+from src.core.utils import check_input_type # <<< check_input_type imported
 
 
-# Bu modül için bir logger oluştur
-# 'src.interaction.output_channels' adında bir logger döndürür.
+# Create a logger for this module
+# Returns a logger named 'src.interaction.output_channels'.
 logger = logging.getLogger(__name__)
 
 # --- OutputChannel Base Class ---
 class OutputChannel:
     """
-    Farklı çıktı kanalları için temel (base) sınıf.
-
-    Tüm özel çıktı kanalı sınıfları (ConsoleOutputChannel, WebAPIOutputChannel vb.)
-    bu sınıftan miras almalıdır. Temel başlatma (__init__), çıktı gönderme (send)
-    ve kaynak temizleme (cleanup) metotlarını tanımlar.
+    Base class for different output channels.
+    ... (Docstring same) ...
     """
     def __init__(self, name, config):
         """
-        OutputChannel'ın temelini başlatır.
-
-        Her kanalın bir adı ve yapılandırması olur. Kendi logger'ını oluşturur.
-        Config girdisinin tipini kontrol eder.
-
-        Args:
-            name (str): Kanalın adı (örn: 'console', 'web_api'). Beklenen tip: string.
-            config (dict): Bu kanala özel yapılandırma ayarları. Beklenen tip: sözlük.
+        Initializes the base of an OutputChannel.
+        ... (Docstring same) ...
         """
-        # Hata yönetimi: Name string mi? Genellikle init sırasında hata vermesi beklenir.
-        # check_input_type(name, str, input_name="channel name", logger_instance=logger) # raise TypeError daha uygun olabilir
+        # Error handling: Is name a string? It's usually expected to be a string when initialized.
+        # check_input_type(name, str, input_name="channel name", logger_instance=logger) # Raising TypeError might be more appropriate
 
-        # Hata yönetimi: Config dict mi? check_input_type kullan.
+        # Error handling: Is config a dict? Use check_input_type.
         if not check_input_type(config, dict, input_name=f"{name} channel config", logger_instance=logger):
-             # Config dict değilse uyarı logla ve boş dict kullan.
-             logger.warning(f"OutputChannel '{name}': Konfigurasyon beklenmeyen tipte. Sözlük bekleniyordu. Boş sözlük {{}} kullanılıyor.")
-             config = {} # Geçersiz tipse boş sözlük kullan.
+             # Log a warning if config is not a dict and use an empty dict instead.
+             logger.warning(f"OutputChannel '{name}': Configuration has unexpected type: {type(config)}. Dictionary expected. Using empty dictionary {{}}.")
+             config = {} # Use an empty dictionary if the type is invalid.
 
 
         self.name = name
         self.config = config
-        # Her channel kendi adlandırılmış logger'ını oluşturur.
-        # Bu logger'ın adı 'src.interaction.output_channels.KanalAdı' şeklinde olur.
+        # Each channel creates its own named logger.
+        # The logger name will be 'src.interaction.output_channels.ChannelName'.
         self.logger = logging.getLogger(f"{__name__}.{name}")
-        self.logger.info(f"OutputChannel '{self.name}' başlatılıyor.")
-        # Base sınıf başlatma tamamlandı.
+        self.logger.info(f"OutputChannel '{self.name}' initializing.")
+        # Base class initialization is complete.
 
-
+    # ... (send and cleanup methods - same as before) ...
     def send(self, output_data):
-        """
-        İşlenmiş çıktıyı ilgili kanala gönderme metodu.
+            """
+            İşlenmiş çıktıyı ilgili kanala gönderme metodu.
 
-        Bu metot temel sınıfta implement edilmemiştir ve alt sınıflar tarafından
-        override (geçersiz kılınarak kendi mantıklarıyla doldurulmalı) edilmelidir.
-        output_data'nın formatı kanaldan kanala değişir.
+            Bu metot temel sınıfta implement edilmemiştir ve alt sınıflar tarafından
+            override (geçersiz kılınarak kendi mantıklarıyla doldurulmalı) edilmelidir.
+            output_data'nın formatı kanaldan kanala değişir.
 
-        Args:
-            output_data (any): Motor Control'den gelen gönderilecek çıktı verisi.
-                               Formatı kanala bağlıdır (string, sayı, dict, numpy array vb.).
+            Args:
+                output_data (any): Motor Control'den gelen gönderilecek çıktı verisi.
+                                Formatı kanala bağlıdır (string, sayı, dict, numpy array vb.).
 
-        Raises:
-            NotImplementedError: Alt sınıflar bu metodu implement etmezse.
-        """
-        # Bu metot alt sınıflarda implement edildiği için burada genel girdi kontrolü yapmak anlamlı değil.
-        # Alt sınıfların send metotları kendi girdilerini (output_data) kontrol etmeli.
-        raise NotImplementedError("Alt sınıflar 'send' metodunu implement etmelidir.")
+            Raises:
+                NotImplementedError: Alt sınıflar bu metodu implement etmezse.
+            """
+            # Bu metot alt sınıflarda implement edildiği için burada genel girdi kontrolü yapmak anlamlı değil.
+            # Alt sınıfların send metotları kendi girdilerini (output_data) kontrol etmeli.
+            raise NotImplementedError("Alt sınıflar 'send' metodunu implement etmelidir.")
 
     def cleanup(self):
         """
@@ -92,21 +83,19 @@ class OutputChannel:
 # --- Console Output Channel ---
 class ConsoleOutputChannel(OutputChannel):
     """
-    Çıktıyı sistem konsoluna (terminale) yazdıran çıktı kanalı.
-
-    Genellikle metin tabanlı çıktılar için kullanılır.
+    An output channel that writes output to the system console (terminal).
+    ... (Docstring same) ...
     """
     def __init__(self, config):
         """
-        ConsoleOutputChannel'ı başlatır.
-
-        Args:
-            config (dict): Kanal yapılandırma ayarları (bu kanal için özel ayar beklenmez şimdilik).
-                           Base sınıf config tipini kontrol eder.
+        Initializes the ConsoleOutputChannel.
+        ... (Docstring same) ...
         """
-        # Temel sınıfın __init__ metodunu çağır. Kanal adını "console" olarak belirler.
+        # Call the base class's __init__ method. Set the channel name to "console".
         super().__init__("console", config)
-        self.logger.info("ConsoleOutputChannel başlatıldı.")
+        self.logger.info("ConsoleOutputChannel initialized.")
+
+    # ... (send and cleanup methods - same as before) ...
 
 
     def send(self, output_data):
@@ -165,37 +154,38 @@ class ConsoleOutputChannel(OutputChannel):
         super().cleanup()
 
 
-# --- Web API Output Channel (Placeholder) ---
+    # --- Web API Output Channel (Placeholder) ---
 class WebAPIOutputChannel(OutputChannel):
     """
-    Çıktıyı bir Web API endpoint'ine gönderen çıktı kanalı (Placeholder).
-
-    Bu kanal, InteractionAPI'nin dış dünya ile HTTP veya benzeri protokoller
-    üzerinden iletişim kurmasını sağlar.
+    An output channel that sends output to a Web API endpoint (Placeholder).
+    ... (Docstring same) ...
     """
     def __init__(self, config):
         """
-        WebAPIOutputChannel'ı başlatır.
+        Initializes the WebAPIOutputChannel.
 
         Args:
-            config (dict): Kanal yapılandırma ayarları.
-                           'port': API'nin çalıştığı port (int, varsayılan 5000).
-                           'host': API'nin çalıştığı host (str, varsayılan '127.0.0.1').
-                           Base sınıf config tipini kontrol eder.
+            config (dict): Channel configuration settings.
+                           'port': The port the API is running on (int, varsayılan 5000).
+                           'host': The host the API is running on (str, varsayılan '127.0.0.1').
+                           The base class checks the config type.
         """
-        # Temel sınıfın __init__ metodunu çağır. Kanal adını "web_api" olarak belirler.
+        # Call the base class's __init__ method. Set the channel name to "web_api".
         super().__init__("web_api", config)
-        # Yapılandırmadan ayarları alırken get_config_value kullan.
-        # Düzeltme: get_config_value çağrılarını default=keyword formatına çevir.
-        # Config'e göre bu ayarlar 'interaction.channel_configs.web_api' altında olmalı.
-        # Base sınıf config'in sadece 'web_api' altındaki dict'i alıyor, bu doğru.
+        # Get settings from config using get_config_value.
+        # Corrected: Use default= keyword format.
+        # The base class receives the specific config for this channel (e.g., {'port': 5000}).
+        # So, keys here are just 'port' and 'host'.
         self.port = get_config_value(self.config, 'port', default=5000, expected_type=int, logger_instance=self.logger)
         self.host = get_config_value(self.config, 'host', default='127.0.0.1', expected_type=str, logger_instance=self.logger)
 
 
-        self.logger.info(f"WebAPIOutputChannel başlatıldı. Port: {self.port}, Host: {self.host}")
-        # API sunucusunu başlatma mantığı buraya gelebilir (ayrı bir thread/process?) (Gelecek TODO).
-        # self._start_api_server() # Gelecek TODO
+        self.logger.info(f"WebAPIOutputChannel initialized. Port: {self.port}, Host: {self.host}")
+        # Logic to start the API server could go here (in a separate thread/process?) (Future TODO).
+        # self._start_api_server() # Future TODO
+
+
+    # ... (send and cleanup methods - same as before) ...
 
 
     def send(self, output_data):

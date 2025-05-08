@@ -15,7 +15,7 @@ from src.core.utils import check_input_not_none, check_numpy_input # <<< Utils i
 # Bu modül için bir logger oluştur
 # 'src.processing.audio' adında bir logger döndürür.
 logger = logging.getLogger(__name__)
-
+logger = logging.getLogger(__name__)
 
 class AudioProcessor:
     """
@@ -25,27 +25,32 @@ class AudioProcessor:
     def __init__(self, config):
         """
         AudioProcessor'ı başlatır.
-        ... (Docstring aynı) ...
+
+        Args:
+            config (dict): İşlemci yapılandırma ayarları.
+                           'audio_rate': Ses örnekleme oranı (int, varsayılan 44100 Hz).
+                           'audio_chunk_size': Her seferinde işlenecek ses örneği sayısı (int, varsayılan 1024).
+                           'output_dim': İşlenmiş ses çıktısının boyutu (int, varsayılan 2).
+                                         Şimdilik enerji ve Spectral Centroid için 2 beklenir.
         """
         self.config = config
-        logger.info("AudioProcessor başlatılıyor...")
+        logger.info("AudioProcessor initializing...")
 
-        # Yapılandırmadan örnekleme oranını ve çıktı boyutunu alırken get_config_value kullan.
-        # Düzeltme: get_config_value çağrılarını default=keyword formatına çevir.
-        # Config'e göre audio_rate hem 'audio' hem 'processors.audio' altında var.
-        # Processing modülleri için 'processors' altındaki ayarları kullanmak daha tutarlı olur.
+        # Get sample rate and output dimension from config using get_config_value.
+        # Corrected: Use default= keyword format for all calls.
+        # Based on config, these settings are under the 'processors.audio' key.
+        # Note: audio_rate also exists under 'audio' key. Using 'processors.audio' for consistency with VisionProcessor.
         self.audio_rate = get_config_value(config, 'processors', 'audio', 'audio_rate', default=44100, expected_type=int, logger_instance=logger)
         self.output_dim = get_config_value(config, 'processors', 'audio', 'output_dim', default=2, expected_type=int, logger_instance=logger)
 
-        # output_dim kontrolü (gelecekte birden fazla özellik dönerse anlamlı olacak)
-        # Şu an enerji ve Spectral Centroid olmak üzere 2 özellik döndürüyoruz.
+        # output_dim check (will be relevant when more features are returned)
+        # Currently returning 2 features: energy and Spectral Centroid.
         if self.output_dim != 2:
-             logger.warning(f"AudioProcessor: Konfigurasyonda output_dim beklenenden farklı ({self.output_dim}). Implementasyon 2 özellik döndürüyor (Enerji, Spectral Centroid).")
-             # Bu uyarı, config'in implementasyonla uyumlu olması gerektiğini hatırlatır.
-             # RepresentationLearner config'i bu output boyutuna göre ayarlanmalıdır.
+             logger.warning(f"AudioProcessor: Config output_dim ({self.output_dim}) does not match implemented feature count (2). Please check config and implementation consistency. RepresentationLearner's input_dim for audio should match the actual output dimension.")
+             # This is a warning, not an error. The implementation returns 2 features, config should ideally match.
 
 
-        logger.info(f"AudioProcessor başlatıldı. Örnekleme Oranı: {self.audio_rate} Hz, Çıktı Boyutu (implemente edilen): {self.output_dim}")
+        logger.info(f"AudioProcessor initialized. Sample Rate: {self.audio_rate} Hz, Implemented Output Dimension: {self.output_dim}")
 
     # ... (process and cleanup methods - same as before) ...
 

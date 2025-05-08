@@ -5,89 +5,83 @@
 # Basit eşik tabanlı yeni kavram ekleme mantığı kullanır.
 
 import logging
-import numpy as np # Vektör işlemleri ve benzerlik hesaplaması için
+import numpy as np # For vector operations and similarity calculation
 
-# Yardımcı fonksiyonları import et
-# check_* fonksiyonları src/core/utils'tan gelir
-# get_config_value src/core/config_utils'tan gelir
+# Import utility functions
+# check_* functions come from src/core/utils
+# get_config_value comes from src/core/config_utils
 try:
     from src.core.utils import check_input_not_none, check_input_type, check_numpy_input
     from src.core.config_utils import get_config_value
 except ImportError as e:
-    # Eğer temel modüller import edilemezse kritik hata logla ve placeholder kullan (geliştirme/debug amaçlı)
-    logging.critical(f"Temel yardımcı modüller import edilemedi: {e}. Lütfen src/core/utils.py ve src/core/config_utils.py dosyalarının mevcut olduğundan ve PYTHONPATH'in doğru ayarlandığından emin olun.")
-    # Placeholder fonksiyonlar (yalnızca import hatası durumunda kullanılır)
+    # Log critical error if fundamental utility modules cannot be imported (for development/debug)
+    logging.critical(f"Fundamental utility modules could not be imported: {e}. Please ensure src/core/utils.py and src/core/config_utils.py exist and PYTHONPATH is configured correctly.")
+    # Placeholder functions (only used in case of import error)
     def get_config_value(config, *keys, default=None, expected_type=None, logger_instance=None):
          return default
-    def check_input_not_none(input_data, input_name="Girdi", logger_instance=None):
+    def check_input_not_none(input_data, input_name="Input", logger_instance=None):
          return input_data is not None
-    def check_input_type(input_data, expected_type, input_name="Girdi", logger_instance=None):
+    def check_input_type(input_data, expected_type, input_name="Input", logger_instance=None):
          return isinstance(input_data, expected_type)
-    def check_numpy_input(input_data, expected_dtype=None, expected_ndim=None, input_name="Girdi", logger_instance=None):
+    def check_numpy_input(input_data, expected_dtype=None, expected_ndim=None, input_name="Input", logger_instance=None):
          return isinstance(input_data, np.ndarray)
 
 
-# Bu modül için bir logger oluştur
+# Create a logger for this module
 logger = logging.getLogger(__name__)
 
 class LearningModule:
     """
-    Evo'nın denetimsiz öğrenme (kavram keşfi) yeteneğini sağlayan sınıf (Faz 4 implementasyonu).
-
-    Bellekteki Representation vektörlerini alır ve basit bir eşik tabanlı yeni kavram ekleme
-    mantığı uygulayarak temel kavramları (desen gruplarını) keşfeder ve öğrenir. Keşfedilen
-    kavramlar, kavram temsilcisi vektörleri olarak (o kavramı ilk temsil eden vektör) saklanır.
-    "From scratch" prensibiyle, karmaşık kütüphaneler olmadan basit bir yaklaşım kullanılır.
+    Evo's unsupervised learning (concept discovery) module class (Phase 4 implementation).
+    ... (Docstring same) ...
     """
     def __init__(self, config):
         """
-        LearningModule'ü başlatır.
+        Initializes the LearningModule.
 
         Args:
-            config (dict): Öğrenme modülü yapılandırma ayarları.
-                           'new_concept_threshold': Bir Representation vektörünün yeni bir kavram
-                                                    sayılması için mevcut kavram temsilcilerinden
-                                                    en az benzemesi gereken benzerlik eşiği (float, varsayılan 0.7).
-                                                    Bu değer 1.0'a yakınsa, sadece çok farklı olanlar yeni kavram olur.
-                                                    0.0'a yakınsa, çoğu şey yeni kavram olur.
-                           'representation_dim': İşlenecek Representation vektörlerinin boyutu (int).
-                                                  Bu, RepresentationLearner'ın çıktısı ile aynı olmalıdır.
-                                                  Config'ten veya RepresentationLearner'dan alınabilir.
-                                                  Burada config'ten alalım.
-                                                  Eğer config'te yoksa RepresentationLearner default'u (128) kullanılır.
+            config (dict): Learning module configuration settings.
+                           'new_concept_threshold': The similarity threshold (float, default 0.7) below which
+                                                    a Representation vector is considered a new concept
+                                                    relative to existing concept representatives.
+                           'representation_dim': The dimension of the Representation vectors to be processed (int).
+                                                  This should match the output dimension of the RepresentationLearner.
+                                                  It can be obtained from the main config's representation section.
         """
         self.config = config
-        logger.info("LearningModule başlatılıyor (Faz 4)...")
+        logger.info("LearningModule initializing (Phase 4)...")
 
-        # Yapılandırmadan eşiği get_config_value ile alırken default=keyword formatını kullan.
-        # Config'e göre new_concept_threshold 'cognition' altında.
+        # Get threshold from config using get_config_value with keyword arguments.
+        # Based on config, new_concept_threshold is under the 'cognition' key.
         self.new_concept_threshold = get_config_value(config, 'cognition', 'new_concept_threshold', default=0.7, expected_type=(float, int), logger_instance=logger)
-        # Representation boyutunu config'ten al. representation.representation_dim altından alalım.
+        # Get the representation dimension from config. Obtain it from the representation.representation_dim key.
         self.representation_dim = get_config_value(config, 'representation', 'representation_dim', default=128, expected_type=int, logger_instance=logger)
 
-        # ConfigUtils'taki get_config_value int'i float'a otomatik çevirmediği için burada açıkça çevirelim.
-        # expected_type ile zaten tip kontrolü yapıldığı için bu çeviri artık çok gerekli olmayabilir, ama sağlamlık için kalsın.
+        # Cast threshold to float to ensure correct comparison arithmetic later.
+        # While expected_type checks type, explicit cast ensures float.
         self.new_concept_threshold = float(self.new_concept_threshold)
-        # representation_dim zaten int bekleniyor, çevirmeye gerek yok.
+        # representation_dim is expected to be an int, no casting needed after expected_type check.
 
-        # Eşik değeri için basit değer kontrolü (0.0 ile 1.0 arası)
+        # Simple value check for the threshold (must be between 0.0 and 1.0)
         if not (0.0 <= self.new_concept_threshold <= 1.0):
-             logger.warning(f"LearningModule: Konfig 'new_concept_threshold' beklenmeyen aralıkta ({self.new_concept_threshold}). 0.0 ile 1.0 arası bekleniyordu. Varsayılan 0.7 kullanılıyor.")
+             logger.warning(f"LearningModule: Config 'new_concept_threshold' out of expected range ({self.new_concept_threshold}). Expected between 0.0 and 1.0. Using default 0.7.")
              self.new_concept_threshold = 0.7
 
-        # Representation boyutu pozitif mi kontrol et.
+        # Check if the representation dimension is positive.
         if self.representation_dim <= 0:
-             # Bu kritik bir hata olabilir ama init sırasında crash etmiyoruz.
-             logger.error(f"LearningModule: Konfig 'representation_dim' geçersiz ({self.representation_dim}). Pozitif bir değer bekleniyordu. Kavram öğrenme çalışmayabilir.")
-             # LearningModule'un sonraki metotları (learn_concepts) bu durumu ele almalı.
+             # This could be a critical error but we don't crash during initialization.
+             logger.error(f"LearningModule: Invalid 'representation_dim' config value ({self.representation_dim}). Expected a positive value. Concept learning might not function correctly.")
+             # Subsequent methods (learn_concepts) should handle this state.
 
 
-        # Öğrenilen kavramların temsilcilerini (vektörlerini) saklayacak liste.
+        # List to store concept representatives (vectors).
         self.concept_representatives = []
 
-        # TODO: Gelecekte kavramları dosyaya kaydetme/yükleme eklenecek (kalıcılık).
+        # TODO: Persistence for concepts (saving/loading to file) will be added in the future.
 
-        logger.info(f"LearningModule başlatıldı. Yeni Kavram Eşiği: {self.new_concept_threshold}, Representation Boyutu: {self.representation_dim}. Başlangıç Kavram Sayısı: {len(self.concept_representatives)}")
+        logger.info(f"LearningModule initialized. New Concept Threshold: {self.new_concept_threshold}, Representation Dimension: {self.representation_dim}. Initial Concept Count: {len(self.concept_representatives)}")
+
+    # ... (learn_concepts, get_concepts, cleanup methods - same as before) ...
 
     def learn_concepts(self, representation_list):
         """

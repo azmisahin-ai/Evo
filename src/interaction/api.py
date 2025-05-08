@@ -6,133 +6,128 @@
 # Kanal başlatma, gönderme ve temizleme sırasında oluşabilecek hataları yönetir.
 # Gelecekte dış dünyadan girdi de alacak (Input kanalları).
 
-import logging # Loglama için.
-# import threading # Web API'si bir thread olarak çalışacaksa gerekebilir (Gelecek).
-# import requests # API endpoint'lerine çıktı göndermek için gerekebilir (Gelecek).
+import logging # For logging.
+# import threading # Might be needed if Web API runs as a thread (Future).
+# import requests # Might be needed for sending output to API endpoints (Future).
+# import json # Might be needed for JSON format (Future).
 
-# Yardımcı fonksiyonları import et
+# Import utility functions
 from src.core.config_utils import get_config_value
-from src.core.utils import check_input_not_none, check_input_type # <<< check_input_not_none, check_input_type import edildi
+from src.core.utils import check_input_not_none, check_input_type
+from src.interaction.output_channels import ConsoleOutputChannel, WebAPIOutputChannel # <<< check_input_not_none, check_input_type imported
 
-# Output kanallarını import et
-from .output_channels import ConsoleOutputChannel, WebAPIOutputChannel, OutputChannel # Base sınıfı da referans için import edildi.
 
-# Bu modül için bir logger oluştur
-# 'src.interaction.api' adında bir logger döndürür.
+# Create a logger for this module
+# Returns a logger named 'src.interaction.api'.
 logger = logging.getLogger(__name__)
 
 
 class InteractionAPI:
     """
-    Evo'nın dış dünya ile iletişim arayüzü sınıfı.
-
-    MotorControl modülünden gelen tepkileri (output_data) alır
-    ve yapılandırmada belirtilen tüm aktif çıktı kanallarına gönderir.
-    Farklı çıktı kanallarını (konsol, Web API vb.) yönetir.
-    Kanal başlatma, gönderme ve temizleme sırasında oluşabilecek hataları yönetir.
-    Gelecekte dış dünyadan girdi alımı için arayüzler de buraya eklenecek.
+    Evo's external world communication interface class.
+    ... (Docstring same) ...
     """
     def __init__(self, config):
         """
-        InteractionAPI modülünü başlatır.
+        Initializes the InteractionAPI module.
 
-        Yapılandırmadan aktif çıktı kanallarını okur ve bu kanalları başlatır.
-        Kanal başlatma sırasında oluşabilecek hataları yönetir.
+        Reads active output channels from config and initializes them.
+        Manages potential errors during channel initialization.
 
         Args:
-            config (dict): Interaction modülü yapılandırma ayarları.
-                           'enabled_channels': Aktif edilecek çıktı kanallarının adlarını içeren liste (örn: ['console', 'web_api']).
-                                               Beklenen tip: liste.
-                           'channel_configs': Kanal adlarına göre özel yapılandırma ayarları içeren sözlük (örn: {'web_api': {'port': 5000}}).
-                                            Beklenen tip: sözlük.
+            config (dict): Interaction module configuration settings.
+                           'enabled_channels': List containing names of output channels to enable (e.g., ['console', 'web_api']).
+                                               Expected type: list.
+                           'channel_configs': Dictionary containing specific configuration settings per channel name (e.g., {'web_api': {'port': 5000}}).
+                                            Expected type: dictionary.
         """
         self.config = config
-        logger.info("InteractionAPI modülü başlatılıyor...")
+        logger.info("InteractionAPI module initializing...")
 
-        # Yapılandırmadan aktif kanalların listesini alırken get_config_value kullan.
-        # enabled_channels için tip kontrolü (liste) yapalım. Varsayılan ['console'].
-        # Düzeltme: get_config_value çağrılarını default=keyword formatına çevir.
+        # Get the list of enabled channels from configuration using get_config_value.
+        # Check for list type for enabled_channels. Default is ['console'].
+        # Corrected: Use default= keyword format.
+        # Based on config, these settings are under the 'interaction' key.
         self.enabled_channels = get_config_value(config, 'interaction', 'enabled_channels', default=['console'], expected_type=list, logger_instance=logger)
 
-        # Yapılandırmadan kanal bazlı özel ayarları alırken get_config_value kullan.
-        # channel_configs için tip kontrolü (sözlük) yapalım. Varsayılan {}.
-        # Düzeltme: get_config_value çağrılarını default=keyword formatına çevir.
+        # Get channel-specific settings from configuration using get_config_value.
+        # Check for dictionary type for channel_configs. Default is {}.
+        # Corrected: Use default= keyword format.
         self.channel_configs = get_config_value(config, 'interaction', 'channel_configs', default={}, expected_type=dict, logger_instance=logger)
 
-
-        self.output_channels = {} # Başlatılan aktif çıktı kanalı objelerini tutacak sözlük.
-
-        # enabled_channels'ın hala liste olduğundan emin ol (get_config_value expected_type kontrolü yaptı).
-        # Eğer get_config_value None döndürdüyse (hata loglandı), boş bir liste ile devam edelim.
-        if self.enabled_channels is None:
-             logger.error("InteractionAPI: enabled_channels config değeri geçerli bir liste değil veya bulunamadı. Boş kanal listesi kullanılıyor.")
+        # Ensure enabled_channels is a list even if get_config_value returned None or wrong type (which it shouldn't with expected_type).
+        # This is a safety check, but expected_type should prevent None.
+        if not isinstance(self.enabled_channels, list):
+             logger.error("InteractionAPI: enabled_channels config value is not a valid list. Using empty channel list.")
              self.enabled_channels = []
 
 
-        logger.info(f"InteractionAPI: Konfigurasyondan aktif kanallar: {self.enabled_channels}")
+        self.output_channels = {} # Dictionary to hold initialized active output channel objects.
 
-        # Desteklenen çıktı kanalı sınıflarının eşleştirmesi.
-        # Yeni kanal türleri eklendikçe bu sözlük güncellenmeli.
+        logger.info(f"InteractionAPI: Enabled channels from config: {self.enabled_channels}")
+
+        # Mapping of supported output channel class names to their classes.
+        # This dictionary must be updated as new channel types are added.
         channel_classes = {
-            'console': ConsoleOutputChannel,
-            'web_api': WebAPIOutputChannel, # Placeholder sınıfı
-            # Gelecekte diğer kanallar buraya eklenecek (örn: 'file': FileOutputChannel, 'robot': RobotOutputChannel)
+            'console': ConsoleOutputChannel, # Defined in output_channels.py
+            'web_api': WebAPIOutputChannel, # Defined in output_channels.py (Placeholder implementation exists)
+            # Future channels added here (e.g., 'file': FileOutputChannel, 'robot': RobotOutputChannel)
         }
 
-        # Yapılandırmada belirtilen her aktif kanalı başlatmayı dene.
-        # enabled_channels listesinin tipi zaten get_config_value ile kontrol edildi ve None ise [] yapıldı.
-        # Şimdi listedeki her öğenin string olup olmadığını kontrol et.
+        # Try to initialize each active channel specified in the configuration.
+        # The type of self.enabled_channels list is already checked by get_config_value.
+        # Now check if each item in the list is a string.
         for channel_name in self.enabled_channels:
             if not isinstance(channel_name, str):
-                 logger.warning(f"InteractionAPI: 'enabled_channels' listesinde beklenmeyen öğe tipi: {type(channel_name)}. String bekleniyordu. Bu öğe atlandı.")
-                 continue # String değilse bu öğeyi atla.
+                 logger.warning(f"InteractionAPI: Unexpected item type in 'enabled_channels' list: {type(channel_name)}. Expected string. Skipping this item.")
+                 continue # Skip this item if it's not a string.
 
-            # İlgili kanal sınıfı tanımlanmış mı kontrol et.
+            # Check if the corresponding channel class is defined.
             channel_class = channel_classes.get(channel_name)
             if channel_class:
-                # Kanal sınıfı bulundu, şimdi başlatmayı dene.
-                # Konfigurasyondan o kanala ait özel ayarları al, yoksa boş sözlük kullan.
-                # self.channel_configs dict olduğundan emin olundu (get_config_value ile). get() güvenli.
+                # Channel class found, now try to initialize it.
+                # Get the specific config for this channel, use an empty dict if none exists.
+                # self.channel_configs is ensured to be a dict (by get_config_value). get() is safe.
                 channel_config = self.channel_configs.get(channel_name, {})
                 try:
-                    # Kanal objesini oluştur ve başlat.
-                    # Kanal init metotlarının hata durumunda None döndürmesi veya exception atması beklenir.
+                    # Create and initialize the channel object.
+                    # Channel init methods are expected to return None on failure or raise exceptions.
                     channel_instance = channel_class(channel_config)
-                    # Başarıyla başlatıldıysa aktif kanallar sözlüğüne ekle.
+                    # If initialized successfully (is not None)
                     if channel_instance is not None:
                          self.output_channels[channel_name] = channel_instance
-                         logger.info(f"InteractionAPI: OutputChannel '{channel_name}' başarıyla başlatıldı.")
+                         logger.info(f"InteractionAPI: OutputChannel '{channel_name}' initialized successfully.")
                     else:
-                         # Kanal init None döndürdüyse (kendi içinde hata yönettiyse)
-                         logger.error(f"InteractionAPI: OutputChannel '{channel_name}' başlatma sırasında None döndürdü.")
+                         # If channel init returned None (meaning it handled its own error internally)
+                         logger.error(f"InteractionAPI: OutputChannel '{channel_name}' returned None during initialization.")
 
                 except Exception as e:
-                    # Kanal başlatılırken beklenmedik bir istisna oluştuysa logla.
-                    # Bu tür bir hata başlatma sırasında kritik kabul edilmiyor policy gereği,
-                    # sadece o kanal kullanılamaz hale gelir.
-                    logger.error(f"InteractionAPI: OutputChannel '{channel_name}' başlatılırken hata oluştu: {e}", exc_info=True)
-                    # Hata veren kanalı aktif kanallar sözlüğüne eklememek önemlidir.
+                    # If an unexpected exception occurred while initializing the channel.
+                    # Policy: This type of error during initialization is considered non-critical,
+                    # the channel will simply be unavailable.
+                    logger.error(f"InteractionAPI: Error during OutputChannel '{channel_name}' initialization: {e}", exc_info=True)
+                    # It is important NOT to add the failed channel to the active channels dictionary.
 
 
             else:
-                # Config'te adı geçen ama channel_classes sözlüğünde karşılığı olmayan kanal adları için uyarı.
-                logger.warning(f"InteractionAPI: Konfigurasyonda bilinmeyen OutputChannel adı: '{channel_name}'. Bu kanal atlandı.")
+                # Warning for channel names in config that do not have a corresponding class in channel_classes.
+                logger.warning(f"InteractionAPI: Unknown OutputChannel name in config: '{channel_name}'. Skipping this channel.")
 
-        # Başlatılan InteractionAPI modülünün genel durumunu logla.
-        # Aktif çıktı kanallarının listesini göster.
-        logger.info(f"InteractionAPI modülü başlatıldı. Aktif Output Kanalları: {list(self.output_channels.keys())}")
+        # Log the overall status of the initialized InteractionAPI module.
+        # Show the list of active output channels.
+        logger.info(f"InteractionAPI module initialized. Active Output Channels: {list(self.output_channels.keys())}")
 
-
-        # Eğer Web API kanalı aktifse, API sunucusunu başlatma mantığı buraya gelebilir (ayrı bir thread/process?).
-        # Bu, InteractionAPI.start() metoduna taşınmıştır.
+        # If the Web API channel is active, the logic to start the API server could go here (in a separate thread/process?).
+        # This logic has been moved to the InteractionAPI.start() method.
         # if 'web_api' in self.output_channels and hasattr(self.output_channels['web_api'], 'start_server'):
-        #      logger.info("InteractionAPI: Web API sunucusu başlatılıyor...")
-        #      self.output_channels['web_api'].start_server() # Web API başlatma metodu
+        #      logger.info("InteractionAPI: Starting Web API server...")
+        #      self.output_channels['web_api'].start_server() # Method to start the Web API
+
+        # TODO: Logic to initialize input channels will go here (Future TODO).
+        # self._initialize_input_channels() # Future TODO
 
 
-        # TODO: Girdi kanallarını başlatma mantığı buraya gelecek (Gelecekte TODO).
-        # self._initialize_input_channels() # Gelecekte TODO
-
+    # ... (send_output, start, stop methods - same as before) ...
 
 
     def send_output(self, output_data):

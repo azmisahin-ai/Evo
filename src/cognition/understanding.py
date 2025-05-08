@@ -4,93 +4,75 @@
 # İşlenmiş temsilleri, bellek girdilerini, anlık duyu özelliklerini ve öğrenilmiş kavramları kullanarak dünyayı anlamaya çalışır.
 
 import logging
-import numpy as np # Benzerlik hesaplaması, array işlemleri ve ortalama için
+import numpy as np # For similarity calculation, array operations and mean
 
-# Yardımcı fonksiyonları import et (girdi kontrolleri src/core/utils'tan, config src/core/config_utils'tan)
+# Import utility functions (input checks from src/core/utils, config from src/core/config_utils)
 try:
-    from src.core.utils import check_input_not_none, check_input_type, check_numpy_input # get_config_value BURADAN GELMEZ ARTIK
-    from src.core.config_utils import get_config_value # get_config_value ARTIK BURADAN GELİYOR (nested versiyon)
+    from src.core.utils import check_input_not_none, check_input_type, check_numpy_input
+    from src.core.config_utils import get_config_value
 except ImportError as e:
-    logging.critical(f"Temel yardımcı modüller import edilemedi: {e}. Lütfen src/core/utils.py ve src/core/config_utils.py dosyalarının mevcut olduğundan ve PYTHONPATH'in doğru ayarlandığından emin olun.")
-    # Programın devam etmesi için placeholder fonksiyonlar (debug/geliştirme amaçlı)
+    logging.critical(f"Fundamental utility modules could not be imported: {e}. Please ensure src/core/utils.py and src/core/config_utils.py exist and PYTHONPATH is configured correctly.")
+    # Placeholder functions (only used in case of import error)
     def get_config_value(config, *keys, default=None, expected_type=None, logger_instance=None):
-         print(f"PLACEHOLDER: get_config_value called for {keys}. Returning default: {default}")
          return default
-    def check_input_not_none(input_data, input_name="Girdi", logger_instance=None):
-         print(f"PLACEHOLDER: check_input_not_none called for {input_name}. Input is None: {input_data is None}")
+    def check_input_not_none(input_data, input_name="Input", logger_instance=None):
          return input_data is not None
-    def check_input_type(input_data, expected_type, input_name="Girdi", logger_instance=None):
-         is_correct = isinstance(input_data, expected_type)
-         print(f"PLACEHOLDER: check_input_type called for {input_name}. Expected {expected_type}, got {type(input_data)}. Correct: {is_correct}")
-         return is_correct
-    def check_numpy_input(input_data, expected_dtype=None, expected_ndim=None, input_name="Girdi", logger_instance=None):
-         is_correct = isinstance(input_data, np.ndarray) # Basit kontrol
-         print(f"PLACEHOLDER: check_numpy_input called for {input_name}. Input is ndarray: {is_correct}")
-         # Detaylı numpy kontrolünü placeholder'da yapmak zor, testlerde gerçek utils'in kullanılmasını sağlayın.
-         # Eğer import hatası alıyorsanız test ortamı kurulumunu kontrol edin.
-         if is_correct and expected_dtype is not None and not np.issubdtype(input_data.dtype, expected_dtype):
-              is_correct = False
-              print(f"PLACEHOLDER: check_numpy_input dtype mismatch for {input_name}. Expected {expected_dtype}, got {input_data.dtype}")
-         if is_correct and expected_ndim is not None and input_data.ndim != expected_ndim:
-              is_correct = False
-              print(f"PLACEHOLDER: check_numpy_input ndim mismatch for {input_name}. Expected {expected_ndim}, got {input_data.ndim}")
-         return is_correct
+    def check_input_type(input_data, expected_type, input_name="Input", logger_instance=None):
+         return isinstance(input_data, expected_type)
+    def check_numpy_input(input_data, expected_dtype=None, expected_ndim=None, input_name="Input", logger_instance=None):
+         return isinstance(input_data, np.ndarray)
 
 
-# Bu modül için bir logger oluştur
+# Create a logger for this module
 logger = logging.getLogger(__name__)
 
 class UnderstandingModule:
     """
-    Evo'nın anlama yeteneğini sağlayan sınıf (Faz 3/4 implementasyonu).
+    Evo's understanding capability module class (Phase 3/4 implementation).
 
-    RepresentationLearner'dan gelen Representation'ı, Memory'den gelen ilgili anıları,
-    anlık Process çıktılarını (düşük seviyeli özellikler) ve LearningModule'den gelen
-    öğrenilmiş kavram temsilcilerini alır. Bu girdileri kullanarak ilkel bir
-    "anlama" çıktısı (şimdilik bir dictionary) üretir.
-    Mevcut implementasyon: En yüksek bellek benzerlik skorunu, anlık duyu özelliklerine
-    dayalı boolean flag'leri VE öğrenilmiş kavram temsilcilerine olan en yüksek benzerliği
-    hesaplar.
-    Gelecekte daha karmaşık anlama algoritmaları implement edilecektir.
+    Receives Representation from RepresentationLearner, relevant memory entries from Memory,
+    instantaneous sensory features from Process (low-level features), and learned concept
+    representatives from LearningModule. It uses these inputs to generate a primitive
+    "understanding" output (currently a dictionary).
+    Current implementation: Calculates the highest memory similarity score, boolean flags
+    based on instantaneous sensory features, AND the highest similarity to learned concept
+    representatives.
+    More complex understanding algorithms will be implemented in the future.
     """
     def __init__(self, config):
         """
-        UnderstandingModule'ü başlatır.
+        Initializes the UnderstandingModule.
 
         Args:
-            config (dict): Anlama modülü yapılandırma ayarları.
-                           'audio_energy_threshold': Yüksek ses enerjisi algılama eşiği (float, varsayılan 1000.0).
-                           'visual_edges_threshold': Yüksek görsel kenar yoğunluğu algılama eşiği (float, varsayılan 50.0).
-                           'brightness_threshold_high': Parlak ortam algılama eşiği (float, varsayılan 200.0).
-                           'brightness_threshold_low': Karanlık ortam algılama eşiği (float, varsayılan 50.0).
-                           Gelecekte model yolları, anlama stratejileri gibi ayarlar gelebilir.
+            config (dict): Understanding module configuration settings.
+                           'audio_energy_threshold': Threshold for detecting high audio energy (float, default 1000.0).
+                           'visual_edges_threshold': Threshold for detecting high visual edge density (float, default 50.0).
+                           'brightness_threshold_high': Threshold for detecting a bright environment (float, default 200.0).
+                           'brightness_threshold_low': Threshold for detecting a dark environment (float, default 50.0).
+                           Future settings like model paths, understanding strategies could go here.
         """
         self.config = config
-        logger.info("UnderstandingModule başlatılıyor (Faz 3/4)...")
+        logger.info("UnderstandingModule initializing (Phase 3/4)...")
 
-        # get_config_value artık *keys alıyor, tek anahtar için şöyle kullanılır:
-        # Düzeltme: get_config_value çağrılarını default=keyword formatına çevir.
-        # Config'e göre bu eşikler 'cognition' anahtarı altında, Understanding altında değil.
-        # CognitionCore init UnderstandingModule'a config dict'in sadece 'cognition' altını gönderiyor.
-        # Bu durumda aşağıdaki çağrılar sadece tek anahtar ('audio_energy_threshold') ile doğru olur.
-        # Test scriptinde create_dummy_method_inputs da config'i tüm config olarak gönderiyor.
-        # Karar: UnderstandingModule, DecisionModule, LearningModule init'leri T Ü M config'i almalı.
-        # CognitionCore init'i bunu düzeltmeli. config.get('cognition', {}) göndermek yerine sadece config göndermeli.
-        # Şimdilik bu düzeltmeyi CognitionCore init'e bırakıp, burada config'ten tek adımda key'leri alalım.
-        self.audio_energy_threshold = get_config_value(config, 'audio_energy_threshold', default=1000.0, expected_type=(float, int), logger_instance=logger)
-        self.visual_edges_threshold = get_config_value(config, 'visual_edges_threshold', default=50.0, expected_type=(float, int), logger_instance=logger)
-        self.brightness_threshold_high = get_config_value(config, 'brightness_threshold_high', default=200.0, expected_type=(float, int), logger_instance=logger)
-        self.brightness_threshold_low = get_config_value(config, 'brightness_threshold_low', default=50.0, expected_type=(float, int), logger_instance=logger)
+        # Get thresholds from config using get_config_value with keyword arguments.
+        # Based on config, these settings are directly under the 'cognition' key.
+        # CognitionCore init passes the whole config dict, so the path starts directly with the key name.
+        # Corrected: Use default= keyword format.
+        self.audio_energy_threshold = get_config_value(config, 'cognition', 'audio_energy_threshold', default=1000.0, expected_type=(float, int), logger_instance=logger)
+        self.visual_edges_threshold = get_config_value(config, 'cognition', 'visual_edges_threshold', default=50.0, expected_type=(float, int), logger_instance=logger)
+        self.brightness_threshold_high = get_config_value(config, 'cognition', 'brightness_threshold_high', default=200.0, expected_type=(float, int), logger_instance=logger)
+        self.brightness_threshold_low = get_config_value(config, 'cognition', 'brightness_threshold_low', default=50.0, expected_type=(float, int), logger_instance=logger)
 
-        # get_config_value int tipini de float'a otomatik çevirmeli (ConfigUtils versiyonu çevirmiyor),
-        # bu yüzden değerleri float'a çevirelim emin olmak için.
+        # Cast thresholds to float to ensure correct comparison arithmetic later.
+        # While expected_type checks type, explicit cast ensures float.
         self.audio_energy_threshold = float(self.audio_energy_threshold)
         self.visual_edges_threshold = float(self.visual_edges_threshold)
         self.brightness_threshold_high = float(self.brightness_threshold_high)
         self.brightness_threshold_low = float(self.brightness_threshold_low)
 
 
-        logger.info(f"UnderstandingModule başlatıldı. Ses Enerji Eşiği: {self.audio_energy_threshold}, Görsel Kenar Eşiği: {self.visual_edges_threshold}, Parlaklık Yüksek Eşiği: {self.brightness_threshold_high}, Parlaklık Düşük Eşiği: {self.brightness_threshold_low}")
+        logger.info(f"UnderstandingModule initialized. Audio Energy Threshold: {self.audio_energy_threshold}, Visual Edge Threshold: {self.visual_edges_threshold}, Brightness High Threshold: {self.brightness_threshold_high}, Brightness Low Threshold: {self.brightness_threshold_low}")
+
 
     # ... (process and cleanup methods - same as before) ...
 
