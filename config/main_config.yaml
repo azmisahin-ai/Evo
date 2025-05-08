@@ -79,7 +79,8 @@ interaction:
     console: {}
     web_api:
       port: 5000
-      # host: "0.0.0.0" # Tüm arayüzlerden erişim için
+      host: "127.0.0.1"  # Web API için host ve port ayarları
+      endpoint: "/evo_output" # API endpointi
 
 # Loglama Ayarları
 logging:
