@@ -1,39 +1,44 @@
 # src/processing/audio.py
-#
-# İşitsel duyu verisini işler.
-# Ham ses verisinden (chunk) temel işitsel özellikleri (örn. enerji, frekans) çıkarır.
-# Evo'nın Faz 1'deki işleme yeteneklerinin bir parçasıdır.
 
-import numpy as np # Sayısal işlemler ve arrayler için.
-import logging # Loglama için.
+# Processes audio sensory data.
+# Extracts basic auditory features (e.g., energy, frequency) from raw audio data (chunk).
+# Part of Evo's Phase 1 processing capabilities.
 
-# Yardımcı fonksiyonları import et (özellikle girdi kontrolleri ve config için)
+import numpy as np # For numerical operations and arrays.
+import logging # For logging.
+
+# Import utility functions (especially input checks and config)
 from src.core.config_utils import get_config_value
-from src.core.utils import check_input_not_none, check_numpy_input # <<< Utils importları
+from src.core.utils import check_input_not_none, check_numpy_input # <<< Utils imports
 
 
-# Bu modül için bir logger oluştur
-# 'src.processing.audio' adında bir logger döndürür.
-logger = logging.getLogger(__name__)
+# Create a logger for this module
+# Returns a logger named 'src.processing.audio'.
 logger = logging.getLogger(__name__)
 
 class AudioProcessor:
     """
-    Evo'nın işitsel veriyi işleyen sınıfı (Faz 1 implementasyonu).
-    ... (Docstring aynı) ...
+    Evo's auditory data processing class (Phase 1 implementation).
+
+    Receives raw audio input (chunk) from the AudioSensor,
+    performs basic operations (calculating energy, Spectral Centroid)
+    to prepare it for the RepresentationLearner.
+    Manages potential errors during processing and ensures flow continuity.
+    Returns a numpy array containing basic auditory features as output.
     """
     def __init__(self, config):
         """
-        AudioProcessor'ı başlatır.
+        Initializes the AudioProcessor.
 
         Args:
-            config (dict): İşlemci yapılandırma ayarları.
-                           'audio_rate': Ses örnekleme oranı (int, varsayılan 44100 Hz).
-                           'audio_chunk_size': Her seferinde işlenecek ses örneği sayısı (int, varsayılan 1024).
-                           'output_dim': İşlenmiş ses çıktısının boyutu (int, varsayılan 2).
-                                         Şimdilik enerji ve Spectral Centroid için 2 beklenir.
+            config (dict): Processor configuration settings (full config dict).
+                           Settings for this module are read from the 'processors.audio' section.
+                           'audio_rate': Audio sample rate (int, default 44100 Hz). Required for Spectral Centroid calculation.
+                           'output_dim': Dimension of the processed audio output (int, default 2).
+                                         Currently 2 is expected for energy and Spectral Centroid.
+                                         This number might increase for other features in the future.
         """
-        self.config = config
+        self.config = config # AudioProcessor receives the full config
         logger.info("AudioProcessor initializing...")
 
         # Get sample rate and output dimension from config using get_config_value.
@@ -52,139 +57,139 @@ class AudioProcessor:
 
         logger.info(f"AudioProcessor initialized. Sample Rate: {self.audio_rate} Hz, Implemented Output Dimension: {self.output_dim}")
 
-    # ... (process and cleanup methods - same as before) ...
 
     def process(self, audio_input):
         """
-        Ham işitsel girdiyi işler, temel işitsel özellikleri çıkarır.
+        Processes raw auditory input and extracts basic auditory features.
 
-        Girdiyi alır (genellikle int16 numpy array), enerji ve Spectral Centroid gibi
-        temel özellikleri hesaplar. Bu özellikleri içeren bir numpy array döndürür.
-        Girdi None ise veya işleme sırasında hata oluşursa None döndürür.
+        Receives the input (typically an int16 numpy array), calculates basic
+        features like energy and Spectral Centroid. Returns a numpy array
+        containing these features.
+        Returns None if the input is None or an error occurs during processing.
 
         Args:
-            audio_input (numpy.ndarray or None): Ham işitsel veri (chunk) veya None.
-                                                  Genellikle AudioSensor'dan gelir.
-                                                  Beklenen format: shape (N,), dtype int16.
+            audio_input (numpy.ndarray or None): Raw auditory data (chunk) or None.
+                                                  Typically comes from AudioSensor.
+                                                  Expected format: shape (N,), dtype int16.
 
         Returns:
-            numpy.ndarray or None: Hesaplanan özellik vektörü (shape (output_dim,), dtype float32)
-                                   veya hata durumunda veya girdi None ise None.
+            numpy.ndarray or None: The calculated feature vector (shape (output_dim,), dtype float32)
+                                   or None on error or if input is None.
         """
-        # Hata yönetimi: Girdi None ise veya beklenen tipte değilse
-        # check_input_not_none fonksiyonunu kullan (None ise loglar ve False döner)
+        # Error handling: If input is None or not of expected type
+        # Use check_input_not_none function (logs and returns False if None)
         if not check_input_not_none(audio_input, input_name="audio_input for AudioProcessor", logger_instance=logger):
-             logger.debug("AudioProcessor.process: Girdi None. None döndürülüyor.")
-             return None # Girdi None ise işlemeyi atla ve None döndür.
+             logger.debug("AudioProcessor.process: Input is None. Returning None.")
+             return None # If input is None, skip processing and return None.
 
-        # Girdinin numpy array ve doğru dtype (int16) olup olmadığını kontrol et.
-        # check_numpy_input fonksiyonunu kullan. Bu fonksiyon aynı zamanda np.ndarray kontrolü de yapar.
-        # Expected_ndim=1 çünkü chunk 1D array bekleniyor. dtype int16 bekleniyor.
-        # check_numpy_input, hata durumunda ERROR loglar ve False döner.
+        # Check if the input is a numpy array and has the correct dtype (int16).
+        # Use check_numpy_input function. This also checks for np.ndarray type.
+        # Expected_ndim=1 because a chunk is expected to be a 1D array. dtype int16 is expected.
+        # check_numpy_input logs an ERROR and returns False on failure.
         if not check_numpy_input(audio_input, expected_dtype=np.int16, expected_ndim=1, input_name="audio_input for AudioProcessor", logger_instance=logger):
-             logger.error("AudioProcessor.process: Girdi numpy array değil veya yanlış dtype/boyut. None döndürülüyor.") # check_numpy_input zaten kendi içinde loglar.
-             return None # Geçersiz tip, dtype veya boyut ise işlemeyi durdur ve None döndür.
+             logger.error("AudioProcessor.process: Input is not a numpy array or has wrong dtype/dimensions. Returning None.") # check_numpy_input already logs internally.
+             return None # If type, dtype, or dimensions are invalid, stop processing and return None.
 
-        # Boş chunk (audio_input.size == 0) gelirse işleme yapmadan None döndür.
+        # If an empty chunk (audio_input.size == 0) is received, return None without processing.
         if audio_input.size == 0:
-             logger.debug("AudioProcessor.process: Boş ses chunk'i alindi. İşleme atlandi, None döndürülüyor.")
+             logger.debug("AudioProcessor.process: Received empty audio chunk. Skipping processing, returning None.")
              return None
 
 
-        # DEBUG logu: Girdi detayları (boyutları ve tipi). Artık check_numpy_input içinde de benzer log var.
-        logger.debug(f"AudioProcessor.process: Ses verisi alindi. Shape: {audio_input.shape}, Dtype: {audio_input.dtype}. İşleme yapılıyor.")
+        # DEBUG log: Input details (dimensions and type). Similar log exists in check_numpy_input, but kept here.
+        logger.debug(f"AudioProcessor.process: Audio data received. Shape: {audio_input.shape}, Dtype: {audio_input.dtype}. Processing...")
 
-        energy = 0.0 # Enerji değerini tutacak değişken. Başlangıçta 0.
-        spectral_centroid = 0.0 # Spectral Centroid değerini tutacak değişken. Başlangıçta 0.
-        processed_features_vector = None # Döndürülecek özellik vektörü.
+        energy = 0.0 # Variable to hold the energy value. Starts at 0.
+        spectral_centroid = 0.0 # Variable to hold the Spectral Centroid value. Starts at 0.
+        processed_features_vector = None # The feature vector to be returned.
 
         try:
-            # 1. Veriyi float'a çevir (Hesaplamalar için).
-            # int16 değerleri [-32768, 32767] aralığındadır. float32'ye çeviriyoruz.
-            # Normalizasyon (-1.0 ile 1.0 arasına) daha iyi olabilir (Gelecek TODO)
+            # 1. Convert data to float (for calculations).
+            # int16 values are in the range [-32768, 32767]. Converting to float32.
+            # Normalization (e.g., to -1.0 to 1.0 range) might be better (Future TODO).
             audio_float = audio_input.astype(np.float32)
-            # logger.debug(f"AudioProcessor.process: Ses verisi float32'ye çevrildi. Shape: {audio_float.shape}")
+            # logger.debug(f"AudioProcessor.process: Audio data converted to float32. Shape: {audio_float.shape}")
 
-            # 2. Ses enerjisini hesapla (Örnek: RMS).
-            # Boş chunk gelirse np.mean hata verebilir, ancak size kontrolü yukarıda yapıldı.
+            # 2. Calculate audio energy (e.g., RMS - Root Mean Square).
+            # np.mean might raise an error for an empty chunk, but size check is done above.
             energy = np.sqrt(np.mean(audio_float**2)) if audio_float.size > 0 else 0.0
-            #logger.debug(f"AudioProcessor.process: Ses enerjisi hesaplandı: {energy:.4f}") # Loglama artık vektör logunda yapılacak
+            # logger.debug(f"AudioProcessor.process: Audio energy calculated: {energy:.4f}") # Logging now part of vector log
 
 
-            # 3. Spectral Centroid hesapla.
+            # 3. Calculate Spectral Centroid.
             # Spectral Centroid = sum(frequencies * magnitudes) / sum(magnitudes)
-            # a) Pencereleme uygula (örn: Hanning penceresi)
+            # a) Apply windowing (e.g., Hanning window)
             window = np.hanning(len(audio_float))
             audio_windowed = audio_float * window
-            # logger.debug("AudioProcessor.process: Hanning penceresi uygulandı.")
+            # logger.debug("AudioProcessor.process: Hanning window applied.")
 
-            # b) FFT (Hızlı Fourier Dönüşümü) uygula
+            # b) Apply FFT (Fast Fourier Transform)
             fft_result = np.fft.fft(audio_windowed)
-            # logger.debug(f"AudioProcessor.process: FFT uygulandı. Çıktı Shape: {fft_result.shape}")
+            # logger.debug(f"AudioProcessor.process: FFT applied. Output Shape: {fft_result.shape}")
 
-            # c) Genlik spektrumunu al (karmaşık sayılardan mutlak değeri)
+            # c) Get the magnitude spectrum (absolute value from complex numbers)
             magnitude_spectrum = np.abs(fft_result)
-            # logger.debug(f"AudioProcessor.process: Genlik spektrumu hesaplandı. Shape: {magnitude_spectrum.shape}")
+            # logger.debug(f"AudioProcessor.process: Magnitude spectrum calculated. Shape: {magnitude_spectrum.shape}")
 
-            # d) Tek taraflı spektrumu al (Nyquist'e kadar olan kısım)
-            # Gerçek sinyal
-            # ler için spektrum simetriktir. İlk yarısı yeterlidir.
-            # Eğer chunk boyutu N ise, N/2+1 boyutunda olur (DC ve Nyquist dahil).
+            # d) Get the single-sided spectrum (the part up to Nyquist frequency).
+            # For real signals, the spectrum is symmetric. The first half is sufficient.
+            # If chunk size is N, the single-sided spectrum will have N/2 + 1 elements (including DC and Nyquist).
             single_sided_spectrum = magnitude_spectrum[:len(magnitude_spectrum)//2 + 1]
-            # logger.debug(f"AudioProcessor.process: Tek taraflı spektrum alındı. Shape: {single_sided_spectrum.shape}")
+            # logger.debug(f"AudioProcessor.process: Single-sided spectrum obtained. Shape: {single_sided_spectrum.shape}")
 
-            # e) Frekans eksenini oluştur (0'dan Nyquist frekansına kadar)
-            # Nyquist frekansı = audio_rate / 2.
-            # Freq bins sayısı = len(single_sided_spectrum).
-            # Endpoint=True, Nyquist frekansını dahil etmek için.
+            # e) Create the frequency axis (from 0 to Nyquist frequency).
+            # Nyquist frequency = audio_rate / 2.
+            # Number of frequency bins = len(single_sided_spectrum).
+            # endpoint=True to include the Nyquist frequency.
             frequencies = np.linspace(0, self.audio_rate / 2, len(single_sided_spectrum))
-            # logger.debug(f"AudioProcessor.process: Frekans ekseni oluşturuldu. Shape: {frequencies.shape}")
+            # logger.debug(f"AudioProcessor.process: Frequency axis created. Shape: {frequencies.shape}")
 
-            # f) Spectral Centroid'i hesapla
-            # Payda (genliklerin toplamı) sıfırsa bölme hatası olmaması için kontrol et.
-            # Bu durum genellikle tamamen sessiz bir chunk geldiğinde olur.
+            # f) Calculate the Spectral Centroid.
+            # Check if the denominator (sum of magnitudes) is zero to avoid division by zero errors.
+            # This typically happens with entirely silent chunks.
             sum_magnitudes = np.sum(single_sided_spectrum)
-            if sum_magnitudes > 1e-6: # Küçük bir eşik kullanmak float hatalarını önler
+            if sum_magnitudes > 1e-6: # Use a small threshold to account for floating point inaccuracies
                  spectral_centroid = np.sum(frequencies * single_sided_spectrum) / sum_magnitudes
-                 #logger.debug(f"AudioProcessor.process: Spectral Centroid hesaplandı: {spectral_centroid:.4f}") # Loglama artık vektör logunda yapılacak
+                 # logger.debug(f"AudioProcessor.process: Spectral Centroid calculated: {spectral_centroid:.4f}") # Logging now part of vector log
             else:
-                 # Sessiz chunk veya sıfır toplam genlik durumunda centroid'i 0 olarak ayarla.
+                 # For silent chunks or near-zero total magnitude, set centroid to 0.
                  spectral_centroid = 0.0
-                 logger.debug("AudioProcessor.process: Toplam genlik sıfıra yakın, Spectral Centroid 0 olarak ayarlandı.")
+                 logger.debug("AudioProcessor.process: Total magnitude near zero, Spectral Centroid set to 0.")
 
-            # TODO: Gelecekte: Daha fazla özellik ekle (örn: Spectral Spread, Spectral Flux, MFCC).
-            # Bu durumda processed_features_vector'a yeni elemanlar eklenecek ve output_dim artırılacak.
+            # TODO: In the future: Add more features (e.g., Spectral Spread, Spectral Flux, MFCC).
+            # In this case, new elements would be added to processed_features_vector, and output_dim would be increased.
 
-            # 4. Çıkarılan özellikleri bir numpy array'de topla.
-            # Şu an enerji ve Spectral Centroid'i topluyoruz.
-            # Bu, RepresentationLearner'ın bekleyeceği 1D özellik vektörüdür.
+            # 4. Combine the extracted features into a numpy array.
+            # Currently combining energy and Spectral Centroid.
+            # This is the 1D feature vector expected by the RepresentationLearner.
             processed_features_vector = np.array([energy, spectral_centroid], dtype=np.float32)
 
-            # Kontrol: Üretilen vektör boyutu beklenene eşit mi?
+            # Check: Does the resulting vector dimension match the expected output_dim from config?
             if processed_features_vector.shape[0] != self.output_dim:
-                 logger.warning(f"AudioProcessor.process: Üretilen özellik vektör boyutu config'teki output_dim ile eşleşmiyor: {processed_features_vector.shape[0]} != {self.output_dim}. Lütfen config dosyasını ve implementasyonu kontrol edin. RepresentationLearner'ın input_dim'i bu boyuta göre ayarlanmalıdır.")
-                 # Bu bir hata değil, sadece bir uyarı. Implementasyonumuz (2 özellik) config'ten (output_dim) farklıysa logluyoruz.
-                 # RepresentationLearner config'i (input_dim) bu boyuta göre ayarlanmalıdır.
+                 logger.warning(f"AudioProcessor.process: Generated feature vector dimension ({processed_features_vector.shape[0]}) does not match output_dim in config ({self.output_dim}). Please check the config file and the implementation. RepresentationLearner's input_dim for audio should match this actual dimension.")
+                 # This is a warning, not an error. Log if implementation (2 features) differs from config (output_dim).
+                 # RepresentationLearner's config (input_dim) should be set based on this dimension.
 
 
         except Exception as e:
-            # İşleme adımları sırasında oluşabilecek beklenmedik hatalar (örn. numpy, fft hataları).
-            logger.error(f"AudioProcessor: İşleme sırasında beklenmedik hata: {e}", exc_info=True)
-            return None # Hata durumunda None döndür.
+            # Catch unexpected errors that might occur during processing steps (e.g., numpy, fft errors).
+            logger.error(f"AudioProcessor: Unexpected error during processing: {e}", exc_info=True)
+            return None # Return None in case of error.
 
-        # Başarılı durumda işlenmiş özellik vektörünü döndür.
-        logger.debug(f"AudioProcessor.process: Output Shape: {processed_features_vector.shape}, Dtype: {processed_features_vector.dtype}. Değerler (Enerji, Centroid): {processed_features_vector}")
+        # Return the processed feature vector on success.
+        # DEBUG log: Information that the processing was successful, including shape, dtype, and values.
+        logger.debug(f"AudioProcessor.process: Processed audio data successfully. Output Shape: {processed_features_vector.shape}, Dtype: {processed_features_vector.dtype}. Values (Energy, Centroid): {processed_features_vector}")
         return processed_features_vector
-    
 
     def cleanup(self):
         """
-        AudioProcessor kaynaklarını temizler.
+        Cleans up AudioProcessor resources.
 
-        Şimdilik bu işlemci özel bir kaynak (dosya, bağlantı vb.) kullanmadığı için
-        temizleme adımı içermez, sadece bilgilendirme logu içerir.
-        Gelecekte gerekirse kaynak temizleme mantığı buraya eklenebilir.
-        module_loader.py bu metotu program sonlanırken çağırır (varsa).
+        Currently, this processor does not use specific resources (files, connections, etc.)
+        and does not require a cleanup step beyond basic object deletion.
+        Includes an informational log.
+        Called by module_loader.py when the program terminates (if it exists).
         """
-        logger.info("AudioProcessor objesi temizleniyor.")
-        pass # İşlemci genellikle explicit temizlik gerektirmez.
+        logger.info("AudioProcessor object cleaning up.")
+        # Processor typically does not require explicit cleanup.
+        pass

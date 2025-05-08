@@ -8,6 +8,7 @@ import logging # For logging.
 # numpy is required (for parameter types)
 import numpy as np
 import random # For sampling for LearningModule
+import inspect # For debugging method signatures
 
 # Import utility functions
 from src.core.config_utils import get_config_value
@@ -27,7 +28,13 @@ logger = logging.getLogger(__name__)
 class CognitionCore:
     """
     Evo's cognitive core class.
-    ... (Docstring same) ...
+
+    Receives information flow (processed inputs, Representation, memory entries).
+    Passes this information to the Understanding module to get understanding output (dictionary signals).
+    Passes the understanding output and memory entries to the Decision module to make a decision.
+    Periodically triggers the LearningModule to learn concepts based on Representations in memory.
+    Coordinates the UnderstandingModule, DecisionModule, and LearningModule sub-modules.
+    Logs errors and prevents program crashes.
     """
     def __init__(self, config, module_objects): # Receive the module_objects dictionary during init.
         """
@@ -38,13 +45,13 @@ class CognitionCore:
         Sub-module objects might remain None if initialization fails.
 
         Args:
-            config (dict): Cognitive core configuration settings.
-                           Settings for sub-modules are expected under their own keys
-                           (e.g., {'understanding': {...}, 'decision': {...}, 'learning': {...}}).
-                           'learning_frequency': How often the LearningModule should be triggered (int, default 100).
-                           'learning_memory_sample_size': Number of Representations to sample from Memory for LearningModule (int, default 50).
+            config (dict): Full configuration settings for the system.
+                           CognitionCore and its sub-modules will read their relevant sections from this dict.
+                           (e.g., settings under 'cognition', 'representation', etc.)
+            module_objects (dict): Dictionary containing references to other initialized modules (from module_loader).
+                                   Used to get references to Memory, etc.
         """
-        self.config = config
+        self.config = config # CognitionCore receives the full config
         logger.info("Cognition module initializing...")
 
         self.understanding_module = None # Understanding module object.
@@ -61,8 +68,7 @@ class CognitionCore:
 
         # Learning Module's operating frequency and the number of Representations to sample from Memory.
         # Get from config using get_config_value.
-        # Corrected: Use default= keyword format for all calls.
-        # Based on config, these settings are under the 'cognition.learning' key.
+        # These settings are under the 'cognition.learning' key.
         self.learning_frequency = get_config_value(config, 'cognition', 'learning', 'learning_frequency', default=100, expected_type=int, logger_instance=logger)
         self.learning_memory_sample_size = get_config_value(config, 'cognition', 'learning', 'learning_memory_sample_size', default=50, expected_type=int, logger_instance=logger)
 
@@ -71,10 +77,9 @@ class CognitionCore:
 
         # Try to initialize sub-modules. Initialization errors are logged internally by the sub-modules.
         try:
-            # Initialize the understanding module from its configuration
-            # UnderstandingModule init receives the entire config dict and reads its own required values internally.
-            # So, the entire main config should be passed here.
-            understanding_config = config # Pass the whole config to UnderstandingModule init
+            # Initialize the understanding module, passing the full config.
+            # UnderstandingModule init will read its relevant section from this config.
+            understanding_config = config # Pass the full config
             self.understanding_module = UnderstandingModule(understanding_config)
             # If UnderstandingModule init does not raise an exception and does not return None, it is considered initialized.
             # Sub-modules are expected to log their own initialization errors.
@@ -82,20 +87,18 @@ class CognitionCore:
             #      logger.error("CognitionCore: UnderstandingModule initialization failed.")
 
 
-            # Initialize the decision making module from its configuration
-            # DecisionModule init receives the entire config dict and reads its own required values internally.
-            # So, the entire main config should be passed here.
-            decision_config = config # Pass the whole config to DecisionModule init
+            # Initialize the decision making module, passing the full config.
+            # DecisionModule init will read its relevant section from this config.
+            decision_config = config # Pass the full config
             self.decision_module = DecisionModule(decision_config)
             # if self.decision_module is None: # This check can be removed.
             #      logger.error("CognitionCore: DecisionModule initialization failed.")
 
 
-            # Initialize the learning module from its configuration
-            # LearningModule init receives the entire config dict and reads its own required values internally.
-            # Especially needs representation_dim from 'representation' section and other settings from 'cognition.learning'.
+            # Initialize the learning module, passing the full config.
+            # LearningModule init will read its relevant sections (cognition.learning, representation) from this config.
             # The entire main config should be passed here so LearningModule can access all relevant parts.
-            learning_config_for_module = config # Pass the whole config to LearningModule init
+            learning_config_for_module = config # Pass the full config
             self.learning_module = LearningModule(learning_config_for_module)
             # if self.learning_module is None: # This check can be removed.
             #      logger.error("CognitionCore: LearningModule initialization failed.")
@@ -124,7 +127,15 @@ class CognitionCore:
     def decide(self, processed_inputs, learned_representation, relevant_memory_entries, current_concepts):
         """
         Makes an action decision based on processed inputs, learned representation, and relevant memory entries.
-        ... (Docstring same) ...
+
+        Args:
+            processed_inputs (dict or None): Processed instantaneous sensory inputs.
+            learned_representation (numpy.ndarray or None): The latest learned representation vector.
+            relevant_memory_entries (list or None): List of relevant memory entries retrieved from Memory.
+            current_concepts (list): List of current concept representative vectors from the LearningModule.
+
+        Returns:
+            str or None: The decided action (string) or None if decision making failed.
         """
         # Increment the loop counter.
         self._loop_counter += 1
@@ -140,7 +151,7 @@ class CognitionCore:
         if self.learning_module is not None and self.memory_instance is not None and self._loop_counter % self.learning_frequency == 0:
              logger.info(f"CognitionCore: Learning cycle triggered (cycle #{self._loop_counter}).")
              try:
-                  # Memory'den öğrenme için Representation örneklemi al.
+                  # Get a sample of Representations for learning from Memory.
                   if hasattr(self.memory_instance, 'get_all_representations'):
                       all_memory_representations = self.memory_instance.get_all_representations()
 
@@ -161,7 +172,7 @@ class CognitionCore:
 
                       if valid_representations_for_learning:
                            # Take a random sample for learning (if memory is very large).
-                           # Use min() to handle cases where memory size is smaller than the sample size.
+                           # Use min() to handle cases where memory size is smaller than the population.
                            # random.sample raises ValueError if the sample size is larger than the population.
                            learning_sample = random.sample(valid_representations_for_learning, min(self.learning_memory_sample_size, len(valid_representations_for_learning)))
                            logger.debug(f"CognitionCore: Sampled {len(learning_sample)} representations from Memory for learning.")
@@ -186,7 +197,7 @@ class CognitionCore:
 
 
         understanding_signals = None # Dictionary of signals from the understanding module.
-        decision = None # The decision from the decision making module.
+        decision = None # The decided action from the decision making module.
 
         # Place the calls to Understanding and Decision modules in the main try/except block.
         # Errors in these modules are considered critical and will stop the decision making process for this cycle.
@@ -224,9 +235,6 @@ class CognitionCore:
             logger.error(f"CognitionCore.decide: Critical error during understanding or decision making: {e}", exc_info=True)
             return None # Return None in case of error.
 
-        # Return the decision obtained if successful.
-        # return decision # The decision string or None is returned.
-
         # Add a final DEBUG log for the decision result, if it's not None, before returning.
         if decision is not None:
             logger.debug(f"CognitionCore.decide: Final decision reached: '{decision}'.")
@@ -238,7 +246,7 @@ class CognitionCore:
     # ... (cleanup method - same as before) ...
 
 
-    def cleanup(self):
+def cleanup(self):
         """
         CognitionCore modülü kaynaklarını temizler.
 
@@ -266,4 +274,4 @@ class CognitionCore:
                   logger.error(f"CognitionCore Cleanup: LearningModule cleanup sırasında hata: {e}", exc_info=True)
 
 
-        logger.info("Cognition modülü objesi silindi.")
+        logger.info("Cognition modülü objesi silindi.")    

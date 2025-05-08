@@ -3,7 +3,7 @@
 # Evo'nın temel bellek sistemini temsil eder.
 # Öğrenilmiş temsilleri saklar ve gerektiğinde geri çağırır.
 # Belleğe dosya tabanlı kalıcılık kazandırır.
-# Gelecekte episodik ve semantik bellek gibi alt modülleri koordine edecektir.
+# Gelecekte episodik ve semantik bellek gibi alt modüllerini koordine edecektir.
 
 import numpy as np # For representation vectors (numpy array).
 import time # For memory entry timestamps.
@@ -33,28 +33,39 @@ logger = logging.getLogger(__name__)
 class Memory:
     """
     Evo's primary memory system class (Coordinator/Manager).
-    ... (Docstring same) ...
+
+    Receives learned representation vectors from the RepresentationLearner.
+    Directs and manages these representations and/or related information to different memory types (core/working,
+    episodic, semantic).
+    Includes a basic list-based storage implementation (core/working memory) with file-based persistence (pickle).
+    Logs errors and prevents program crashes.
     """
     def __init__(self, config):
         """
         Initializes the Memory module.
-        ... (Docstring same) ...
+
+        Initializes the basic storage structure (currently a list), loads from persistent memory,
+        and attempts to initialize sub-memory modules (EpisodicMemory, SemanticMemory) in the future.
+
+        Args:
+            config (dict): Memory system configuration settings (full config dict).
+                           Settings for this module are read from the 'memory' section,
+                           and representation dimension from the 'representation' section.
         """
-        self.config = config
+        self.config = config # Memory module now receives the full config
         logger.info("Memory module initializing...")
 
         # Get configuration settings using get_config_value
         # Pass logger_instance=logger to each call to ensure logs within get_config_value are visible.
         # Corrected: Use default= keyword format for all calls.
-        # Based on config, these settings are under the 'memory' key.
+        # Based on config, max_memory_size and num_retrieved_memories are under the 'memory' key.
         self.max_memory_size = get_config_value(config, 'memory', 'max_memory_size', default=1000, expected_type=int, logger_instance=logger)
         self.num_retrieved_memories = get_config_value(config, 'memory', 'num_retrieved_memories', default=5, expected_type=int, logger_instance=logger)
         # The representation dimension is under the 'representation' key in the main config.
-        # The Memory module needs to know this dimension.
-        # Get it from the main config's representation section.
+        # The Memory module needs to know this dimension to store/retrieve correctly.
         self.representation_dim = get_config_value(config, 'representation', 'representation_dim', default=128, expected_type=int, logger_instance=logger)
 
-        # memory_file_path is retrieved from config.
+        # memory_file_path is retrieved from config, under the 'memory' key.
         self.memory_file_path = get_config_value(config, 'memory', 'memory_file_path', default='data/core_memory.pkl', expected_type=str, logger_instance=logger)
 
 
@@ -94,18 +105,18 @@ class Memory:
         # Try to initialize sub-memory modules (Future TODO).
         # TODO: Add logic here to initialize sub-memory modules.
         # try:
-        #     episodic_config = config.get('episodic', {})
+        #     episodic_config = config.get('episodic', {}) # Get sub-config for episodic
         #     # If EpisodicMemory class is imported and exists, initialize it
         #     if 'EpisodicMemory' in globals() and EpisodicMemory:
-        #         self.episodic_memory = EpisodicMemory(episodic_config)
+        #         self.episodic_memory = EpisodicMemory(episodic_config) # Pass sub-config
         #     if self.episodic_memory is None: logger.error("Memory: EpisodicMemory initialization failed.")
         # except Exception as e: logger.error(f"Memory: Error during EpisodicMemory initialization: {e}", exc_info=True); self.episodic_memory = None
 
         # try:
-        #     semantic_config = config.get('semantic', {})
+        #     semantic_config = config.get('semantic', {}) # Get sub-config for semantic
         #     # If SemanticMemory class is imported and exists, initialize it
         #     if 'SemanticMemory' in globals() and SemanticMemory:
-        #         self.semantic_memory = SemanticMemory(semantic_config)
+        #         self.semantic_memory = SemanticMemory(semantic_config) # Pass sub-config
         #     if self.semantic_memory is None: logger.error("Memory: SemanticMemory initialization failed.")
         # except Exception as e: logger.error(f"Memory: Error during SemanticMemory initialization: {e}", exc_info=True); self.semantic_memory = None
 
@@ -114,6 +125,7 @@ class Memory:
 
 
     # ... (_load_from_storage, _save_to_storage, store, retrieve, get_all_representations, cleanup methods - same as before) ...
+
 
     def _load_from_storage(self):
         """
@@ -529,5 +541,3 @@ class Memory:
 
         logger.info("Memory modülü objesi silindi.")
 
-# Pickle modülü importu eksikti, ekleyelim
-import pickle

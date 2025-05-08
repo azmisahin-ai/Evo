@@ -1,50 +1,46 @@
 # src/processing/vision.py
 #
-# Görsel duyu verisini işler.
-# Ham piksel verisinden temel görsel özellikleri (örn. yeniden boyutlandırma, gri tonlama, kenarlar) çıkarır.
-# Evo'nın Faz 1'deki işleme yeteneklerinin bir parçasıdır.
+# Processes visual sensory data.
+# Extracts basic visual features (e.g., resizing, grayscale, edges) from raw pixel data.
+# Part of Evo's Phase 1 processing capabilities.
 
-import cv2 # OpenCV kütüphanesi, kamera yakalama ve temel görsel işlemler için. requirements.txt'e eklenmeli.
-import time # Gerekirse zamanlama veya simülasyon için. Şu an doğrudan kullanılmıyor.
-import numpy as np # Sayısal işlemler ve arrayler için.
-import logging # Loglama için.
+import cv2 # OpenCV library, for camera capture and basic image processing. Should be in requirements.txt.
+import time # For timing or simulation if needed. Not directly used currently.
+import numpy as np # For numerical operations and arrays.
+import logging # For logging.
 
-# Yardımcı fonksiyonları import et (özellikle girdi kontrolleri ve config için)
-from src.core.config_utils import get_config_value # <<< get_config_value import edildi
-from src.core.utils import check_input_not_none, check_numpy_input # <<< Utils importları
+# Import utility functions (input checks from src/core/utils, config from src/core/config_utils)
+from src.core.config_utils import get_config_value
+from src.core.utils import check_input_not_none, check_numpy_input # <<< Utils imports
 
 
-# Bu modül için bir logger oluştur
-# 'src.processing.vision' adında bir logger döndürür.
+# Create a logger for this module
+# Returns a logger named 'src.processing.vision'.
 logger = logging.getLogger(__name__)
 
 class VisionProcessor:
     """
-    Evo'nın görsel veriyi işleyen sınıfı (Faz 1 implementasyonu).
+    Evo's visual data processing class (Phase 1 implementation).
 
-    VisionSensor'dan gelen ham görsel girdiyi (kare) alır,
-    üzerinde temel işlemler yaparak (yeniden boyutlandırma, gri tonlama, kenar tespiti)
-    RepresentationLearner için uygun hale getirir.
-    İşleme sırasında oluşabilecek hataları yönetir ve akışın devamlılığını sağlar.
-    Çıktı olarak işlenmiş farklı özellikleri içeren bir sözlük döndürür.
+    Receives raw visual input (frame) from the VisionSensor.
+    Performs basic operations (resizing, grayscale conversion, edge detection)
+    to prepare it for the RepresentationLearner.
+    Manages potential errors during processing and ensures flow continuity.
+    Returns a dictionary containing different processed features.
     """
     def __init__(self, config):
         """
-        VisionProcessor'ı başlatır.
+        Initializes the VisionProcessor.
 
         Args:
-            config (dict): İşlemci yapılandırma ayarları.
-                           'output_width': İşlenmiş görsel çıktının genişliği (int, varsayılan 64).
-                           'output_height': İşlenmiş görsel çıktının yüksekliği (int, varsayılan 64).
-                           'canny_low_threshold': Canny kenar tespiti düşük eşiği (int, varsayılan 50).
-                           'canny_high_threshold': Canny kenar tespiti yüksek eşiği (int, varsayılan 150).
+            config (dict): Processor configuration settings (full config dict).
+                           Settings for this module are read from the 'processors.vision' section.
         """
-        self.config = config
+        self.config = config # VisionProcessor receives the full config
         logger.info("VisionProcessor initializing...")
 
         # Get output dimensions and Canny thresholds from config using get_config_value.
-        # Corrected: Use default= keyword format for all calls.
-        # Based on config, these settings are under the 'processors.vision' key.
+        # These settings are under the 'processors.vision' key.
         self.output_width = get_config_value(config, 'processors', 'vision', 'output_width', default=64, expected_type=int, logger_instance=logger)
         self.output_height = get_config_value(config, 'processors', 'vision', 'output_height', default=64, expected_type=int, logger_instance=logger)
         self.canny_low_threshold = get_config_value(config, 'processors', 'vision', 'canny_low_threshold', default=50, expected_type=int, logger_instance=logger)
@@ -60,128 +56,140 @@ class VisionProcessor:
 
         logger.info(f"VisionProcessor initialized. Output dimensions: {self.output_width}x{self.output_height}, Canny Thresholds: [{self.canny_low_threshold}, {self.canny_high_threshold}]")
 
-    # ... (process and cleanup methods - same as before) ...
 
     def process(self, visual_input):
         """
-        Ham görsel girdiyi işler, temel özellikleri çıkarır.
+        Processes raw visual input and extracts basic features.
 
-        Girdiyi alır (genellikle BGR renkli numpy array), gri tonlamaya çevirir,
-        belirtilen çıktı boyutuna yeniden boyutlandırır ve kenar tespiti uygular.
-        İşlenmiş kareyi (gri tonlama ve kenar haritası) RepresentationLearner'a
-        gönderilmek üzere bir sözlük içinde döndürür.
-        Girdi None ise veya işleme sırasında hata oluşursa boş sözlük `{}` döndürür.
+        Receives the input (typically a BGR numpy array), converts it to grayscale,
+        resizes it to the specified output dimensions, and applies edge detection.
+        Returns a dictionary containing the processed frame (grayscale and edge map)
+        to be sent to the RepresentationLearner.
+        Returns an empty dictionary `{}` if the input is None or an error occurs during processing.
 
         Args:
-            visual_input (numpy.ndarray or None): Ham görsel veri (kare) veya None.
-                                                  Genellikle VisionSensor'dan gelir.
-                                                  Beklenen format: shape (Y, X, C) veya (Y, X), dtype uint8.
+            visual_input (numpy.ndarray or None): Raw visual data (frame) or None.
+                                                  Typically comes from VisionSensor.
+                                                  Expected format: shape (Y, X, C) or (Y, X), dtype uint8.
 
         Returns:
-            dict: İşlenmiş görsel özellikleri içeren bir sözlük.
-                  Anahtarlar: 'grayscale' (numpy.ndarray, (output_height, output_width), uint8),
-                              'edges' (numpy.ndarray, (output_height, output_width), uint8).
-                  Hata durumunda veya girdi None ise boş sözlük `{}` döner.
+            dict: A dictionary containing processed visual features.
+                  Keys: 'grayscale' (numpy.ndarray, shape (output_height, output_width), dtype uint8),
+                        'edges' (numpy.ndarray, shape (output_height, output_width), dtype uint8).
+                  Returns an empty dictionary `{}` on error or if input is None.
         """
-        # Hata yönetimi: Girdi None ise veya beklenen tipte değilse
-        # check_input_not_none fonksiyonunu kullan (None ise loglar ve False döner)
+        # Error handling: If input is None or not of expected type
+        # Use check_input_not_none function (logs and returns False if None)
         if not check_input_not_none(visual_input, input_name="visual_input for VisionProcessor", logger_instance=logger):
-             # Girdi None ise işlemeyi atla ve boş sözlük döndür (Graceful failure).
-             logger.debug("VisionProcessor.process: Girdi None. Boş sözlük döndürülüyor.")
-             return {} # Boş sözlük döndür, None yerine.
+             # If input is None, skip processing and return an empty dictionary (Graceful failure).
+             logger.debug("VisionProcessor.process: Input is None. Returning empty dictionary.")
+             return {} # Return empty dictionary instead of None.
 
 
-        # Girdinin numpy array ve doğru dtype (uint8) olup olmadığını kontrol et.
-        # check_numpy_input fonksiyonunu kullan. Bu fonksiyon aynı zamanda np.ndarray kontrolü de yapar.
-        # Beklenen boyut 2D (gri) veya 3D (renkli) olabilir. dtype uint8 bekleniyor.
-        # check_numpy_input, hata durumunda ERROR loglar ve False döner.
+        # Check if the input is a numpy array and has the correct dtype (uint8).
+        # Use check_numpy_input function. This function also checks for np.ndarray type.
+        # Expected dimensions can be 2D (gray) or 3D (color). uint8 dtype is expected.
+        # check_numpy_input logs an ERROR and returns False on failure.
         if not check_numpy_input(visual_input, expected_dtype=np.uint8, expected_ndim=(2, 3), input_name="visual_input for VisionProcessor", logger_instance=logger):
-             # Geçersiz tip veya dtype/boyut ise işlemeyi durdur ve boş sözlük döndür.
-             logger.error("VisionProcessor.process: Girdi numpy array değil veya yanlış dtype/boyut. Boş sözlük döndürülüyor.") # check_numpy_input zaten kendi içinde loglar.
-             return {} # Boş sözlük döndür, None yerine.
+             # If type or dtype/dimensions are invalid, stop processing and return an empty dictionary.
+             logger.error("VisionProcessor.process: Input is not a numpy array or has wrong dtype/dimensions. Returning empty dictionary.") # check_numpy_input already logs internally.
+             return {} # Return empty dictionary instead of None.
 
 
-        # DEBUG logu: Girdi detayları (boyutları ve tipi). Artık check_numpy_input içinde de benzer log var ama burada da kalabilir.
-        logger.debug(f"VisionProcessor.process: Görsel veri alindi. Shape: {visual_input.shape}, Dtype: {visual_input.dtype}. İşleme yapılıyor.")
+        # DEBUG log: Log input details (dimensions and type). Similar log exists in check_numpy_input, but kept here too.
+        logger.debug(f"VisionProcessor.process: Visual data received. Shape: {visual_input.shape}, Dtype: {visual_input.dtype}. Processing...")
 
-        processed_features = {} # İşlem sonucunu tutacak sözlük. Başlangıçta boş.
+        processed_features = {} # Dictionary to hold processed results. Starts empty.
 
         try:
-            # 1. Gri tonlamaya çevir (Eğer girdi renkli ise).
-            # Girdinin shape'i (Yükseklik, Genişlik, Kanal) ve kanal sayısının 3 (BGR) olduğunu varsayıyoruz.
-            # len(visual_input.shape) == 3 ve visual_input.shape[2] == 3 kontrolü yeterli.
+            # 1. Convert to grayscale (If input is color).
+            # Assuming input shape is (Height, Width, Channels) and channel count is 3 (BGR).
+            # Checking len(visual_input.shape) == 3 and visual_input.shape[2] == 3 is sufficient.
             if len(visual_input.shape) == 3 and visual_input.shape[2] == 3:
                 gray_frame = cv2.cvtColor(visual_input, cv2.COLOR_BGR2GRAY)
-                logger.debug("VisionProcessor.process: Görsel veri BGR'den gri tonlamaya çevrildi.")
+                logger.debug("VisionProcessor.process: Visual data converted from BGR to grayscale.")
             elif len(visual_input.shape) == 2:
-                # Eğer girdi zaten 2 boyutlu ise (gri gibi), doğrudan kullan.
-                gray_frame = visual_input.copy() # Orijinal girdiyi değiştirmemek için kopya al.
-                logger.debug("VisionProcessor.process: Görsel girdi zaten gri tonlama gibi. Çevirme atlandi.")
+                # If the input is already 2D (like grayscale), use it directly.
+                gray_frame = visual_input.copy() # Make a copy to avoid modifying the original input.
+                logger.debug("VisionProcessor.process: Visual input appears to be already grayscale. Skipping conversion.")
             else:
-                 # check_numpy_input'ta ndim=(2,3) kontrolü yapıldı, buraya gelinmemeli ama sağlamlık için kalsın.
-                 logger.warning(f"VisionProcessor.process: Beklenmeyen görsel girdi boyutu (ndim değil): {visual_input.shape}. İşlenemedi.")
-                 return {} # Beklenmeyen boyutsa işleyemeyiz, boş sözlük döndür.
+                 # The ndim=(2,3) check in check_numpy_input should prevent reaching here, but included for robustness.
+                 logger.warning(f"VisionProcessor.process: Unexpected visual input dimensions (not ndim 2 or 3): {visual_input.shape}. Could not process.")
+                 return {} # If dimensions are unexpected, cannot process, return empty dictionary.
 
-            # İşlem sonrası gri karenin hala doğru dtype (uint8) olduğundan emin olalım.
+            # Ensure the grayscale frame is still uint8 dtype after conversion/copy.
             if gray_frame.dtype != np.uint8:
                  gray_frame = gray_frame.astype(np.uint8)
-                 logger.debug(f"VisionProcessor.process: Gri kare dtype uint8 yapildi.")
+                 logger.debug(f"VisionProcessor.process: Ensured grayscale frame dtype is uint8.")
 
 
-            # 2. Yeniden boyutlandır (Yapılandırmada belirtilen output_width x output_height boyutuna).
-            # Hedef boyut tuple olarak verilir: (genişlik, yükseklik).
-            # Interpolation metodu belirtilebilir, INTER_AREA küçültme için iyidir.
-            # Hedef boyutların pozitif olduğu init'te kontrol edildi veya varsayılan atandı.
+            # 2. Resize (To the output_width x output_height specified in config).
+            # Target size is provided as a tuple: (width, height).
+            # Interpolation method can be specified; INTER_AREA is good for shrinking.
+            # Target dimensions are checked to be positive during init or defaults assigned.
             resized_frame = cv2.resize(gray_frame, (self.output_width, self.output_height), interpolation=cv2.INTER_AREA)
-            logger.debug(f"VisionProcessor.process: Görsel veri ({self.output_width}, {self.output_height}) boyutuna yeniden boyutlandırıldı. Shape: {resized_frame.shape}, Dtype: {resized_frame.dtype}")
+            logger.debug(f"VisionProcessor.process: Visual data resized to ({self.output_width}, {self.output_height}) dimensions. Shape: {resized_frame.shape}, Dtype: {resized_frame.dtype}")
 
-            # İşlenmiş özellikler sözlüğüne gri tonlamalı, yeniden boyutlandırılmış kareyi ekle.
+            # Add the grayscale, resized frame to the processed features dictionary.
             processed_features['grayscale'] = resized_frame
 
 
-            # 3. Kenar tespiti uygula.
-            # Canny kenar dedektörü gri tonlamalı 8-bit (uint8) resimler üzerinde çalışır.
-            # resized_frame uint8 ve gri olduğu için doğrudan kullanabiliriz.
-            # Eşikler init'te yapılandırmadan alındı ve int olduğu kontrol edildi.
+            # 3. Apply edge detection.
+            # Canny edge detector works on grayscale 8-bit (uint8) images.
+            # resized_frame is uint8 and grayscale, so can be used directly.
+            # Thresholds were obtained from config during init and checked to be integers.
             edges = cv2.Canny(resized_frame, self.canny_low_threshold, self.canny_high_threshold)
-            logger.debug(f"VisionProcessor.process: Canny kenar tespiti uygulandı. Shape: {edges.shape}, Dtype: {edges.dtype}")
+            logger.debug(f"VisionProcessor.process: Applied Canny edge detection. Shape: {edges.shape}, Dtype: {edges.dtype}")
 
-            # Kenar haritasını işlenmiş özellikler sözlüğüne ekle.
+            # Add the edge map to the processed features dictionary.
             processed_features['edges'] = edges
 
 
-            # TODO: Gelecekte: Daha fazla düşük seviye özellik ekle (örn: renk histogramları - orijinal renkli görüntüden, basit doku özellikleri).
+            # TODO: In the future: Add more low-level features (e.g., color histograms - from original color image, simple texture features).
+
+            # DEBUG Log: Average brightness and edge density comparison with thresholds.
+            # Only calculate means if the arrays are not empty.
+            if 'grayscale' in processed_features and processed_features['grayscale'].size > 0:
+                 avg_brightness = np.mean(processed_features['grayscale'])
+                 # Log comparing the mean brightness to config thresholds.
+                 logger.debug(f"VisionProcessor.process: Avg Brightness: {avg_brightness:.2f} (High: {self.brightness_threshold_high:.2f}, Low: {self.brightness_threshold_low:.2f})")
+            if 'edges' in processed_features and processed_features['edges'].size > 0:
+                 avg_edges = np.mean(processed_features['edges'])
+                 # Log comparing the mean edges to config threshold.
+                 logger.debug(f"VisionProcessor.process: Avg Edges: {avg_edges:.2f} (Threshold: {self.visual_edges_threshold:.2f})")
 
 
         except cv2.Error as e:
-            # OpenCV kütüphanesinden kaynaklanan spesifik hatalar (örn. yeniden boyutlandırma için geçersiz boyutlar).
-            # Bu hatalar loglanır ve boş sözlük döndürülür.
-            logger.error(f"VisionProcessor: OpenCV hatasi olustu isleme sirasinda: {e}", exc_info=True)
-            # Hata durumunda processed_features sözlüğü kısmen dolu olsa bile,
-            # bu kare için işlem başarısız kabul edilir ve boş sözlük döndürülür.
+            # Specific errors originating from the OpenCV library (e.g., invalid dimensions for resizing).
+            # These errors are logged, and an empty dictionary is returned.
+            logger.error(f"VisionProcessor: OpenCV error during processing: {e}", exc_info=True)
+            # Even if the processed_features dictionary is partially filled in case of error,
+            # processing is considered failed for this frame, and an empty dictionary is returned.
             return {}
         except Exception as e:
-            # İşleme adımları sırasında oluşabilecek diğer beklenmedik hatalar (örn: numpy veya başka kütüphane hataları).
-            # Bu hatalar loglanır ve boş sözlük döndürülür.
-            logger.error(f"VisionProcessor: İşleme sırasında beklenmedik hata: {e}", exc_info=True)
-            # Hata durumunda processed_features sözlüğü kısmen dolu olsa bile,
-            # bu kare için işlem başarısız kabul edilir ve boş sözlük döndürülür.
+            # Catch any other unexpected errors during processing steps (e.g., numpy or other library errors).
+            # These errors are logged, and an empty dictionary is returned.
+            logger.error(f"VisionProcessor: Unexpected error during processing: {e}", exc_info=True)
+            # Even if the processed_features dictionary is partially filled in case of error,
+            # processing is considered failed for this frame, and an empty dictionary is returned.
             return {}
 
-        # Başarılı durumda işlenmiş özellikler sözlüğünü döndür.
-        # DEBUG logu: İşlem sonucunun başarıyla döndürüldüğü bilgisi.
-        logger.debug(f"VisionProcessor.process: Görsel veri başarıyla işlendi. Çıktı Özellikleri: {list(processed_features.keys())}")
+        # Return the processed features dictionary on success.
+        # DEBUG log: Information that the processing was successful.
+        logger.debug(f"VisionProcessor.process: Visual data processed successfully. Output Features: {list(processed_features.keys())}")
+        # Logging the processed_features dictionary content itself can be very verbose,
+        # basic info like keys is logged above.
         return processed_features
 
     def cleanup(self):
         """
-        VisionProcessor kaynaklarını temizler.
+        Cleans up VisionProcessor resources.
 
-        Şimdilik bu işlemci özel bir kaynak (dosya, bağlantı vb.) kullanmadığı için
-        temizleme adımı içermez, sadece bilgilendirme logu içerir.
-        Gelecekte gerekirse kaynak temizleme mantığı buraya eklenebilir.
-        module_loader.py bu metotu program sonlanırken çağırır (varsa).
+        Currently, this processor does not use specific resources (files, connections, etc.)
+        and does not require a cleanup step beyond basic object deletion.
+        Includes an informational log.
+        Called by module_loader.py when the program terminates (if it exists).
         """
-        logger.info("VisionProcessor objesi temizleniyor.")
-        # İşlemci genellikle explicit temizlik gerektirmez.
+        logger.info("VisionProcessor object cleaning up.")
+        # Processor typically does not require explicit cleanup.
         pass

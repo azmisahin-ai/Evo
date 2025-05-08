@@ -13,8 +13,8 @@ import logging # For logging.
 
 # Import utility functions
 from src.core.config_utils import get_config_value
-from src.core.utils import check_input_not_none, check_input_type
-from src.interaction.output_channels import ConsoleOutputChannel, WebAPIOutputChannel # <<< check_input_not_none, check_input_type imported
+from src.core.utils import check_input_not_none, check_input_type # <<< check_input_not_none, check_input_type imported
+from .output_channels import ConsoleOutputChannel, WebAPIOutputChannel, OutputChannel # Import channel classes
 
 
 # Create a logger for this module
@@ -25,7 +25,11 @@ logger = logging.getLogger(__name__)
 class InteractionAPI:
     """
     Evo's external world communication interface class.
-    ... (Docstring same) ...
+
+    Receives responses (output_data) from the MotorControl module and sends them to enabled output channels.
+    Manages different output channels.
+    Handles potential errors during channel initialization, sending, and cleanup.
+    Will also handle external input in the future (Input channels).
     """
     def __init__(self, config):
         """
@@ -35,13 +39,11 @@ class InteractionAPI:
         Manages potential errors during channel initialization.
 
         Args:
-            config (dict): Interaction module configuration settings.
-                           'enabled_channels': List containing names of output channels to enable (e.g., ['console', 'web_api']).
-                                               Expected type: list.
-                           'channel_configs': Dictionary containing specific configuration settings per channel name (e.g., {'web_api': {'port': 5000}}).
-                                            Expected type: dictionary.
+            config (dict): Full configuration settings for the system.
+                           InteractionAPI will read its relevant sections from this dict,
+                           specifically settings under 'interaction'.
         """
-        self.config = config
+        self.config = config # InteractionAPI receives the full config
         logger.info("InteractionAPI module initializing...")
 
         # Get the list of enabled channels from configuration using get_config_value.
@@ -86,12 +88,13 @@ class InteractionAPI:
             channel_class = channel_classes.get(channel_name)
             if channel_class:
                 # Channel class found, now try to initialize it.
-                # Get the specific config for this channel, use an empty dict if none exists.
+                # Get the specific config for this channel from channel_configs, use an empty dict if none exists.
                 # self.channel_configs is ensured to be a dict (by get_config_value). get() is safe.
                 channel_config = self.channel_configs.get(channel_name, {})
                 try:
                     # Create and initialize the channel object.
                     # Channel init methods are expected to return None on failure or raise exceptions.
+                    # Pass the channel-specific config dict to the channel's __init__.
                     channel_instance = channel_class(channel_config)
                     # If initialized successfully (is not None)
                     if channel_instance is not None:

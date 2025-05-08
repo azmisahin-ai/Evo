@@ -44,20 +44,20 @@ class UnderstandingModule:
         Initializes the UnderstandingModule.
 
         Args:
-            config (dict): Understanding module configuration settings.
+            config (dict): Full configuration settings for the system.
+                           UnderstandingModule will read its relevant sections from this dict,
+                           specifically settings under 'cognition'.
                            'audio_energy_threshold': Threshold for detecting high audio energy (float, default 1000.0).
                            'visual_edges_threshold': Threshold for detecting high visual edge density (float, default 50.0).
                            'brightness_threshold_high': Threshold for detecting a bright environment (float, default 200.0).
                            'brightness_threshold_low': Threshold for detecting a dark environment (float, default 50.0).
-                           Future settings like model paths, understanding strategies could go here.
         """
-        self.config = config
+        self.config = config # UnderstandingModule receives the full config
         logger.info("UnderstandingModule initializing (Phase 3/4)...")
 
         # Get thresholds from config using get_config_value with keyword arguments.
-        # Based on config, these settings are directly under the 'cognition' key.
-        # CognitionCore init passes the whole config dict, so the path starts directly with the key name.
-        # Corrected: Use default= keyword format.
+        # Corrected: Paths are now relative to the full config dict received.
+        # Based on config, these settings are under the 'cognition' key.
         self.audio_energy_threshold = get_config_value(config, 'cognition', 'audio_energy_threshold', default=1000.0, expected_type=(float, int), logger_instance=logger)
         self.visual_edges_threshold = get_config_value(config, 'cognition', 'visual_edges_threshold', default=50.0, expected_type=(float, int), logger_instance=logger)
         self.brightness_threshold_high = get_config_value(config, 'cognition', 'brightness_threshold_high', default=200.0, expected_type=(float, int), logger_instance=logger)

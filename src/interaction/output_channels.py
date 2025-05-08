@@ -22,17 +22,28 @@ logger = logging.getLogger(__name__)
 class OutputChannel:
     """
     Base class for different output channels.
-    ... (Docstring same) ...
+
+    All specific output channel classes (ConsoleOutputChannel, WebAPIOutputChannel, etc.)
+    should inherit from this class. It defines base initialization (__init__),
+    output sending (send), and resource cleanup (cleanup) methods.
     """
     def __init__(self, name, config):
         """
         Initializes the base of an OutputChannel.
-        ... (Docstring same) ...
+
+        Each channel has a name and its specific configuration. It creates its own logger.
+        Checks the type of the config input.
+
+        Args:
+            name (str): The name of the channel (e.g., 'console', 'web_api'). Expected type: string.
+            config (dict): Specific configuration settings for this channel. Expected type: dictionary.
+                           This is typically the sub-dictionary from main_config.yaml for this channel.
         """
         # Error handling: Is name a string? It's usually expected to be a string when initialized.
         # check_input_type(name, str, input_name="channel name", logger_instance=logger) # Raising TypeError might be more appropriate
 
         # Error handling: Is config a dict? Use check_input_type.
+        # This check is done in the base class __init__ so it's consistent.
         if not check_input_type(config, dict, input_name=f"{name} channel config", logger_instance=logger):
              # Log a warning if config is not a dict and use an empty dict instead.
              logger.warning(f"OutputChannel '{name}': Configuration has unexpected type: {type(config)}. Dictionary expected. Using empty dictionary {{}}.")
@@ -40,7 +51,7 @@ class OutputChannel:
 
 
         self.name = name
-        self.config = config
+        self.config = config # Store the channel-specific config
         # Each channel creates its own named logger.
         # The logger name will be 'src.interaction.output_channels.ChannelName'.
         self.logger = logging.getLogger(f"{__name__}.{name}")
@@ -48,6 +59,7 @@ class OutputChannel:
         # Base class initialization is complete.
 
     # ... (send and cleanup methods - same as before) ...
+
     def send(self, output_data):
             """
             İşlenmiş çıktıyı ilgili kanala gönderme metodu.
@@ -89,9 +101,14 @@ class ConsoleOutputChannel(OutputChannel):
     def __init__(self, config):
         """
         Initializes the ConsoleOutputChannel.
-        ... (Docstring same) ...
+
+        Args:
+            config (dict): Channel configuration settings for this channel.
+                           Currently, no specific settings are expected for the console channel.
+                           The base class checks the config type.
         """
         # Call the base class's __init__ method. Set the channel name to "console".
+        # Pass the specific config dict received from InteractionAPI.
         super().__init__("console", config)
         self.logger.info("ConsoleOutputChannel initialized.")
 
@@ -153,29 +170,30 @@ class ConsoleOutputChannel(OutputChannel):
         # Temel sınıfın cleanup metodunu çağır (sadece loglama yapar).
         super().cleanup()
 
-
-    # --- Web API Output Channel (Placeholder) ---
+# --- Web API Output Channel (Placeholder) ---
 class WebAPIOutputChannel(OutputChannel):
     """
     An output channel that sends output to a Web API endpoint (Placeholder).
-    ... (Docstring same) ...
+
+    This channel allows the InteractionAPI to communicate with the external world
+    via HTTP or similar protocols.
     """
     def __init__(self, config):
         """
         Initializes the WebAPIOutputChannel.
 
         Args:
-            config (dict): Channel configuration settings.
-                           'port': The port the API is running on (int, varsayılan 5000).
-                           'host': The host the API is running on (str, varsayılan '127.0.0.1').
+            config (dict): Channel configuration settings for this channel.
+                           'port': The port the API is running on (int, default 5000).
+                           'host': The host the API is running on (str, default '127.0.0.1').
                            The base class checks the config type.
         """
         # Call the base class's __init__ method. Set the channel name to "web_api".
+        # Pass the specific config dict received from InteractionAPI.
         super().__init__("web_api", config)
-        # Get settings from config using get_config_value.
+        # Get settings from the channel-specific config using get_config_value.
         # Corrected: Use default= keyword format.
-        # The base class receives the specific config for this channel (e.g., {'port': 5000}).
-        # So, keys here are just 'port' and 'host'.
+        # The keys 'port' and 'host' are expected directly within the config dict passed to this __init__.
         self.port = get_config_value(self.config, 'port', default=5000, expected_type=int, logger_instance=self.logger)
         self.host = get_config_value(self.config, 'host', default='127.0.0.1', expected_type=str, logger_instance=self.logger)
 
@@ -186,7 +204,6 @@ class WebAPIOutputChannel(OutputChannel):
 
 
     # ... (send and cleanup methods - same as before) ...
-
 
     def send(self, output_data):
         """
@@ -274,5 +291,8 @@ class WebAPIOutputChannel(OutputChannel):
         super().cleanup()
 
 # TODO: Gelecekte eklenecek diğer çıktı kanalı sınıfları (örn: FileOutputChannel, RoboticArmChannel) buraya tanımlanacak.
+# class FileOutputChannel(OutputChannel): ...
+# class RoboticArmChannel(OutputChannel): ...
+# TODO: Other output channel classes to be added in the future (e.g., FileOutputChannel, RoboticArmChannel) defined here.
 # class FileOutputChannel(OutputChannel): ...
 # class RoboticArmChannel(OutputChannel): ...

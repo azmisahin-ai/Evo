@@ -1,19 +1,19 @@
 # src/representation/models.py
 #
-# İşlenmiş duyusal veriden içsel temsiller (latent vektörler) öğrenir veya çıkarır.
-# Temel sinir ağı katmanlarını implement eder.
-# Evo'nın Faz 1'deki temsil öğrenme yeteneklerinin bir parçasıdır.
+# Learns or extracts internal representations (latent vectors) from processed sensory data.
+# Implements basic neural network layers.
+# Part of Evo's Phase 1 representation learning capabilities.
 
-import numpy as np # Sayısal işlemler ve arrayler için.
-import logging # Loglama için.
+import numpy as np # For numerical operations and arrays.
+import logging # For logging.
 
-# Yardımcı fonksiyonları import et
+# Import utility functions
 from src.core.config_utils import get_config_value
-from src.core.utils import check_input_not_none, check_numpy_input # <<< Utils importları
+from src.core.utils import check_input_not_none, check_numpy_input # <<< Utils imports
 
 
-# Bu modül için bir logger oluştur
-# 'src.representation.models' adında bir logger döndürür.
+# Create a logger for this module
+# Returns a logger named 'src.representation.models'.
 logger = logging.getLogger(__name__)
 
 # A simple Dense (Fully Connected) Layer class
@@ -21,12 +21,21 @@ logger = logging.getLogger(__name__)
 class Dense:
     """
     A basic implementation of a dense (fully connected) layer.
-    ... (Docstring same) ...
+
+    Contains weight and bias parameters.
+    Supports ReLU activation function.
+    Performs the forward pass calculation.
     """
     def __init__(self, input_dim, output_dim, activation='relu'):
         """
         Initializes the Dense layer.
-        ... (Docstring same) ...
+
+        Initializes weights and biases randomly.
+
+        Args:
+            input_dim (int): The dimension of the input feature.
+            output_dim (int): The dimension of the output feature.
+            activation (str, optional): The name of the activation function to use ('relu'). Defaults to 'relu'.
         """
         self.input_dim = input_dim
         self.output_dim = output_dim
@@ -47,93 +56,94 @@ class Dense:
 
         logger.info("Dense layer initialized.")
 
-    # ... (forward and cleanup methods - same as before) ...
-
     def forward(self, inputs):
         """
-        Katmanın ileri geçişini (forward pass) hesaplar.
+        Computes the forward pass of the layer.
 
-        Girdi vektörünü veya matrisini ağırlık matrisi ile çarpar, bias ekler ve
-        aktivasyon fonksiyonunu uygular.
-        Girdi None veya yanlış tip/boyutta ise None döndürür.
-        Hesaplama sırasında hata oluşursa None döndürür.
+        Multiplies the input vector or matrix by the weight matrix, adds the bias, and
+        applies the activation function.
+        Returns None if the input is None or has the wrong type/dimensions.
+        Returns None if an error occurs during calculation.
 
         Args:
-            inputs (numpy.ndarray or None): Katmanın girdi verisi.
-                                            Beklenen format: shape (..., input_dim), dtype sayısal.
-                                            ... kısmı batch boyutu olabilir.
+            inputs (numpy.ndarray or None): The input data for the layer.
+                                            Expected format: shape (..., input_dim), numerical dtype.
+                                            ... can be a batch dimension.
 
         Returns:
-            numpy.ndarray or None: Katmanın çıktı verisi veya hata durumunda None.
-                                   shape (..., output_dim), dtype sayısal.
+            numpy.ndarray or None: The output data of the layer, or None on error.
+                                   shape (..., output_dim), numerical dtype.
         """
-        # Hata yönetimi: Girdi None mu? check_input_not_none kullan.
+        # Error handling: Is input None? Use check_input_not_none.
         if not check_input_not_none(inputs, input_name="dense_inputs", logger_instance=logger):
-             logger.debug("Dense.forward: Girdi None. None döndürülüyor.") # None girdisi hata değil, bilgilendirme.
-             return None # Girdi None ise None döndür.
+             logger.debug("Dense.forward: Input is None. Returning None.") # None input is not an error, just informational.
+             return None # Return None if input is None.
 
-        # Hata yönetimi: Girdinin numpy array ve sayısal bir dtype olup olmadığını kontrol et.
-        # expected_ndim=None çünkü girdi tek bir vektör veya bir batch olabilir (ndim >= 1).
-        # shape kontrolü ayrıca yapılacak.
+        # Error handling: Check if the input is a numpy array and has a numerical dtype.
+        # expected_ndim=None because input can be a single vector or a batch (ndim >= 1).
+        # Shape check will be done separately.
         if not check_numpy_input(inputs, expected_dtype=np.number, expected_ndim=None, input_name="dense_inputs", logger_instance=logger):
-             logger.error("Dense.forward: Girdi numpy array değil veya sayısal değil. None döndürülüyor.") # check_numpy_input zaten kendi içinde loglar.
-             return None # Geçersiz tip veya dtype ise None döndür.
+             logger.error("Dense.forward: Input is not a numpy array or is not numerical. Returning None.") # check_numpy_input already logs internally.
+             return None # If type or dtype is invalid, return None.
 
-        # Hata yönetimi: Girdi boyutunun (son boyutun) input_dim ile eşleşip eşleşmediğini kontrol et.
-        # inputs.shape[-1] son boyutu verir.
+        # Error handling: Check if the input dimension (last dimension) matches the input_dim.
+        # inputs.shape[-1] gives the last dimension.
         if inputs.shape[-1] != self.input_dim:
-             logger.error(f"Dense.forward: Beklenmeyen girdi boyutu: {inputs.shape}. Son boyut ({inputs.shape[-1]}) beklenen input_dim ({self.input_dim}) ile eşleşmiyor. None döndürülüyor.")
-             return None # Boyut uymuyorsa None döndür.
+             logger.error(f"Dense.forward: Unexpected input dimension: {inputs.shape}. The last dimension ({inputs.shape[-1]}) does not match the expected input_dim ({self.input_dim}). Returning None.")
+             return None # If dimensions don't match, return None.
 
 
-        # DEBUG logu: Girdi detayları.
-        logger.debug(f"Dense.forward: Girdi alindi. Shape: {inputs.shape}, Dtype: {inputs.dtype}. Hesaplama yapılıyor.")
+        # DEBUG log: Input details.
+        logger.debug(f"Dense.forward: Input received. Shape: {inputs.shape}, Dtype: {inputs.dtype}. Performing calculation.")
 
 
-        output = None # Çıktıyı tutacak değişken.
+        output = None # Variable to hold the output.
 
         try:
-            # Matris çarpımı (girdiler tek bir vektör (input_dim,) veya batch halinde ((Batch, input_dim)))
-            # np.dot bu iki durumu da doğru yönetir.
+            # Linear transformation: output = input_data @ weights + bias
+            # For a single example (input_dim,) * weights (input_dim, output_dim) -> (output_dim,)
+            # For a batch ((batch_size, input_dim)) * weights (input_dim, output_dim) -> (batch_size, output_dim)
+            # np.dot handles both cases correctly.
             linear_output = np.dot(inputs, self.weights) + self.bias
 
-            # Aktivasyon fonksiyonunu uygula (varsa)
+            # Apply activation function (if any)
             if self.activation == 'relu':
                 # ReLU: output = max(0, output)
-                output = np.maximum(0, linear_output) # ReLU aktivasyonu
-            # TODO: Diğer aktivasyon fonksiyonları eklenecek (sigmoid, tanh vb.)
+                output = np.maximum(0, linear_output) # ReLU activation
+            # TODO: Other activation functions will be added (sigmoid, tanh, etc.)
             # elif self.activation == 'sigmoid':
-            #      output = 1 / (1 + np.exp(-linear_output)) # Dikkat: exp fonksiyonunda over/underflow olabilir.
+            #      output = 1 / (1 + np.exp(-linear_output)) # Be careful with potential over/underflow in exp.
             # elif self.activation == 'tanh':
             #      output = np.tanh(linear_output)
-            # Bilinmeyen aktivasyon adı için uyarı/hata logu eklenebilir.
-            elif self.activation is None: # None aktivasyon
+            # Add a warning/error log for unknown activation names.
+            elif self.activation is None: # None activation
                  output = linear_output
             else:
-                 logger.warning(f"Dense.forward: Bilinmeyen aktivasyon fonksiyonu: '{self.activation}'. Lineer aktivasyon kullanılıyor.")
+                 logger.warning(f"Dense.forward: Unknown activation function: '{self.activation}'. Using linear activation.")
                  output = linear_output
 
 
         except Exception as e:
-             # İleri geçiş hesaplamaları sırasında beklenmedik bir hata oluşursa (örn: np.dot, aktivasyon fonksiyonu hatası).
-             logger.error(f"Dense.forward: İleri geçiş sırasında beklenmedik hata: {e}", exc_info=True)
-             return None # Hata durumunda None döndür.
+             # Catch any unexpected error during the forward pass calculations (e.g., np.dot, activation function error).
+             logger.error(f"Dense.forward: Unexpected error during forward pass: {e}", exc_info=True)
+             return None # Return None in case of error.
 
 
-        # Başarılı durumda hesaplanan çıktıyı döndür.
-        logger.debug(f"Dense.forward: İleri geçiş tamamlandı. Çıktı Shape: {output.shape}, Dtype: {output.dtype}.")
+        # Return the calculated output on success.
+        logger.debug(f"Dense.forward: Forward pass completed. Output Shape: {output.shape}, Dtype: {output.dtype}.")
         return output
 
     def cleanup(self):
         """
-        Dense katmanı kaynaklarını temizler.
+        Cleans up Dense layer resources.
 
-        Şimdilik özel bir kaynak kullanmadığı için temizleme adımı içermez,
-        sadece bilgilendirme logu içerir.
-        Genellikle numpy arrayleri için explicit temizlik gerekmez.
+        Currently, this layer does not use specific resources (files, connections, etc.)
+        and does not require a cleanup step beyond basic object deletion.
+        Includes an informational log.
+        NumPy arrays generally do not require explicit cleanup.
         """
-        # Bilgilendirme logu.
-        logger.info(f"Dense katmanı objesi silindi: Input={self.input_dim}, Output={self.output_dim}")
+        # Informational log.
+        logger.info(f"Dense layer object cleaning up: Input={self.input_dim}, Output={self.output_dim}")
         pass
 
 
@@ -141,14 +151,30 @@ class Dense:
 class RepresentationLearner:
     """
     Learns or extracts internal representations (latent vectors) from processed sensory data.
-    ... (Docstring same) ...
+
+    Receives processed sensory data (in a dictionary format) from Processing modules.
+    Combines this data into a unified input vector.
+    Passes the input vector through an Encoder layer (Dense) to create a low-dimensional,
+    meaningful representation vector (latent).
+    Also includes a Decoder layer (Dense) for Autoencoder principle, which produces a
+    reconstruction in the original input dimensions from the latent vector.
+    More complex models (CNN, RNN, Transformer-based) will be added here in the future.
+    Returns None if the module fails to initialize or if an error occurs during
+    representation learning/extraction.
     """
     def __init__(self, config):
         """
         Initializes the RepresentationLearner module.
-        ... (Docstring same) ...
+
+        Sets up the structure of the representation model (currently Encoder and Decoder Dense layers).
+        input_dim and representation_dim are obtained from config.
+
+        Args:
+            config (dict): RepresentationLearner configuration settings (full config dict).
+                           Settings for this module are read from the 'representation' section,
+                           and processor dimensions from the 'processors' section.
         """
-        self.config = config
+        self.config = config # RepresentationLearner receives the full config
         logger.info("RepresentationLearner initializing...")
 
         # Get input and representation dimensions from config using get_config_value.
