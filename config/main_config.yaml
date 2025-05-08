@@ -10,12 +10,13 @@ vision:
   camera_index: 0 # Varsayılan kamera indeksi
   dummy_width: 640 # Simüle kare genişliği (gerçek kamera yoksa)
   dummy_height: 480 # Simüle kare yüksekliği (gerçek kamera yoksa)
-  # is_dummy: True # Gerçek kamera yerine simülasyon kullanılsın mı? (Gelecek)
+  is_dummy: False # Gerçek kamera yerine simülasyon kullanılsın mı?
 
 audio:
   audio_rate: 44100 # Ses örnekleme oranı
   audio_chunk_size: 1024 # Her seferinde işlenecek ses örneği sayısı
-  # audio_input_device_index: null # null varsayılan cihazı kullanır, belirli bir index verilebilir.
+  audio_input_device_index: null # null varsayılan cihazı kullanır, belirli bir index verilebilir.
+  is_dummy: False # Gerçek mikrofon yerine simülasyon kullanılsın mı?
 
 # Processor modülleri ayarları
 processors:
@@ -67,6 +68,9 @@ cognition:
   curiosity_increment_new: 1.0 # "Yeni" input algılandığında merak seviyesi artış miktarı
   curiosity_decrement_familiar: 0.5 # "Tanıdık" input algılandığında merak seviyesi azalış miktarı
   curiosity_decay: 0.1 # Her döngü adımında merak seviyesinin otomatik azalışı
+  # LearningModule kalıcılık ayarı eklendi
+  learning:
+    concept_file_path: data/concepts.pkl # Öğrenilen kavramların kaydedileceği dosya yolu
 
 # Motor Control modülleri ayarları
 motor_control:
@@ -113,9 +117,14 @@ logging:
     src.memory.core: [DEBUG, INFO, WARNING, ERROR, CRITICAL]
     # COGNITION
     src.cognition.core: [DEBUG, INFO, WARNING, ERROR, CRITICAL]
+    src.cognition.understanding: [DEBUG, INFO, WARNING, ERROR, CRITICAL] # Added Debug for Understanding
+    src.cognition.decision: [DEBUG, INFO, WARNING, ERROR, CRITICAL] # Added Debug for Decision
+    src.cognition.learning: [DEBUG, INFO, WARNING, ERROR, CRITICAL] # Added Debug for Learning
     # MOTOR CONTROL
     src.motor_control.core: [DEBUG, INFO, WARNING, ERROR, CRITICAL]
+    src.motor_control.expression: [DEBUG, INFO, WARNING, ERROR, CRITICAL] # Added Debug for Expression
     # INTERACTION
     src.interaction.api: [DEBUG, INFO, WARNING, ERROR, CRITICAL]
     src.interaction.output_channels.console:
       [DEBUG, INFO, WARNING, ERROR, CRITICAL]
+    src.interaction.output_channels.web_api: [DEBUG, INFO, WARNING, ERROR, CRITICAL] # Added Debug for WebAPI channel

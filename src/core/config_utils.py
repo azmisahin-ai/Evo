@@ -24,9 +24,10 @@ def load_config_from_yaml(filepath="config/main_config.yaml"):
         logger.error("Yapılandırma dosyası yüklenirken geçersiz dosya yolu belirtildi.")
         return {}
 
+    # Debug: Çalışma dizinini logla
+    # logger.debug(f"Mevcut çalışma dizini: {os.getcwd()}")
+
     if not os.path.exists(filepath):
-        # Debug: Çalışma dizinini logla
-        # logger.debug(f"Mevcut çalışma dizini: {os.getcwd()}")
         logger.error(f"Yapılandırma dosyası bulunamadı: {filepath}. Lütfen yolun doğru olduğundan emin olun.")
         return {}
 
@@ -45,13 +46,16 @@ def load_config_from_yaml(filepath="config/main_config.yaml"):
 
 
 # --- get_config_value fonksiyonu (nested anahtar yolu destekler) ---
-# Düzeltildi: Varsayılan değeri positional argüman olarak alan çağıranlara uyum sağlamak için workaround eklendi.
+# Düzeltildi: Varsayılan değeri positional argüman olarak alan çağrıları ele alacak şekilde workaround iyileştirildi.
+# Artık positional olarak verilen son argüman (keyword default= verilmediyse) tipi ne olursa olsun default kabul edilecek.
 def get_config_value(config: dict, *keys, default=None, expected_type=None, logger_instance=None):
     """
     İç içe geçmiş bir sözlükten anahtar zinciri (*keys) ile değer alır.
     Anahtar bulunamazsa, yol geçersizse veya tip uyuşmazsa
     belirtilen varsayılan değeri döndürür.
     Opsiyonel olarak beklenen tipi kontrol eder ve loglama için logger instance alabilir.
+     positional olarak verilmiş default değerleri (örneğin get_config_value(config, 'key', default_value))
+    desteklemek için bir workaround içerir.
 
     Args:
         config (dict): Bakılacak yapılandırma sözlüğü.
@@ -69,24 +73,26 @@ def get_config_value(config: dict, *keys, default=None, expected_type=None, logg
     log = logger_instance if logger_instance is not None else logger
 
     # --- WORKAROUND: DecisionModule gibi çağıranların default değeri positional geçmesine uyum sağla ---
-    # Eğer keys tuple'ı birden fazla elemanlıysa ve son eleman bir sayı ise,
-    # o son elemanı default değer olarak ele alalım ve keys listesinden çıkaralım.
+    # Eğer keys tuple'ı birden fazla elemanlıysa ve keyword default=X verilmediyse (default None kaldıysa),
+    # son elemanı default değer olarak ele alalım ve keys listesinden çıkaralım.
     # Bu çirkin bir çözümdür ve gelecekte çağıranlar düzeltildiğinde kaldırılmalıdır.
     actual_default = default # Çağrıda default=X şeklinde keyword ile gelen değer
     actual_keys = list(keys) # Positional olarak gelen keys tuple'ını listeye çevir
 
-    # Log çıktısı 'keys tuple'ı varsayılan değeri içeriyor gibi görünüyor...' mesajı bu if bloğunun çalıştığını gösterir.
-    # Bu, DecisionModule'deki get_config_value çağrılarının get_config_value(config, 'key_name', default_value, ...)
-    # formatında olduğunu doğrular. default_value positional olarak *keys içine dahil edilmiştir.
-    # Bu durumda, keys'in son elemanını "default değeri" olarak kabul edip, actual_default'u override edelim
-    # ve keys listesinden bu elemanı çıkaralım.
-    if len(actual_keys) > 0 and isinstance(actual_keys[-1], (int, float)):
-         # Son eleman default değeri olabilir.
-         # Çağrıda default=X şeklinde keyword argümanı GELDİYSE, o zaten actual_default'a atanmıştır.
-         # Ancak loglar bunun olmadığını, default=None kaldığını ve sayısal değerin keys içine girdiğini gösteriyor.
-         # Dolayısıyla keys'in son elemanını default olarak KULLANMALIYIZ.
+    # Eğer keyword default=X verilmediyse (actual_default hala None ise) VE positional keys'in son elemanı default değer gibi görünüyorsa...
+    # default olarak geçirilmesi amaçlanan değerin tipine bakmaksızın son positional argümanı default kabul et.
+    # Argüman sayısına bakarak default değeri positional olarak geçildi mi anlamaya çalışıyoruz.
+    # Eğer sadece 1 positional argüman varsa ve o config dict'i değilse bu durum test edilebilir.
+    # Ama burada iç içe geçmiş anahtar yolu (*keys) alıyoruz, yani en az bir anahtar beklenir.
+    # Eğer keyword default=X kullanılmadıysa (default hala None ise) VE *keys tuple'ı boş değilse...
+    # Asıl amaç get_config_value(config, 'anahtar', default_deger, expected_type, ...) gibi kullanımları yakalamak.
+    # Bu durumda *keys tuple'ı ('anahtar', default_deger) şeklinde olur.
+    # Yani len(actual_keys) > 0 olmalı ve actual_default None kalmış olmalı.
+    # Bu koşul gerçekleşirse, actual_keys'in son elemanını default kabul et.
+    if actual_default is None and len(actual_keys) > 0:
+         # Son elemanın default değer olması en olası senaryo, bunu default olarak ele alalım.
          actual_default = actual_keys.pop() # Son elemanı keys'ten çıkar ve default olarak kullan.
-         log.debug(f"get_config_value WORKAROUND: keys tuple'ı varsayılan değeri içeriyor gibi görünüyor. Default '{actual_default}' olarak ayarlandı, gerçek keys: {tuple(actual_keys)}")
+         log.debug(f"get_config_value WORKAROUND: Positional argüman '{actual_default}' varsayılan değer olarak kullanıldı. Gerçek keys: {tuple(actual_keys)}")
     # Else durumda, keys normal anahtarları içeriyor olmalı, actual_default ise çağrıda belirtilen default=X değeridir (veya None).
     else:
         log.debug(f"get_config_value: keys tuple'ı normal görünüyor: {tuple(actual_keys)}. Default değeri: {actual_default}")
@@ -105,26 +111,28 @@ def get_config_value(config: dict, *keys, default=None, expected_type=None, logg
 
     try:
         # Anahtar yolu boyunca ilerle
-        for i, key in enumerate(actual_keys): # Düzeltilmiş keys listesini kullan!
+        # Düzeltilmiş keys listesini kullan!
+        for i, key in enumerate(actual_keys):
             # Eğer mevcut değer bir dict değilse ve hala path'in ortasındaysak, yol geçersiz.
-            is_last_key = (i == len(actual_keys) - 1)
+            # actual_keys boşsa döngüye girilmez.
+            if not isinstance(current_value, dict):
+                 # Eğer hala anahtarlar varsa (yolun sonuna gelmediysek) ve mevcut değer dict değilse hata.
+                 if i < len(actual_keys):
+                      log.debug(f"get_config_value: '{path_str}' yolu takip edilirken ara değer sözlük değil (adım {i+1}/{len(actual_keys)}, anahtar '{key}', tip: {type(current_value)}). Varsayılan ({actual_default}) dönülüyor.")
+                      return actual_default # Yolun ortasında dict bekleniyordu, yoktu.
+                 # Eğer anahtar kalmadıysa (yolun sonuna geldik), current_value zaten bulunan değerdir.
+                 # Bu case aşağıdaki döngü sonrası final_value atamasında ele alınacak.
 
-            if not isinstance(current_value, dict) and not is_last_key:
-                 log.debug(f"get_config_value: '{path_str}' yolu takip edilirken ara değer sözlük değil (adım {i+1}/{len(actual_keys)}, anahtar '{key}', tip: {type(current_value)}). Varsayılan ({actual_default}) dönülüyor.")
-                 return actual_default # Yolun ortasında dict bekleniyordu, yoktu.
 
             try:
                  # current_value'nun dict olduğunu biliyoruz, key'e güvenle erişebiliriz.
                  current_value = current_value[key]
 
-            except KeyError:
-                 # Anahtar bulunamadı (path'in ortasında veya sonunda)
-                 log.debug(f"get_config_value: Anahtar '{key}' bulunamadı. Yol: '{path_str}'. Varsayılan ({actual_default}) dönüyor.")
-                 return actual_default # Anahtar yoksa varsayılan dön.
-            except TypeError:
-                # current_value dict değilken current[key] erişimi denenirse (örn: current int veya float)
-                log.debug(f"get_config_value: '{path_str}' yolu takip edilirken TypeError (adım {i+1}/{len(actual_keys)}, anahtar '{key}', mevcut tip: {type(current_value)}). Varsayılan ({actual_default}) dönülüyor.")
-                return actual_default
+            except (KeyError, TypeError):
+                 # Anahtar bulunamadı (path'in ortasında veya sonunda) veya current_value dict değildi (TypeError).
+                 log.debug(f"get_config_value: '{path_str}' yolu takip edilirken anahtar '{key}' bulunamadı veya mevcut değer dict değil (adım {i+1}/{len(actual_keys)}, mevcut tip: {type(current_value)}). Varsayılan ({actual_default}) dönüyor.")
+                 return actual_default # Anahtar yoksa veya ara değer dict değilse varsayılan dön.
+
             except Exception as e:
                  # Diğer beklenmedik hatalar (örn: anahtar tipi geçerli değilse)
                  log.error(f"get_config_value: '{path_str}' yolu takip edilirken beklenmedik hata (adım {i+1}/{len(actual_keys)}, anahtar '{key}'): {e}", exc_info=True)
@@ -136,16 +144,17 @@ def get_config_value(config: dict, *keys, default=None, expected_type=None, logg
         # current_value artık bulunan değerdir.
         # Eğer actual_keys boşsa, döngü hiç çalışmaz ve current_value hala başlangıç config'dir.
         # Bu durumda config'in kendisi dönülmeli.
-        if not actual_keys:
-             final_value = config
-             # log.debug("get_config_value: Anahtar belirtilmedi, başlangıç config dönülüyor.") # Bu debug logu çok çalışıyor
-        else:
-             final_value = current_value # Bulunan değeri final_value'ya ata
+        # Ancak actual_keys'in boş olması durumu (get_config_value(config)) bu workaround ile desteklenmiyor,
+        # çünkü tek positional argüman config olduğunda o default sanılabilir.
+        # Workaround, *keys'te en az bir eleman (ilk anahtar veya default) olduğunu varsayar.
+        # Eğer get_config_value(config) şeklinde çağrı desteklenecekse, bu workaround'un dışında ele alınmalıdır.
+        # Şu anki kullanımda hep en az bir anahtar bekliyoruz (örn: get_config_value(config, 'level')).
+        final_value = current_value # Bulunan değeri final_value'ya ata
 
 
     except Exception as e:
         # Genel hata yakalandı (bu blok teorik olarak çok çalışmamalı)
-        log.error(f"get_config_value: Genel hata yakalandı: {e}", exc_info=True)
+        log.error(f"get_config_value: '{path_str}' yolu takip edilirken genel hata yakalandı: {e}", exc_info=True)
         log.debug(f"get_config_value: Genel hata sonrası varsayılan değer ({actual_default}) dönüyor.")
         return actual_default # Hata durumunda varsayılan döndür.
 
@@ -160,6 +169,7 @@ def get_config_value(config: dict, *keys, default=None, expected_type=None, logg
         if isinstance(expected_type, tuple):
             for t in expected_type:
                  if t == np.number:
+                      # np.number kontrolü: int, float, veya numpy sayısal dtype'ına sahip skalar/array.
                       if isinstance(final_value, (int, float)) or (isinstance(final_value, np.ndarray) and np.issubdtype(final_value.dtype, np.number)) or (np.isscalar(final_value) and np.issubdtype(type(final_value), np.number)):
                            is_correct_type = True
                            break # Tuple içinde doğru tip bulundu, döngüyü kır.
