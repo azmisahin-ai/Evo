@@ -48,7 +48,7 @@ class VisionProcessor:
         self.canny_high_threshold = get_config_value(config, 'processors', 'vision', 'canny_high_threshold', default=150, expected_type=int, logger_instance=logger)
 
         # Get brightness thresholds from config (These are under the 'cognition' key)
-        # Corrected: Add these attributes and read them from config.
+        # Added these attributes and read them from config.
         self.brightness_threshold_high = get_config_value(config, 'cognition', 'brightness_threshold_high', default=200.0, expected_type=(float, int), logger_instance=logger)
         self.brightness_threshold_low = get_config_value(config, 'cognition', 'brightness_threshold_low', default=50.0, expected_type=(float, int), logger_instance=logger)
 
@@ -65,7 +65,23 @@ class VisionProcessor:
     def process(self, visual_input):
         """
         Processes raw visual input and extracts basic features.
-        ... (Docstring same) ...
+
+        Receives the input (typically a BGR numpy array), converts it to grayscale,
+        resizes it to the specified output dimensions, and applies edge detection.
+        Returns a dictionary containing the processed frame (grayscale and edge map)
+        to be sent to the RepresentationLearner.
+        Returns an empty dictionary `{}` if the input is None or an error occurs during processing.
+
+        Args:
+            visual_input (numpy.ndarray or None): Raw visual data (frame) or None.
+                                                  Typically comes from VisionSensor.
+                                                  Expected format: shape (Y, X, C) or (Y, X), dtype uint8.
+
+        Returns:
+            dict: A dictionary containing processed visual features.
+                  Keys: 'grayscale' (numpy.ndarray, shape (output_height, output_width), dtype uint8),
+                        'edges' (numpy.ndarray, shape (output_height, output_width), dtype uint8).
+                  Returns an empty dictionary `{}` on error or if input is None.
         """
         # Error handling: If input is None or not of expected type
         # Use check_input_not_none function (logs and returns False if None)
@@ -112,23 +128,23 @@ class VisionProcessor:
                  logger.debug(f"VisionProcessor.process: Ensured grayscale frame dtype is uint8.")
 
 
-            # 2. Yeniden boyutlandır (Yapılandırmada belirtilen output_width x output_height boyutuna).
-            # Hedef boyut tuple olarak verilir: (genişlik, yükseklik).
-            # Interpolation metodu belirtilebilir, INTER_AREA küçültme için iyidir.
-            # Hedef boyutların pozitif olduğu init'te kontrol edildi veya varsayılan atandı.
+            # 2. Resize (To the output_width x output_height specified in config).
+            # Target size is provided as a tuple: (width, height).
+            # Interpolation method can be specified; INTER_AREA is good for shrinking.
+            # Target dimensions are checked to be positive during init or defaults assigned.
             resized_frame = cv2.resize(gray_frame, (self.output_width, self.output_height), interpolation=cv2.INTER_AREA)
-            logger.debug(f"VisionProcessor.process: Görsel veri ({self.output_width}, {self.output_height}) boyutuna yeniden boyutlandırıldı. Shape: {resized_frame.shape}, Dtype: {resized_frame.dtype}")
+            logger.debug(f"VisionProcessor.process: Visual data resized to ({self.output_width}, {self.output_height}) dimensions. Shape: {resized_frame.shape}, Dtype: {resized_frame.dtype}")
 
             # Add the grayscale, resized frame to the processed features dictionary.
             processed_features['grayscale'] = resized_frame
 
 
-            # 3. Kenar tespiti uygula.
-            # Canny kenar dedektörü gri tonlamalı 8-bit (uint8) resimler üzerinde çalışır.
-            # resized_frame uint8 ve gri olduğu için doğrudan kullanabiliriz.
-            # Eşikler init'te yapılandırmadan alındı ve int olduğu kontrol edildi.
+            # 3. Apply edge detection.
+            # Canny edge detector works on grayscale 8-bit (uint8) images.
+            # resized_frame is uint8 and grayscale, so can be used directly.
+            # Thresholds were obtained from config during init and checked to be integers.
             edges = cv2.Canny(resized_frame, self.canny_low_threshold, self.canny_high_threshold)
-            logger.debug(f"VisionProcessor.process: Canny kenar tespiti uygulandı. Shape: {edges.shape}, Dtype: {edges.dtype}")
+            logger.debug(f"VisionProcessor.process: Applied Canny edge detection. Shape: {edges.shape}, Dtype: {edges.dtype}")
 
             # Add the edge map to the processed features dictionary.
             processed_features['edges'] = edges
@@ -146,10 +162,11 @@ class VisionProcessor:
             if 'edges' in processed_features and processed_features['edges'].size > 0:
                  avg_edges = np.mean(processed_features['edges'])
                  # Log comparing the mean edges to config threshold.
+                 # Use self.visual_edges_threshold which is assigned in __init__
                  logger.debug(f"VisionProcessor.process: Avg Edges: {avg_edges:.2f} (Threshold: {self.visual_edges_threshold:.2f})")
 
 
-        # Corrected: Use a more general Exception catch as cv2.Error might not inherit BaseException in all environments.
+        # Corrected: Use a general Exception catch as cv2.Error might not inherit from BaseException in all environments.
         except Exception as e:
             # Catch any unexpected error during processing steps (e.g., opencv, numpy, or other errors).
             # These errors are logged, and an empty dictionary is returned.

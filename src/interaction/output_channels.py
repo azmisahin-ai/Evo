@@ -1,7 +1,7 @@
 # src/interaction/output_channels.py
 #
-# Evo'nın dış dünyaya yönelik çıktı kanallarını tanımlar.
-# Farklı türdeki çıktılar (metin, ses vb.) belirli kanallara yönlendirilir.
+# Defines Evo's output channels to the external world.
+# Different types of outputs (text, audio, visual) are directed to specific channels.
 
 import logging # For logging.
 # import time # For timing if needed.
@@ -58,45 +58,44 @@ class OutputChannel:
         self.logger.info(f"OutputChannel '{self.name}' initializing.")
         # Base class initialization is complete.
 
-    # ... (send and cleanup methods - same as before) ...
-
     def send(self, output_data):
-            """
-            İşlenmiş çıktıyı ilgili kanala gönderme metodu.
+        """
+        Method to send processed output to the relevant channel.
 
-            Bu metot temel sınıfta implement edilmemiştir ve alt sınıflar tarafından
-            override (geçersiz kılınarak kendi mantıklarıyla doldurulmalı) edilmelidir.
-            output_data'nın formatı kanaldan kanala değişir.
+        This method is not implemented in the base class and must be overridden
+        by subclasses with their specific logic.
+        The format of output_data varies by channel.
 
-            Args:
-                output_data (any): Motor Control'den gelen gönderilecek çıktı verisi.
-                                Formatı kanala bağlıdır (string, sayı, dict, numpy array vb.).
+        Args:
+            output_data (any): The output data to be sent, typically from Motor Control.
+                               Its format depends on the channel (string, number, dict, numpy array, etc.).
 
-            Raises:
-                NotImplementedError: Alt sınıflar bu metodu implement etmezse.
-            """
-            # Bu metot alt sınıflarda implement edildiği için burada genel girdi kontrolü yapmak anlamlı değil.
-            # Alt sınıfların send metotları kendi girdilerini (output_data) kontrol etmeli.
-            raise NotImplementedError("Alt sınıflar 'send' metodunu implement etmelidir.")
+        Raises:
+            NotImplementedError: If subclasses do not implement this method.
+        """
+        # General input checks here are not meaningful as the format varies.
+        # Subclasses' send methods should validate their own inputs (output_data).
+        raise NotImplementedError("Subclasses must implement the 'send' method.")
 
     def cleanup(self):
         """
-        Kanal tarafından kullanılan kaynakları temizler.
+        Cleans up resources used by the channel.
 
-        Bu metot temel sınıfta placeholder olarak tanımlanmıştır. Özel kaynak (dosya,
-        ağ bağlantısı, thread vb.) kullanan alt sınıflar bu metotu override ederek
-        kendi temizleme mantıklarını implement etmelidir.
-        module_loader.py ve InteractionAPI.stop() bu metotu program sonlanırken çağırır (varsa).
+        This method is defined as a placeholder in the base class. Subclasses that use
+        specific resources (files, network connections, threads, etc.) must override this method
+        to implement their cleanup logic.
+        Called by module_loader.py and InteractionAPI.stop() when the program terminates (if it exists).
         """
-        self.logger.info(f"OutputChannel '{self.name}' temizleniyor.")
-        pass # Varsayılan olarak temizlenecek bir şey yok.
+        self.logger.info(f"OutputChannel '{self.name}' cleaning up.")
+        pass # By default, there's nothing to clean up.
 
 
 # --- Console Output Channel ---
 class ConsoleOutputChannel(OutputChannel):
     """
     An output channel that writes output to the system console (terminal).
-    ... (Docstring same) ...
+
+    Typically used for text-based outputs.
     """
     def __init__(self, config):
         """
@@ -112,64 +111,61 @@ class ConsoleOutputChannel(OutputChannel):
         super().__init__("console", config)
         self.logger.info("ConsoleOutputChannel initialized.")
 
-    # ... (send and cleanup methods - same as before) ...
-
-
-
     def send(self, output_data):
         """
-        Çıktıyı konsola yazdırır.
+        Writes the output to the console.
 
-        Gelen output_data'yı string'e çevirmeyi dener ve konsola standart bir formatla yazdırır.
-        string'e çevirme veya yazdırma sırasında hata oluşursa yakalar ve loglar.
+        Attempts to convert the incoming output_data to a string and prints it to the console
+        with a standard format. Catches and logs errors during conversion or printing.
 
         Args:
-            output_data (any): Konsola yazdırılacak veri. Genellikle bir string beklenir.
-                               String değilse str() ile çevrilmeye çalışılır.
+            output_data (any): The data to be printed to the console. A string is typically expected.
+                               If not a string, it attempts to convert using str().
         """
-        # Hata yönetimi: Gelen verinin string olup olmadığını kontrol et. check_input_type kullan.
-        # String değilse uyarı logla ve string'e çevirmeyi dene.
+        # Error handling: Check if the incoming data is a string. Use check_input_type.
+        # If not a string, log a warning and try to convert to string.
         if not check_input_type(output_data, str, input_name="output_data for Console", logger_instance=self.logger):
-             self.logger.warning(f"OutputChannel '{self.name}': Beklenmeyen çıktı tipi: {type(output_data)}. String bekleniyordu. Çıktı string'e çevriliyor.")
+             self.logger.warning(f"OutputChannel '{self.name}': Unexpected output type: {type(output_data)}. String expected. Attempting to convert to string.")
              try:
-                 # str() fonksiyonu çoğu Python objesini string'e çevirebilir.
+                 # str() function can convert most Python objects to a string.
                  output_to_print = str(output_data)
              except Exception as e:
-                 # string'e çevirme sırasında hata oluşursa hata logu ver ve gönderme işlemini durdur.
-                 self.logger.error(f"OutputChannel '{self.name}': Çıktı string'e çevrilemedi: {e}", exc_info=True)
-                 return # String'e çevrilemezse gönderme işlemini atla.
+                 # If an error occurs during string conversion, log an error and stop the send operation.
+                 self.logger.error(f"OutputChannel '{self.name}': Could not convert output to string: {e}", exc_info=True)
+                 return # Skip sending if conversion fails.
         else:
-             # Gelen veri zaten string ise doğrudan kullan.
+             # If the incoming data is already a string, use it directly.
              output_to_print = output_data
 
 
-        # DEBUG logu: Ham çıktının alındığı ve işleneceği bilgisi.
-        self.logger.debug(f"OutputChannel '{self.name}': Ham çıktı alindi, isleniyor/hazirlaniyor (Konsol).")
+        # DEBUG log: Info about receiving and preparing the raw output.
+        self.logger.debug(f"OutputChannel '{self.name}': Raw output received, processing/preparing (Console).")
 
         try:
-            # İşlenmiş çıktıyı (string) konsola yazdır.
-            self.logger.info(f"Evo Çıktısı '{output_to_print}'")
+            # Print the processed output (string) to the console.
+            self.logger.info(f"Evo Output: '{output_to_print}'")
 
-            # DEBUG logu: Çıktının başarıyla konsola yazdırıldığı bilgisi.
-            self.logger.debug(f"OutputChannel '{self.name}': Çıktı konsola yazdırıldı.")
+            # DEBUG log: Info that the output was successfully printed to the console.
+            self.logger.debug(f"OutputChannel '{self.name}': Output printed to console.")
 
         except Exception as e:
-             # Konsola yazdırma sırasında beklenmedik bir hata oluşursa (nadiren olur).
-             logger.error(f"OutputChannel '{self.name}': Konsola yazdırma hatasi: {e}", exc_info=True)
-             # Hata durumında yapacak çok bir şey yok, hatayı loglamak yeterlidir.
+             # Catch any unexpected error during printing to the console (rare).
+             self.logger.error(f"OutputChannel '{self.name}': Error printing to console: {e}", exc_info=True)
+             # Not much more to do in case of a printing error, just log the error.
 
 
     def cleanup(self):
         """
-        ConsoleOutputChannel kaynaklarını temizler.
+        Cleans up ConsoleOutputChannel resources.
 
-        Konsol çıktısı özel bir kaynak gerektirmediği için temizleme adımı içermez,
-        sadece temel sınıfın temizleme metodunu çağırır.
+        Console output does not require specific resources, so it includes no cleanup steps
+        beyond calling the base class's cleanup method (which only logs).
         """
-        # Bilgilendirme logu.
-        self.logger.info(f"ConsoleOutputChannel '{self.name}' temizleniyor.")
-        # Temel sınıfın cleanup metodunu çağır (sadece loglama yapar).
+        # Informational log.
+        self.logger.info(f"ConsoleOutputChannel '{self.name}' cleaning up.")
+        # Call the base class's cleanup method (only logs).
         super().cleanup()
+
 
 # --- Web API Output Channel (Placeholder) ---
 class WebAPIOutputChannel(OutputChannel):
@@ -207,92 +203,91 @@ class WebAPIOutputChannel(OutputChannel):
         # self._start_api_server() # Future TODO
 
 
-    # ... (send and cleanup methods - same as before) ...
     def send(self, output_data):
         """
-        Çıktıyı Web API endpoint'ine gönderir (Placeholder implementasyon).
+        Sends the output to the Web API endpoint (Placeholder implementation).
 
-        Gelen output_data'yı (örn: dict, string) alır ve belirtilen bir
-        API endpoint'ine HTTP POST isteği gibi gönderir. Şimdilik bu işlem
-        sadece loglanır.
-        Gönderme sırasında hata oluşursa yakalar ve loglar.
+        Receives the incoming output_data (e.g., dict, string) and simulates sending it
+        to a specified API endpoint, like an HTTP POST request. Currently, this operation
+        is just logged.
+        Catches and logs errors if they occur during the simulated sending process.
 
         Args:
-            output_data (any): Gönderilecek çıktı verisi. Genellikle JSON'a çevrilebilecek
-                               bir dict veya string beklenir.
+            output_data (any): The output data to be sent. A dict or string that can be
+                               converted to JSON is typically expected.
         """
-        # Hata yönetimi: Gelen verinin geçerliliğini kontrol et (isteğe bağlı).
-        # Örneğin, gönderilecek verinin None olmadığını check_input_not_none ile kontrol edebiliriz
-        # veya gönderilecek formatın (örn: dict, str) beklenen tipte olduğunu check_input_type ile kontrol edebiliriz.
-        # InteractionAPI.send_output metodu output_data None ise zaten burayı çağırmıyor.
-        # Burada output_data'nın formatını (örn: dict mi, string mi?) kontrol edebiliriz.
+        # Error handling: Optional validation of the incoming data's validity.
+        # For example, can check if output_data is not None using check_input_not_none
+        # or check if the format to be sent (e.g., dict, str) is of an expected type using check_input_type.
+        # InteractionAPI.send_output method already doesn't call this if output_data is None.
+        # Here, we might want to check the format of output_data (e.g., is it a dict? a string?).
         # if not check_input_type(output_data, (dict, str), input_name="output_data for WebAPI", logger_instance=self.logger):
-        #      self.logger.warning(f"OutputChannel '{self.name}': Beklenmeyen çıktı tipi: {type(output_data)}. dict veya str bekleniyordu.")
-        #      # Geçersiz tipse göndermeyi atla.
+        #      self.logger.warning(f"OutputChannel '{self.name}': Unexpected output type: {type(output_data)}. dict or str expected.")
+        #      # If type is invalid, skip sending.
         #      return
 
 
-        self.logger.debug(f"OutputChannel '{self.name}': Ham çıktı alindi, isleniyor/hazirlaniyor (Web API).")
+        self.logger.debug(f"OutputChannel '{self.name}': Raw output received, processing/preparing (Web API).")
 
         try:
-            # Web API'ye gönderme mantığı buraya gelecek (Gelecek TODO).
-            # Örneğin, requests kütüphanesini kullanarak bir POST isteği gönderme.
-            # api_url = f"http://{self.host}:{self.port}/output" # Endpoint URL'si config'ten alındı.
+            # Logic for sending to the Web API endpoint will go here (Future TODO).
+            # For example, sending a POST request using the 'requests' library.
+            # api_url = f"http://{self.host}:{self.port}/output" # Endpoint URL obtained from config.
             # headers = {'Content-Type': 'application/json'}
             # try:
-            #     # Çıktı verisini JSON formatına çevir (gerekirse)
+            #     # Convert output data to JSON format (if necessary)
             #     # if isinstance(output_data, dict):
             #     #      json_data = json.dumps(output_data)
             #     # elif isinstance(output_data, str):
-            #     #      json_data = output_data # Eğer zaten string ise
+            #     #      json_data = output_data # If it's already a string
             #     # else:
-            #     #      # Desteklenmeyen output_data tipi
-            #     #      self.logger.warning(f"WebAPIOutputChannel: Desteklenmeyen çıktı tipi: {type(output_data)}. Gönderme atlandı.")
-            #     #      return # Göndermeyi atla
+            #     #      # Unsupported output_data type
+            #     #      self.logger.warning(f"WebAPIOutputChannel: Unsupported output type: {type(output_data)}. Skipping send.")
+            #     #      return # Skip sending
 
-            #     # POST isteğini gönder
-            #     # response = requests.post(api_url, headers=headers, data=json_data, timeout=5) # timeout eklemek iyi pratik
-            #     # response.raise_for_status() # HTTP hatalarını (4xx, 5xx) bir Exception olarak yükseltir
+            #     # Send the POST request
+            #     # response = requests.post(api_url, headers=headers, data=json_data, timeout=5) # Adding a timeout is good practice
+            #     # response.raise_for_status() # Raises an Exception for bad HTTP status codes (4xx or 5xx)
 
-            #     # Başarılı gönderme logu
-            #     # self.logger.debug(f"WebAPIOutputChannel: Çıktı API'ye başarıyla gönderildi. Durum Kodu: {response.status_code}")
+            #     # Log successful send
+            #     # self.logger.debug(f"WebAPIOutputChannel: Output successfully sent to API. Status Code: {response.status_code}")
 
             # except requests.exceptions.RequestException as e:
-            #     # requests kütüphanesinden kaynaklanan spesifik hatalar (bağlantı hatası, timeout, HTTP hata kodu vb.)
-            #     self.logger.error(f"WebAPIOutputChannel: API'ye gönderme hatasi: {e}", exc_info=True)
+            #     # Specific errors from the 'requests' library (e.g., connection error, timeout, bad HTTP status code)
+            #     self.logger.error(f"WebAPIOutputChannel: Error sending to API: {e}", exc_info=True)
             # except Exception as e:
-            #      # JSON çevirme veya başka beklenmedik hatalar
-            #      self.logger.error(f"WebAPIOutputChannel: API gönderme sırasında beklenmedik hata: {e}", exc_info=True)
+            #      # Other unexpected errors (e.g., JSON conversion or others)
+            #      self.logger.error(f"WebAPIOutputChannel: Unexpected error during API send: {e}", exc_info=True)
 
-            # Şimdilik sadece loglayalım ve gönderme işlemini simüle edelim.
-            self.logger.info(f"WebAPIOutputChannel: API endpoint'e çıktı gönderme simüle edildi. Gönderilen veri: {output_data}")
+            # For now, just log and simulate the sending process.
+            self.logger.info(f"WebAPIOutputChannel: Simulated sending output to API endpoint. Data sent: {output_data}")
 
 
         except Exception as e:
-             # send metodu içindeki ana try bloğunu yakalayan genel hata yakalama.
-             self.logger.error(f"OutputChannel '{self.name}': Gönderme sırasında beklenmedik hata: {e}", exc_info=True)
-             # Hata durumunda yapacak çok bir şey yok, loglamak yeterlidir.
+             # General error catching the main try block within the send method.
+             self.logger.error(f"OutputChannel '{self.name}': Unexpected error during send operation: {e}", exc_info=True)
+             # Not much more to do in case of error, just log it.
 
 
     def cleanup(self):
         """
-        WebAPIOutputChannel kaynaklarını temizler.
+        Cleans up WebAPIOutputChannel resources.
 
-        API sunucusunu durdurma (eğer burada başlatıldıysa) veya açık bağlantıları kapatma
-        mantığı buraya gelebilir.
-        module_loader.py ve InteractionAPI.stop() bu metotu program sonlanırken çağırır (varsa).
+        Logic to stop the API server (if started here) or close open connections
+        could go here.
+        Called by module_loader.py and InteractionAPI.stop() when the program terminates (if it exists).
         """
-        # Bilgilendirme logu.
-        self.logger.info(f"WebAPIOutputChannel '{self.name}' temizleniyor.")
-        # API sunucusunu kapatma mantığı buraya gelebilir (eğer burada başlatıldıysa ve bir metodu varsa).
+        # Informational log.
+        self.logger.info(f"WebAPIOutputChannel '{self.name}' cleaning up.")
+        # Logic to shut down the API server could go here (if it was started here and has a stop method).
         # if hasattr(self, 'api_server') and self.api_server:
-        #      self.logger.info(f"WebAPIOutputChannel: API sunucusu kapatılıyor (Port: {self.port})...")
-        #      self.api_server.shutdown() # Flask development server veya başka bir server objesinin metodu
+        #      self.logger.info(f"WebAPIOutputChannel: Shutting down API server (Port: {self.port})...")
+        #      self.api_server.shutdown() # Method of a Flask development server or another server object
 
 
-        # Temel sınıfın cleanup metodunu çağır (sadece loglama yapar).
+        # Call the base class's cleanup method (only logs).
         super().cleanup()
 
-# TODO: Gelecekte eklenecek diğer çıktı kanalı sınıfları (örn: FileOutputChannel, RoboticArmChannel) buraya tanımlanacak.
+# TODO: Other output channel classes to be added in the future (e.g., FileOutputChannel, RoboticArmChannel) defined here.
 # class FileOutputChannel(OutputChannel): ...
 # class RoboticArmChannel(OutputChannel): ...
