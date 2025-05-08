@@ -115,6 +115,7 @@ class ConsoleOutputChannel(OutputChannel):
     # ... (send and cleanup methods - same as before) ...
 
 
+
     def send(self, output_data):
         """
         Çıktıyı konsola yazdırır.
@@ -184,16 +185,19 @@ class WebAPIOutputChannel(OutputChannel):
 
         Args:
             config (dict): Channel configuration settings for this channel.
+                           This is typically the sub-dictionary from main_config.yaml for this channel,
+                           containing settings like 'port' and 'host'.
                            'port': The port the API is running on (int, default 5000).
                            'host': The host the API is running on (str, default '127.0.0.1').
                            The base class checks the config type.
         """
         # Call the base class's __init__ method. Set the channel name to "web_api".
         # Pass the specific config dict received from InteractionAPI.
-        super().__init__("web_api", config)
+        super().__init__("web_api", config) # self.config is now the channel-specific config
+
         # Get settings from the channel-specific config using get_config_value.
         # Corrected: Use default= keyword format.
-        # The keys 'port' and 'host' are expected directly within the config dict passed to this __init__.
+        # The keys 'port' and 'host' are expected directly within the self.config dict.
         self.port = get_config_value(self.config, 'port', default=5000, expected_type=int, logger_instance=self.logger)
         self.host = get_config_value(self.config, 'host', default='127.0.0.1', expected_type=str, logger_instance=self.logger)
 
@@ -204,7 +208,6 @@ class WebAPIOutputChannel(OutputChannel):
 
 
     # ... (send and cleanup methods - same as before) ...
-
     def send(self, output_data):
         """
         Çıktıyı Web API endpoint'ine gönderir (Placeholder implementasyon).
@@ -291,8 +294,5 @@ class WebAPIOutputChannel(OutputChannel):
         super().cleanup()
 
 # TODO: Gelecekte eklenecek diğer çıktı kanalı sınıfları (örn: FileOutputChannel, RoboticArmChannel) buraya tanımlanacak.
-# class FileOutputChannel(OutputChannel): ...
-# class RoboticArmChannel(OutputChannel): ...
-# TODO: Other output channel classes to be added in the future (e.g., FileOutputChannel, RoboticArmChannel) defined here.
 # class FileOutputChannel(OutputChannel): ...
 # class RoboticArmChannel(OutputChannel): ...

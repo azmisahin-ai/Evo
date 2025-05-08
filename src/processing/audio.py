@@ -15,35 +15,21 @@ from src.core.utils import check_input_not_none, check_numpy_input # <<< Utils i
 # Create a logger for this module
 # Returns a logger named 'src.processing.audio'.
 logger = logging.getLogger(__name__)
-
 class AudioProcessor:
     """
-    Evo's auditory data processing class (Phase 1 implementation).
-
-    Receives raw audio input (chunk) from the AudioSensor,
-    performs basic operations (calculating energy, Spectral Centroid)
-    to prepare it for the RepresentationLearner.
-    Manages potential errors during processing and ensures flow continuity.
-    Returns a numpy array containing basic auditory features as output.
+    Evo'nın işitsel veriyi işleyen sınıfı (Faz 1 implementasyonu).
+    ... (Docstring aynı) ...
     """
     def __init__(self, config):
         """
         Initializes the AudioProcessor.
-
-        Args:
-            config (dict): Processor configuration settings (full config dict).
-                           Settings for this module are read from the 'processors.audio' section.
-                           'audio_rate': Audio sample rate (int, default 44100 Hz). Required for Spectral Centroid calculation.
-                           'output_dim': Dimension of the processed audio output (int, default 2).
-                                         Currently 2 is expected for energy and Spectral Centroid.
-                                         This number might increase for other features in the future.
+        ... (Docstring same) ...
         """
         self.config = config # AudioProcessor receives the full config
         logger.info("AudioProcessor initializing...")
 
         # Get sample rate and output dimension from config using get_config_value.
-        # Corrected: Use default= keyword format for all calls.
-        # Based on config, these settings are under the 'processors.audio' key.
+        # These settings are under the 'processors.audio' key.
         # Note: audio_rate also exists under 'audio' key. Using 'processors.audio' for consistency with VisionProcessor.
         self.audio_rate = get_config_value(config, 'processors', 'audio', 'audio_rate', default=44100, expected_type=int, logger_instance=logger)
         self.output_dim = get_config_value(config, 'processors', 'audio', 'output_dim', default=2, expected_type=int, logger_instance=logger)
@@ -57,6 +43,7 @@ class AudioProcessor:
 
         logger.info(f"AudioProcessor initialized. Sample Rate: {self.audio_rate} Hz, Implemented Output Dimension: {self.output_dim}")
 
+    # ... (process and cleanup methods - same as before) ...
 
     def process(self, audio_input):
         """

@@ -76,12 +76,12 @@ motor_control:
 
 # Interaction modülleri ayarları
 interaction:
-  enabled_channels: ["console", "web_api"] # Aktif çıktı kanalları listesi. 'console', 'web_api' vb.
-  channel_configs: # Kanal bazlı özel ayarlar
-    console: {} # Konsol için özel ayar yoksa boş bırakılabilir.
+  enabled_channels: ["console", "web_api"] # List of active output channels. 'console', 'web_api', etc.
+  channel_configs: # Channel-specific settings
+    console: {} # Console-specific settings can be left empty if none.
     web_api:
       port: 5000
-      # host: 127.0.0.1 # Gelecekte
+      # host: 127.0.0.1 # Future
 
 # Loglama Ayarları
 logging:
@@ -125,4 +125,4 @@ logging:
     src.interaction.api: [DEBUG, INFO, WARNING, ERROR, CRITICAL]
     src.interaction.output_channels.console:
       [DEBUG, INFO, WARNING, ERROR, CRITICAL]
-    src.interaction.output_channels.web_api: [DEBUG, INFO, WARNING, ERROR, CRITICAL] # Added Debug for WebAPI channelcl
+    src.interaction.output_channels.web_api: [DEBUG, INFO, WARNING, ERROR, CRITICAL] # Added Debug for WebAPI channel

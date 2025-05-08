@@ -34,7 +34,8 @@ class VisionProcessor:
 
         Args:
             config (dict): Processor configuration settings (full config dict).
-                           Settings for this module are read from the 'processors.vision' section.
+                           Settings for this module are read from the 'processors.vision' section
+                           and also brightness thresholds from the 'cognition' section.
         """
         self.config = config # VisionProcessor receives the full config
         logger.info("VisionProcessor initializing...")
@@ -46,6 +47,10 @@ class VisionProcessor:
         self.canny_low_threshold = get_config_value(config, 'processors', 'vision', 'canny_low_threshold', default=50, expected_type=int, logger_instance=logger)
         self.canny_high_threshold = get_config_value(config, 'processors', 'vision', 'canny_high_threshold', default=150, expected_type=int, logger_instance=logger)
 
+        # Get brightness thresholds from config (These are under the 'cognition' key)
+        # Corrected: Add these attributes and read them from config.
+        self.brightness_threshold_high = get_config_value(config, 'cognition', 'brightness_threshold_high', default=200.0, expected_type=(float, int), logger_instance=logger)
+        self.brightness_threshold_low = get_config_value(config, 'cognition', 'brightness_threshold_low', default=50.0, expected_type=(float, int), logger_instance=logger)
 
         # Ensure valid output dimensions (must be positive)
         if self.output_width <= 0 or self.output_height <= 0:
@@ -54,29 +59,13 @@ class VisionProcessor:
              self.output_height = 64
              # Policy: Don't make initialization critical in this case, just log and use defaults.
 
-        logger.info(f"VisionProcessor initialized. Output dimensions: {self.output_width}x{self.output_height}, Canny Thresholds: [{self.canny_low_threshold}, {self.canny_high_threshold}]")
+        logger.info(f"VisionProcessor initialized. Output dimensions: {self.output_width}x{self.output_height}, Canny Thresholds: [{self.canny_low_threshold}, {self.canny_high_threshold}], Brightness Thresholds: [{self.brightness_threshold_low}, {self.brightness_threshold_high}]")
 
 
     def process(self, visual_input):
         """
         Processes raw visual input and extracts basic features.
-
-        Receives the input (typically a BGR numpy array), converts it to grayscale,
-        resizes it to the specified output dimensions, and applies edge detection.
-        Returns a dictionary containing the processed frame (grayscale and edge map)
-        to be sent to the RepresentationLearner.
-        Returns an empty dictionary `{}` if the input is None or an error occurs during processing.
-
-        Args:
-            visual_input (numpy.ndarray or None): Raw visual data (frame) or None.
-                                                  Typically comes from VisionSensor.
-                                                  Expected format: shape (Y, X, C) or (Y, X), dtype uint8.
-
-        Returns:
-            dict: A dictionary containing processed visual features.
-                  Keys: 'grayscale' (numpy.ndarray, shape (output_height, output_width), dtype uint8),
-                        'edges' (numpy.ndarray, shape (output_height, output_width), dtype uint8).
-                  Returns an empty dictionary `{}` on error or if input is None.
+        ... (Docstring same) ...
         """
         # Error handling: If input is None or not of expected type
         # Use check_input_not_none function (logs and returns False if None)
@@ -123,23 +112,23 @@ class VisionProcessor:
                  logger.debug(f"VisionProcessor.process: Ensured grayscale frame dtype is uint8.")
 
 
-            # 2. Resize (To the output_width x output_height specified in config).
-            # Target size is provided as a tuple: (width, height).
-            # Interpolation method can be specified; INTER_AREA is good for shrinking.
-            # Target dimensions are checked to be positive during init or defaults assigned.
+            # 2. Yeniden boyutlandır (Yapılandırmada belirtilen output_width x output_height boyutuna).
+            # Hedef boyut tuple olarak verilir: (genişlik, yükseklik).
+            # Interpolation metodu belirtilebilir, INTER_AREA küçültme için iyidir.
+            # Hedef boyutların pozitif olduğu init'te kontrol edildi veya varsayılan atandı.
             resized_frame = cv2.resize(gray_frame, (self.output_width, self.output_height), interpolation=cv2.INTER_AREA)
-            logger.debug(f"VisionProcessor.process: Visual data resized to ({self.output_width}, {self.output_height}) dimensions. Shape: {resized_frame.shape}, Dtype: {resized_frame.dtype}")
+            logger.debug(f"VisionProcessor.process: Görsel veri ({self.output_width}, {self.output_height}) boyutuna yeniden boyutlandırıldı. Shape: {resized_frame.shape}, Dtype: {resized_frame.dtype}")
 
             # Add the grayscale, resized frame to the processed features dictionary.
             processed_features['grayscale'] = resized_frame
 
 
-            # 3. Apply edge detection.
-            # Canny edge detector works on grayscale 8-bit (uint8) images.
-            # resized_frame is uint8 and grayscale, so can be used directly.
-            # Thresholds were obtained from config during init and checked to be integers.
+            # 3. Kenar tespiti uygula.
+            # Canny kenar dedektörü gri tonlamalı 8-bit (uint8) resimler üzerinde çalışır.
+            # resized_frame uint8 ve gri olduğu için doğrudan kullanabiliriz.
+            # Eşikler init'te yapılandırmadan alındı ve int olduğu kontrol edildi.
             edges = cv2.Canny(resized_frame, self.canny_low_threshold, self.canny_high_threshold)
-            logger.debug(f"VisionProcessor.process: Applied Canny edge detection. Shape: {edges.shape}, Dtype: {edges.dtype}")
+            logger.debug(f"VisionProcessor.process: Canny kenar tespiti uygulandı. Shape: {edges.shape}, Dtype: {edges.dtype}")
 
             # Add the edge map to the processed features dictionary.
             processed_features['edges'] = edges
@@ -152,6 +141,7 @@ class VisionProcessor:
             if 'grayscale' in processed_features and processed_features['grayscale'].size > 0:
                  avg_brightness = np.mean(processed_features['grayscale'])
                  # Log comparing the mean brightness to config thresholds.
+                 # Use self.brightness_threshold_high/low which are now assigned in __init__
                  logger.debug(f"VisionProcessor.process: Avg Brightness: {avg_brightness:.2f} (High: {self.brightness_threshold_high:.2f}, Low: {self.brightness_threshold_low:.2f})")
             if 'edges' in processed_features and processed_features['edges'].size > 0:
                  avg_edges = np.mean(processed_features['edges'])
@@ -159,15 +149,9 @@ class VisionProcessor:
                  logger.debug(f"VisionProcessor.process: Avg Edges: {avg_edges:.2f} (Threshold: {self.visual_edges_threshold:.2f})")
 
 
-        except cv2.Error as e:
-            # Specific errors originating from the OpenCV library (e.g., invalid dimensions for resizing).
-            # These errors are logged, and an empty dictionary is returned.
-            logger.error(f"VisionProcessor: OpenCV error during processing: {e}", exc_info=True)
-            # Even if the processed_features dictionary is partially filled in case of error,
-            # processing is considered failed for this frame, and an empty dictionary is returned.
-            return {}
+        # Corrected: Use a more general Exception catch as cv2.Error might not inherit BaseException in all environments.
         except Exception as e:
-            # Catch any other unexpected errors during processing steps (e.g., numpy or other library errors).
+            # Catch any unexpected error during processing steps (e.g., opencv, numpy, or other errors).
             # These errors are logged, and an empty dictionary is returned.
             logger.error(f"VisionProcessor: Unexpected error during processing: {e}", exc_info=True)
             # Even if the processed_features dictionary is partially filled in case of error,
