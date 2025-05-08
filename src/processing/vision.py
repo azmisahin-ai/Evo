@@ -5,11 +5,12 @@
 # Evo'nın Faz 1'deki işleme yeteneklerinin bir parçasıdır.
 
 import cv2 # OpenCV kütüphanesi, kamera yakalama ve temel görsel işlemler için. requirements.txt'e eklenmeli.
+import time # Gerekirse zamanlama veya simülasyon için. Şu an doğrudan kullanılmıyor.
 import numpy as np # Sayısal işlemler ve arrayler için.
 import logging # Loglama için.
 
 # Yardımcı fonksiyonları import et (özellikle girdi kontrolleri ve config için)
-from src.core.config_utils import get_config_value
+from src.core.config_utils import get_config_value # <<< get_config_value import edildi
 from src.core.utils import check_input_not_none, check_numpy_input # <<< Utils importları
 
 
@@ -17,18 +18,26 @@ from src.core.utils import check_input_not_none, check_numpy_input # <<< Utils i
 # 'src.processing.vision' adında bir logger döndürür.
 logger = logging.getLogger(__name__)
 
-# src/processing/vision.py
-# ... (imports) ...
-
 class VisionProcessor:
     """
     Evo'nın görsel veriyi işleyen sınıfı (Faz 1 implementasyonu).
-    ... (Docstring aynı) ...
+
+    VisionSensor'dan gelen ham görsel girdiyi (kare) alır,
+    üzerinde temel işlemler yaparak (yeniden boyutlandırma, gri tonlama, kenar tespiti)
+    RepresentationLearner için uygun hale getirir.
+    İşleme sırasında oluşabilecek hataları yönetir ve akışın devamlılığını sağlar.
+    Çıktı olarak işlenmiş farklı özellikleri içeren bir sözlük döndürür.
     """
     def __init__(self, config):
         """
         VisionProcessor'ı başlatır.
-        ... (Docstring aynı) ...
+
+        Args:
+            config (dict): İşlemci yapılandırma ayarları.
+                           'output_width': İşlenmiş görsel çıktının genişliği (int, varsayılan 64).
+                           'output_height': İşlenmiş görsel çıktının yüksekliği (int, varsayılan 64).
+                           'canny_low_threshold': Canny kenar tespiti düşük eşiği (int, varsayılan 50).
+                           'canny_high_threshold': Canny kenar tespiti yüksek eşiği (int, varsayılan 150).
         """
         self.config = config
         logger.info("VisionProcessor başlatılıyor...")

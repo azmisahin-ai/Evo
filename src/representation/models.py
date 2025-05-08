@@ -48,7 +48,7 @@ class Dense:
 
         # Ağırlıkları ve bias'ları rastgele başlat.
         # Daha iyi başlangıç yöntemleri (He, Xavier) kullanılabilir (Gelecek TODO).
-        # np.random.randn normal dağılımdan örnekler çeker.
+        # np.random.randn normal dağımdan örnekler çeker.
         # Çok küçük değerlerle başlamak (0.01 çarpanı) genellikle iyidir.
         # Eğer PyTorch kullanılıyorsa, ağırlıkların PyTorch tensörleri olması ve GPU'ya taşınması gerekebilir.
         # Şimdilik NumPy ile CPU üzerinde kalıyoruz.
@@ -194,15 +194,20 @@ class RepresentationLearner:
         # TODO: input_dim değerinin bu boyutların toplamına eşit olduğunu doğrulayabiliriz.
         # Processor çıktı boyutları RepresentationLearner için config'ten alınıyor, bu doğru.
         # AudioProcessor çıktı boyutu da burada alınıp kullanılabilir.
+        # Config'ten processor çıktı boyutlarını alırken de get_config_value kullanmak tutarlı olur.
         visual_config = config.get('processors', {}).get('vision', {})
         audio_config = config.get('processors', {}).get('audio', {})
-        visual_gray_size = visual_config.get('output_width', 64) * visual_config.get('output_height', 64)
-        visual_edges_size = visual_config.get('output_width', 64) * visual_config.get('output_height', 64) # Genellikle aynı boyut
-        audio_features_dim = audio_config.get('output_dim', 2)
+        # get_config_value kullanarak alt anahtarlardan değer alalım.
+        visual_out_width = get_config_value(visual_config, 'output_width', default=64, expected_type=int, logger_instance=logger) # Use visual_config here
+        visual_out_height = get_config_value(visual_config, 'output_height', default=64, expected_type=int, logger_instance=logger) # Use visual_config here
+        audio_features_dim = get_config_value(audio_config, 'output_dim', default=2, expected_type=int, logger_instance=logger) # Use audio_config here
+
+        visual_gray_size = visual_out_width * visual_out_height
+        visual_edges_size = visual_out_width * visual_out_height # Genellikle aynı boyut
         expected_input_dim_calc = visual_gray_size + visual_edges_size + audio_features_dim
 
         if self.input_dim != expected_input_dim_calc:
-             logger.warning(f"RepresentationLearner: Config'teki input_dim ({self.input_dim}) beklenen hesaplanmış değer ({expected_input_dim_calc}) ile eşleşmiyor. Lütfen config dosyasını kontrol edin. Hesaplanan boyut Processing çıktı boyutlarına göre belirlenir.")
+             logger.warning(f"RepresentationLearner: Config'teki input_dim ({self.input_dim}) beklenen hesaplanmış değer ({expected_input_dim_calc}) ile eşleşmiyor. Lütfen config dosyasındaki 'representation.input_dim' ayarını ve Processor'ların çıktı boyutlarını ('processors.vision.output_width/height', 'processors.audio.output_dim') kontrol edin.")
              # İsteğe bağlı: Bu durumda self.input_dim'i hesaplanan değere set edilebilir
              # self.input_dim = expected_input_dim_calc
 

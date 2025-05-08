@@ -66,9 +66,7 @@ class Memory:
         # Config'e göre bu ayarlar 'memory' anahtarı altında.
         self.max_memory_size = get_config_value(config, 'memory', 'max_memory_size', default=1000, expected_type=int, logger_instance=logger)
         self.num_retrieved_memories = get_config_value(config, 'memory', 'num_retrieved_memories', default=5, expected_type=int, logger_instance=logger)
-        # Representation boyutu config'in 'representation' anahtarı altında da olabilir.
-        # Memory modülü kendi config'inden veya genel representation config'inden alabilir.
-        # Config'e göre 'memory' altında 'representation_dim' yok. 'representation' altında var.
+        # Representation boyutu config'in 'representation' anahtarı altında. Memory'nin kendi config'inde yok.
         self.representation_dim = get_config_value(config, 'representation', 'representation_dim', default=128, expected_type=int, logger_instance=logger)
 
         # memory_file_path config'den alınıyor.
@@ -87,7 +85,7 @@ class Memory:
 
         # representation_dim için pozitif değer kontrolü
         if self.representation_dim <= 0:
-             logger.warning(f"Memory: Konfigürasyonda representation_dim geçersiz ({self.representation_dim}). Varsayılan 128 kullanılıyor.")
+             logger.warning(f"Memory: Konfigürasyonda representation_dim geçersiz ({self.representation_dim}). Pozitif bir değer bekleniyordu. Varsayılan 128 kullanılıyor.")
              self.representation_dim = 128
 
 
@@ -129,6 +127,8 @@ class Memory:
 
         logger.info(f"Memory modülü başlatıldı. Maksimum Core Bellek boyutu: {self.max_memory_size}. Varsayılan geri çağrı sayısı: {self.num_retrieved_memories}. Kalıcılık dosyası: {self.memory_file_path}. Yüklenen anı sayısı: {len(self.core_memory_storage)}")
 
+
+    # ... (_load_from_storage, _save_to_storage, store, retrieve, get_all_representations, cleanup methods - same as before) ...
 
     def _load_from_storage(self):
         """

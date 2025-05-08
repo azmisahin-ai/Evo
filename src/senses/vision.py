@@ -42,6 +42,7 @@ class VisionSensor:
 
         # Yapılandırmadan ayarları alırken get_config_value kullan
         # audio config anahtarı altındaki değerleri okuyoruz
+        # Düzeltme: get_config_value çağrılarını default=keyword formatına çevir.
         self.camera_index = get_config_value(config, 'vision', 'camera_index', default=0, expected_type=int, logger_instance=logger)
         self.dummy_width = get_config_value(config, 'vision', 'dummy_width', default=640, expected_type=int, logger_instance=logger)
         self.dummy_height = get_config_value(config, 'vision', 'dummy_height', default=480, expected_type=int, logger_instance=logger)
@@ -92,6 +93,8 @@ class VisionSensor:
 
         logger.info(f"VisionSensor başlatıldı. Kamera aktif: {self.is_camera_available}, Simüle Mod: {self.is_dummy}")
 
+
+    # ... (capture_frame, stop_stream, cleanup methods - same as before) ...
 
     def capture_frame(self):
         """

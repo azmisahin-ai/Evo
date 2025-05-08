@@ -54,7 +54,7 @@ class AudioSensor:
         self.audio_chunk_size = get_config_value(config, 'audio', 'audio_chunk_size', default=1024, expected_type=int, logger_instance=logger)
         # Düzeltme: audio_input_device_index için default=None kullan.
         self.audio_input_device_index = get_config_value(config, 'audio', 'audio_input_device_index', default=None, expected_type=(int, type(None)), logger_instance=logger)
-        # Düzeltme: is_dummy config'te audio altında, vision altında değil. Config dosyasındaki yola göre düzeltildi.
+        # Düzeltme: is_dummy config'te audio altında.
         self.is_dummy = get_config_value(config, 'audio', 'is_dummy', default=False, expected_type=bool, logger_instance=logger)
 
 
@@ -150,7 +150,7 @@ class AudioSensor:
                 # Bu hata run_module_test tarafından yakalanacak ve test başarısız sayılacak.
                 logger.error(f"AudioSensor başlatılırken hata oluştu: {e}", exc_info=True)
                 self.is_audio_available = False # Hata durumunda ses aktif değil.
-                # Hata durumında açılmış olabilecek kaynakları temizlemeyi dene.
+                # Hata durumunda açılmış olabilecek kaynakları temizlemeyi dene.
                 if self.stream:
                      try:
                           self.stream.stop_stream()
@@ -171,8 +171,7 @@ class AudioSensor:
         logger.info(f"AudioSensor başlatıldı. Ses aktif: {self.is_audio_available}, Simüle Mod: {self.is_dummy}")
 
 
-    # ... (capture_chunk, stop_stream, terminate_pyaudio, cleanup methods) ...
-
+    # ... (capture_chunk, stop_stream, terminate_pyaudio, cleanup methods - same as before) ...
 
     def capture_chunk(self):
         """

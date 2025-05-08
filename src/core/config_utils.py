@@ -58,7 +58,7 @@ def get_config_value(config: dict, *keys: str, default=None, expected_type=None,
     Args:
         config (dict): Bakılacak yapılandırma sözlüğü.
         *keys (str): İç içe geçmiş anahtar adımları. Örn: 'logging', 'level' veya ('logging', 'level').
-                     Bu parametre YALNIZCA string veya tuple olarak GEÇİLMELİDİR.
+                     Bu parametre YALNIZCA string olarak GEÇİLMELİDİR (veya string'lerden oluşan tuple).
         default (any, optional): Anahtar bulunamazsa, yol geçersizse veya tip uyuşmazsa
                                  döndürülecek varsayılan değer. Varsayılanı None'dır.
                                  Bu parametre YALNIZCA default=... şeklinde keyword argüman olarak verilmelidir.
@@ -71,7 +71,7 @@ def get_config_value(config: dict, *keys: str, default=None, expected_type=None,
     """
     log = logger_instance if logger_instance is not None else logger
 
-    # Workaround tamamen kaldırıldı. Çağrı formatı artık daha katı.
+    # Workaround kaldırıldı. Çağrı formatı artık daha katı.
     # Eğer *keys içinde string olmayan bir şey varsa (eski positional default gibi),
     # bu aşağıdaki for döngüsünde TypeError veya başka bir hata fırlatır ve yakalanır.
     # Bu, yanlış çağrı formatlarının derleme zamanı yerine çalışma zamanında hata vermesine neden olur,
@@ -93,18 +93,19 @@ def get_config_value(config: dict, *keys: str, default=None, expected_type=None,
          final_value = config # Bulunan değer config dict'in kendisi
 
          # Anahtar yolu boşken de tip kontrolü yapılabilir (örn: expected_type=dict)
-         if final_value is not None and expected_type is not None:
-             # isinstance kullanırken tuple da kabul edilir. numpy tipleri için özel kontrol ekleyelim.
-             is_correct_type = False
-             # ... (tip kontrol mantığı aynı) ...
-             # Bu blok aşağıdaki genel tip kontrolüyle aynı, kodu tekrarlamamak için atlayabiliriz.
-             pass # Genel tip kontrolü aşağıda yapılacak
+         # Bu blok aşağıdaki genel tip kontrolüyle aynı, kodu tekrarlamamak için atlayabiliriz.
+         pass # Normal akış devam eder
 
 
     try:
         # Anahtar yolu boyunca ilerle
         # keys tuple'ını kullan (listeye çevirmeye gerek yok artık)
         for i, key in enumerate(keys):
+            # Eğer key string değilse (eski positional default gibi), bu bir hata olmalı.
+            if not isinstance(key, str):
+                 log.error(f"get_config_value: '{path_str}' yolu takip edilirken anahtar beklenmeyen tipte: {type(key)}. String bekleniyordu (adım {i+1}/{len(keys)}). Varsayılan ({default}) dönülüyor.", exc_info=True)
+                 return default # Anahtar string değilse hata.
+
             # Eğer mevcut değer bir dict değilse ve hala path'in ortasındaysak, yol geçersiz.
             # keys boş değilse döngüye girilir.
             if not isinstance(current_value, dict):
@@ -143,7 +144,7 @@ def get_config_value(config: dict, *keys: str, default=None, expected_type=None,
         # Genel hata yakalandı (bu blok teorik olarak çok çalışmamalı)
         log.error(f"get_config_value: '{path_str}' yolu takip edilirken genel hata yakalandı: {e}", exc_info=True)
         log.debug(f"get_config_value: Genel hata sonrası varsayılan değer ({default}) dönüyor.")
-        return default # Hata durumunda varsayılan döndür.
+        return default # Hata durumında varsayılan döndür.
 
 
     # --- Tip kontrolü yapalım ---
