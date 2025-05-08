@@ -74,13 +74,15 @@ motor_control:
 
 # Interaction modülleri ayarları
 interaction:
-  enabled_channels: ["console", "web_api"]
+  enabled_channels:
+    - console
+    # - web_api
   channel_configs:
     console: {}
     web_api:
       port: 5000
       host: "127.0.0.1"  # Web API için host ve port ayarları
-      endpoint: "/evo_output" # API endpointi
+      endpoint: "/output" # API endpointi
 
 # Loglama Ayarları
 logging:
@@ -90,7 +92,7 @@ logging:
       level: DEBUG # Konsol için daha detaylı loglama (geliştirme sırasında)
       color: true
     - type: file
-      filename: logs/evo_all.log
+      filename: logs/all.log
       level: DEBUG # Dosyaya tüm DEBUG logları
       color: false
     - type: socket
