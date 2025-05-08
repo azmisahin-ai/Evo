@@ -1,131 +1,149 @@
-# tests/processing/test_vision.py
+# tests/unit/processing/test_vision.py
 
 import pytest
 import numpy as np
 import os
 import sys
+import logging
+import cv2 # Import cv2 as VisionProcessor uses it internally
 
-# Test edilecek modülü içe aktar
+# Import the module to be tested
 try:
     from src.processing.vision import VisionProcessor
-    # src.core.config_utils'u da içe aktaralım, config oluşturmak için gerekebilir
-    from src.core.config_utils import load_config_from_yaml
-    # setup_logging'i de içe aktaralım, testler çalışırken log görmek faydalı olabilir
-    from src.core.logging_utils import setup_logging
-    import logging
-    # Testler için loglamayı yapılandır (INFO seviyesinde)
-    setup_logging(config=None)
-    test_logger = logging.getLogger(__name__)
-    test_logger.info("src modülleri ve loglama başarıyla içe aktarıldı.")
-
+    # Import necessary config and utils helpers
+    from src.core.config_utils import get_config_value
+    from src.core.utils import check_numpy_input
 except ImportError as e:
-    pytest.fail(f"src modülleri içe aktarılamadı. Proje kök dizininden çalıştığınızdan emin olun veya PYTHONPATH'i ayarlayın. Hata: {e}")
+    pytest.fail(f"Failed to import src modules. Ensure you are running pytest from the project root or PYTHONPATH is configured correctly. Error: {e}")
 
-# VisionProcessor testi için temel bir yapılandırma objesi (pytest fixture daha iyi olabilir gelecekte)
-# Bu, VisionProcessor'ın init metodunun veya process metodunun ihtiyaç duyabileceği config değerlerini içermelidir.
-# scripts/test_module.py'deki create_dummy_method_inputs fonksiyonundan ipuçları alarak oluşturuldu.
+# Create a logger for this test file. Level will be configured by conftest.
+test_logger = logging.getLogger(__name__)
+test_logger.info("src.processing.vision and necessary helpers imported successfully for testing.")
+
+
 @pytest.fixture(scope="module")
-def dummy_vision_config():
-    """VisionProcessor testi için sahte yapılandırma sözlüğü sağlar."""
-    # VisionProcessor'ın init veya process sırasında ihtiyaç duyabileceği config değerleri
-    # Gerçek config dosyasını yüklemek yerine manuel olarak oluşturuyoruz.
+def dummy_vision_processor_config():
+    """Provides a dummy configuration dictionary for VisionProcessor testing."""
+    # Configuration values that VisionProcessor's init or process might need.
+    # These should reflect the structure in main_config.yaml.
     config = {
-        'vision': {
-            'input_width': 640,
-            'input_height': 480,
-            # ... VisionProcessor'ın kullandığı diğer vision configleri ...
-        },
         'processors': {
              'vision': {
-                 'output_width': 64, # Bu değer process çıktısının şeklini etkileyebilir
-                 'output_height': 64, # Bu değer process çıktısının şeklini etkileyebilir
-                 'grayscale_weight': 0.7, # Process logic'te kullanılabilir
-                 'edge_threshold': 100, # Process logic'te kullanılabilir
-                 # ... VisionProcessor'ın kullandığı diğer processor.vision configleri ...
+                 'output_width': 64, # Expected output dimensions
+                 'output_height': 64,
+                 'canny_low_threshold': 50, # Canny thresholds
+                 'canny_high_threshold': 150,
              }
         },
-        # ... diğer genel configler ...
+        'cognition': { # Brightness thresholds are under cognition in main_config.yaml
+             'brightness_threshold_high': 200.0,
+             'brightness_threshold_low': 50.0,
+             'visual_edges_threshold': 50.0 # Edge threshold is also under cognition for UnderstandingModule
+        },
+        # ... other general config sections if VisionProcessor needs them ...
     }
-    test_logger.debug("Sahte vision config fixture oluşturuldu.")
+    test_logger.debug("Dummy vision processor config fixture created.")
     return config
 
 
 @pytest.fixture(scope="module")
-def vision_processor_instance(dummy_vision_config):
-    """Sahte yapılandırma ile VisionProcessor örneği sağlar."""
+def vision_processor_instance(dummy_vision_processor_config):
+    """Provides a VisionProcessor instance with dummy configuration."""
+    test_logger.debug("Creating VisionProcessor instance...")
     try:
-        # VisionProcessor'ın __init__ metodunun config aldığını varsayarak başlatıyoruz
-        processor = VisionProcessor(dummy_vision_config)
-        test_logger.debug("VisionProcessor instance oluşturuldu.")
-        yield processor # Test fonksiyonuna instance'ı ver
-        # Testler bittikten sonra cleanup (varsa) çağrılabilir
+        # Initialize the VisionProcessor. Assuming its __init__ takes a config dict.
+        processor = VisionProcessor(dummy_vision_processor_config)
+        test_logger.debug("VisionProcessor instance created.")
+        yield processor # Provide the instance to the test function
+        # Optional: Call cleanup if the module has one.
         if hasattr(processor, 'cleanup'):
              processor.cleanup()
-             test_logger.debug("VisionProcessor cleanup çağrıldı.")
+             test_logger.debug("VisionProcessor cleanup called.")
     except Exception as e:
-        pytest.fail(f"VisionProcessor başlatılırken hata oluştu: {e}", exc_info=True)
+        # If initialization fails, fail the test.
+        test_logger.error(f"VisionProcessor initialization failed: {e}", exc_info=True)
+        pytest.fail(f"VisionProcessor initialization failed: {e}")
 
 
-def test_vision_processor_basic_processing(vision_processor_instance):
+def test_vision_processor_init_with_valid_config(vision_processor_instance, dummy_vision_processor_config):
+    """Tests that VisionProcessor initializes successfully with a valid config."""
+    test_logger.info("test_vision_processor_init_with_valid_config test started.")
+    # The fixture itself ensures successful initialization.
+    # Additional assertions can check if configuration values were assigned correctly.
+    assert vision_processor_instance.output_width == 64
+    assert vision_processor_instance.output_height == 64
+    assert vision_processor_instance.canny_low_threshold == 50
+    assert vision_processor_instance.canny_high_threshold == 150
+    assert vision_processor_instance.brightness_threshold_high == 200.0
+    assert vision_processor_instance.brightness_threshold_low == 50.0
+    # Note: visual_edges_threshold is not read by VisionProcessor itself, but needed for logging in process method.
+
+    test_logger.info("test_vision_processor_init_with_valid_config test completed successfully.")
+
+
+def test_vision_processor_process_basic(vision_processor_instance, dummy_vision_processor_config):
     """
-    VisionProcessor'ın process metodunun sahte bir görüntü ile doğru çıktıyı ürettiğini test eder.
+    Tests that the VisionProcessor's process method produces the correct output format
+    with a basic dummy image input.
     """
-    test_logger.info("test_vision_processor_basic_processing testi başlatıldı.")
+    test_logger.info("test_vision_processor_process_basic test started.")
 
-    # VisionProcessor.process metodunun beklediği sahte girdi verisi (BGR numpy array)
-    # Boyutlar config ile uyumlu olmalı veya process metodunun esnek olması gerekir.
-    # scripts/test_module.py'deki create_dummy_method_inputs'a benzer bir input oluşturalım.
-    dummy_height = 480
-    dummy_width = 640
-    dummy_frame = np.random.randint(0, 256, size=(dummy_height, dummy_width, 3), dtype=np.uint8)
-    test_logger.debug(f"Sahte girdi görüntüsü oluşturuldu: {dummy_frame.shape}, {dummy_frame.dtype}")
+    # Dummy input data for VisionProcessor.process method (BGR numpy array).
+    # Use dummy sensor dimensions for the input image size.
+    dummy_input_height = get_config_value(dummy_vision_processor_config, 'vision', 'dummy_height', default=480, expected_type=int) # These might not be in processor config
+    dummy_input_width = get_config_value(dummy_vision_processor_config, 'vision', 'dummy_width', default=640, expected_type=int) # Check main_config.yaml if vision section is available at top level
+
+    # Let's assume the VisionProcessor init takes the full config and can get vision sensor params itself if needed,
+    # or just use arbitrary input size here. The test should focus on processing logic relative to output size.
+    # Use a fixed input size for the dummy frame, common webcam resolution.
+    input_height = 480
+    input_width = 640
+    dummy_frame = np.random.randint(0, 256, size=(input_height, input_width, 3), dtype=np.uint8)
+    test_logger.debug(f"Created dummy input image: {dummy_frame.shape}, {dummy_frame.dtype}")
 
 
-    # Process metodunu çağır
+    # Call the process method
     try:
         processed_output = vision_processor_instance.process(dummy_frame)
-        test_logger.debug(f"VisionProcessor.process çağrıldı. Çıktı tipi: {type(processed_output)}")
+        test_logger.debug(f"VisionProcessor.process called. Output type: {type(processed_output)}")
 
     except Exception as e:
-        pytest.fail(f"VisionProcessor.process çalıştırılırken hata oluştu: {e}", exc_info=True)
+        test_logger.error(f"Unexpected error while executing VisionProcessor.process: {e}", exc_info=True)
+        pytest.fail(f"Unexpected error while executing VisionProcessor.process: {e}")
 
 
-    # --- Çıktıyı Kontrol Et (Assert) ---
-    # scripts/test_module.py'deki create_dummy_method_inputs RepresentationLearner için
-    # VisionProcessor çıktısının {'grayscale': array, 'edges': array} dictionary'si olduğunu varsayıyor.
-    # Testimiz de bu varsayımı kontrol etsin.
+    # --- Assert the Output ---
+    # VisionProcessor.process is expected to return a dictionary with 'grayscale' and 'edges' keys.
+    # The arrays inside should have the configured output dimensions and uint8 dtype.
 
-    # 1. Çıktı bir sözlük mü?
-    assert isinstance(processed_output, dict), f"Process çıktısı dict olmalı, alınan tip: {type(processed_output)}"
-    test_logger.debug("Assert geçti: Çıktı tipi dict.")
+    # 1. Is the output a dictionary?
+    assert isinstance(processed_output, dict), f"Process output should be a dict, received type: {type(processed_output)}"
+    test_logger.debug("Assertion passed: Output type is dict.")
 
-    # 2. Beklenen anahtarları içeriyor mu?
+    # 2. Does it contain the expected keys?
     expected_keys = ['grayscale', 'edges']
     for key in expected_keys:
-        assert key in processed_output, f"Çıktı sözlüğü '{key}' anahtarını içermeli."
-        assert isinstance(processed_output[key], np.ndarray), f"'{key}' değeri numpy array olmalı."
-        # İsteğe bağlı: Çıktı array'lerinin şeklini veya dtype'ını kontrol et
-        # Bu, VisionProcessor'ın implementasyonuna bağlıdır.
-        # Örneğin, 64x64 gri tonlama ve kenar haritaları bekleniyorsa:
+        assert key in processed_output, f"Output dictionary should contain key '{key}'."
+        assert isinstance(processed_output[key], np.ndarray), f"Value for key '{key}' should be a numpy array."
+        # Check the shape and dtype of the output arrays based on processor config.
         expected_output_shape = (
-             vision_processor_instance.config['processors']['vision']['output_height'],
-             vision_processor_instance.config['processors']['vision']['output_width']
+             vision_processor_instance.output_height,
+             vision_processor_instance.output_width
         )
-        assert processed_output[key].shape == expected_output_shape, f"'{key}' çıktısı beklenen şekle sahip olmalı. Beklenen: {expected_output_shape}, Alınan: {processed_output[key].shape}"
-        assert processed_output[key].dtype == np.uint8, f"'{key}' çıktısı beklenen dtype'a sahip olmalı. Beklenen: np.uint8, Alınan: {processed_output[key].dtype}"
-        test_logger.debug(f"Assert geçti: Çıktı sözlüğü '{key}' anahtarını içeriyor, numpy array ve beklenen şekil/dtype'a sahip.")
+        assert processed_output[key].shape == expected_output_shape, f"Output for '{key}' should have expected shape. Expected: {expected_output_shape}, Received: {processed_output[key].shape}"
+        assert processed_output[key].dtype == np.uint8, f"Output for '{key}' should have expected dtype. Expected: np.uint8, Received: {processed_output[key].dtype}"
+        test_logger.debug(f"Assertion passed: Output dictionary contains key '{key}', is numpy array, and has expected shape/dtype.")
 
 
-    # 3. Çıktı None değil mi? (Zaten isinstance kontrolü ile örtülü ama netleştirebilir)
-    assert processed_output is not None, "Process çıktısı None olmamalı."
-    test_logger.debug("Assert geçti: Çıktı None değil.")
+    # 3. Is the output not None?
+    assert processed_output is not None, "Process output should not be None."
+    test_logger.debug("Assertion passed: Output is not None.")
+
+    test_logger.info("test_vision_processor_process_basic test completed successfully.")
 
 
-    test_logger.info("test_vision_processor_basic_processing testi başarıyla tamamlandı.")
-
-
-# TODO: VisionProcessor için daha fazla test senaryosu eklenebilir:
-# - Farklı girdi boyutları (eğer destekleniyorsa)
-# - Boş veya geçersiz girdi
-# - Config değerlerinin (örn. grayscale_weight, edge_threshold) çıktıyı etkilediği durumlar
-# - Hata işleme senaryoları
+# TODO: More test scenarios for VisionProcessor:
+# - Test with grayscale input image.
+# - Test with None or empty input.
+# - Test with invalid input (wrong dtype, wrong dimensions).
+# - Test that thresholds affect the output content (requires more advanced assertions).

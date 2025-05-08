@@ -2,143 +2,168 @@
 
 import pytest
 import numpy as np
-import os # BASE_DIR kalktı ama os hala gerekebilir (kullanılmıyorsa kaldırılabilir)
-import sys # BASE_DIR kalktı ama sys hala gerekebilir (kullanılmıyorsa kaldırılabilir)
+import os
+import sys
 import logging
 
-# Test edilecek modülü içe aktar
+# Import the module to be tested
 try:
-    # Artık BASE_DIR hesaplamasına gerek yok, src doğrudan import edilebilir
     from src.representation.models import RepresentationLearner
-    # get_config_value artık config_utils'da olduğu için doğru yerden import edilecek
-    from src.core.config_utils import get_config_value, load_config_from_yaml # load_config_from_yaml testte kullanılmasa da dursun
-    from src.core.logging_utils import setup_logging
-    # Testler için loglamayı yapılandır
-    setup_logging(config=None)
-    test_logger = logging.getLogger(__name__)
-    test_logger.info("src.representation.models ve loglama başarıyla içe aktarıldı.")
-
+    # Import necessary config and utils helpers
+    from src.core.config_utils import get_config_value, load_config_from_yaml # load_config_from_yaml not strictly needed but okay
+    from src.core.utils import check_numpy_input # Used for input validation in the module
 except ImportError as e:
-    # sys.path düzeltildiğinden bu hata oluşmamalı, oluşursa ciddi bir sorun var demektir.
-    pytest.fail(f"src modülleri içe aktarılamadı. conftest.py'nin doğru çalıştığından emin olun. Hata: {e}")
+    pytest.fail(f"Failed to import src modules. Ensure you are running pytest from the project root or PYTHONPATH is configured correctly. Error: {e}")
+
+# Create a logger for this test file. Level will be configured by conftest.
+test_logger = logging.getLogger(__name__)
+test_logger.info("src.representation.models and necessary helpers imported successfully for testing.")
 
 @pytest.fixture(scope="module")
 def dummy_learner_config():
-    """RepresentationLearner testi için sahte yapılandırma sözlüğü sağlar."""
-    # RepresentationLearner'ın init veya learn metodunda ihtiyaç duyabileceği config değerleri
+    """Provides a dummy configuration dictionary for RepresentationLearner testing."""
+    # Configuration values that RepresentationLearner's init or learn might need.
+    # These should reflect the structure in main_config.yaml.
     config = {
-        'processors': { # Processors'ın çıktı boyutlarına ihtiyaç duyar (sahte)
+        'processors': { # Need processor output dimensions to calculate expected input_dim
              'vision': {
                  'output_width': 64,
                  'output_height': 64,
              },
              'audio': {
-                 'output_dim': 2, # AudioProcessor'ın gerçek implementasyonuna göre 2
+                 'output_dim': 2, # Based on AudioProcessor's current implementation
              }
         },
-        'representation': {
-             'representation_dim': 128, # Öğrencinin çıktı vektörü boyutu (bu testte beklenen)
-             # ... RepresentationLearner'ın kullandığı diğer representation configleri ...
+        'representation': { # RepresentationLearner's own config section
+             'input_dim': (64*64) + (64*64) + 2, # Explicitly calculate based on dummy processor sizes
+             'representation_dim': 128, # Expected output vector dimension
+             # ... other representation config if RepresentationLearner uses them ...
         },
-        # ... diğer genel configler ...
+        # ... other general config sections ...
     }
-    test_logger.debug("Sahte learner config fixture oluşturuldu.")
+    test_logger.debug("Dummy learner config fixture created.")
     return config
 
 
 @pytest.fixture(scope="module")
 def representation_learner_instance(dummy_learner_config):
-    """Sahte yapılandırma ile RepresentationLearner örneği sağlar."""
+    """Provides a RepresentationLearner instance with dummy configuration."""
+    test_logger.debug("Creating RepresentationLearner instance...")
     try:
-        # RepresentationLearner'ın __init__ metodunun config aldığını varsayıyoruz
+        # Initialize the RepresentationLearner. Assuming its __init__ takes a config dict.
         learner = RepresentationLearner(dummy_learner_config)
-        test_logger.debug("RepresentationLearner instance oluşturuldu.")
-        yield learner # Test fonksiyonuna instance'ı ver
-        # Testler bittikten sonra cleanup (varsa) çağrılabilir
+        test_logger.debug("RepresentationLearner instance created.")
+        yield learner # Provide the instance to the test function
+        # Optional: Call cleanup if the module has one.
+        # RepresentationLearner has a cleanup that calls its layers' cleanup.
         if hasattr(learner, 'cleanup'):
              learner.cleanup()
-             test_logger.debug("RepresentationLearner cleanup çağrıldı.")
+             test_logger.debug("RepresentationLearner cleanup called.")
     except Exception as e:
-        pytest.fail(f"RepresentationLearner başlatılırken hata oluştu: {e}", exc_info=True)
+        # If initialization fails, fail the test.
+        test_logger.error(f"RepresentationLearner initialization failed: {e}", exc_info=True)
+        pytest.fail(f"RepresentationLearner initialization failed: {e}")
+
+
+def test_representation_learner_init_with_valid_config(representation_learner_instance, dummy_learner_config):
+    """Tests that RepresentationLearner initializes successfully with a valid config."""
+    test_logger.info("test_representation_learner_init_with_valid_config test started.")
+    # The fixture itself ensures successful initialization.
+    # Additional assertions can check if configuration values were assigned correctly.
+    assert representation_learner_instance.input_dim == (64*64) + (64*64) + 2 # Check calculated input_dim
+    assert representation_learner_instance.representation_dim == 128
+    # Check if internal layers were created (basic check)
+    assert hasattr(representation_learner_instance, 'encoder') and representation_learner_instance.encoder is not None
+    assert hasattr(representation_learner_instance, 'decoder') and representation_learner_instance.decoder is not None
+    # Check layer dimensions (more detailed check)
+    assert representation_learner_instance.encoder.input_dim == representation_learner_instance.input_dim
+    assert representation_learner_instance.encoder.output_dim == representation_learner_instance.representation_dim
+    assert representation_learner_instance.decoder.input_dim == representation_learner_instance.representation_dim
+    assert representation_learner_instance.decoder.output_dim == representation_learner_instance.input_dim
+
+
+    test_logger.info("test_representation_learner_init_with_valid_config test completed successfully.")
 
 
 def test_representation_learner_basic_learn(representation_learner_instance, dummy_learner_config):
     """
-    RepresentationLearner'ın learn metodunun sahte girdilerle doğru çıktıyı ürettiğini test eder.
+    Tests that the RepresentationLearner's learn method produces the correct output format
+    with basic dummy processed inputs.
     """
-    test_logger.info("test_representation_learner_basic_learn testi başlatıldı.")
+    test_logger.info("test_representation_learner_basic_learn test started.")
 
-    # RepresentationLearner.learn metodunun beklediği sahte girdi verisi
-    # Bu girdi {'visual': dict, 'audio': np.ndarray} formatında olmalı.
-    # Bu dictionary, VisionProcessor ve AudioProcessor'ın process çıktılarının birleşimidir.
+    # Dummy input data for RepresentationLearner.learn method.
+    # This input should be in the format of Processors' output: {'visual': dict, 'audio': np.ndarray}.
+    # The dictionary should contain data in the format expected by RepresentationLearner's input combination logic.
 
-    # Sahte VisionProcessor çıktısı dictionary'si
-    vis_out_w = get_config_value(dummy_learner_config, 'processors', 'vision', 'output_width', default=64)
-    vis_out_h = get_config_value(dummy_learner_config, 'processors', 'vision', 'output_height', default=64)
-    # Sahte grayscale ve edges arrayleri (VisionProcessor çıktısının formatı)
+    # Dummy VisionProcessor output dictionary
+    vis_out_w = get_config_value(dummy_learner_config, 'processors', 'vision', 'output_width', default=64, expected_type=int)
+    vis_out_h = get_config_value(dummy_learner_config, 'processors', 'vision', 'output_height', default=64, expected_type=int)
+    # Dummy grayscale and edges arrays (in VisionProcessor output format)
     dummy_processed_visual_gray = np.random.randint(0, 256, size=(vis_out_h, vis_out_w), dtype=np.uint8)
     dummy_processed_visual_edges = np.random.randint(0, 256, size=(vis_out_h, vis_out_w), dtype=np.uint8)
     dummy_visual_input = {'grayscale': dummy_processed_visual_gray, 'edges': dummy_processed_visual_edges}
-    test_logger.debug(f"Sahte visual input oluşturuldu: {list(dummy_visual_input.keys())}")
+    test_logger.debug(f"Created dummy visual input for learn: {list(dummy_visual_input.keys())}")
 
 
-    # Sahte AudioProcessor çıktısı array'i
-    audio_out_dim = get_config_value(dummy_learner_config, 'processors', 'audio', 'output_dim', default=2)
-    dummy_audio_input = np.random.rand(audio_out_dim).astype(np.float32) # Float32 veya float64 olabilir? RepLearner implementasyonuna bağlı
-    test_logger.debug(f"Sahte audio input oluşturuldu: {dummy_audio_input.shape}, {dummy_audio_input.dtype}")
+    # Dummy AudioProcessor output array
+    audio_out_dim = get_config_value(dummy_learner_config, 'processors', 'audio', 'output_dim', default=2, expected_type=int)
+    dummy_audio_input = np.random.rand(audio_out_dim).astype(np.float32) # Use float32 as specified in AudioProcessor output
+    test_logger.debug(f"Created dummy audio input for learn: {dummy_audio_input.shape}, {dummy_audio_input.dtype}")
 
 
-    # RepresentationLearner.learn metoduna verilecek birleşik girdi
+    # Combined input for RepresentationLearner.learn method
     dummy_processed_inputs = {
         'visual': dummy_visual_input,
         'audio': dummy_audio_input
     }
-    test_logger.debug(f"Sahte learn metod girdisi oluşturuldu: {list(dummy_processed_inputs.keys())}")
+    test_logger.debug(f"Created dummy learn method input processed_inputs: {list(dummy_processed_inputs.keys())}")
 
 
-    # Learn metodunu çağır
+    # Call the learn method
     try:
         learned_representation = representation_learner_instance.learn(dummy_processed_inputs)
-        test_logger.debug(f"RepresentationLearner.learn çağrıldı. Çıktı tipi: {type(learned_representation)}")
+        test_logger.debug(f"RepresentationLearner.learn called. Output type: {type(learned_representation)}")
 
     except Exception as e:
-        pytest.fail(f"RepresentationLearner.learn çalıştırılırken hata oluştu: {e}", exc_info=True)
+        test_logger.error(f"Unexpected error while executing RepresentationLearner.learn: {e}", exc_info=True)
+        pytest.fail(f"Unexpected error while executing RepresentationLearner.learn: {e}")
 
 
-    # --- Çıktıyı Kontrol Et (Assert) ---
-    # RepresentationLearner'ın Representation vektörü (numpy array) döndürmesi beklenir.
-    # Boyutu config'deki representation_dim ile uyumlu olmalıdır.
-    expected_representation_dim = get_config_value(dummy_learner_config, 'representation', 'representation_dim', default=128)
+    # --- Assert the Output ---
+    # RepresentationLearner is expected to return a Representation vector (numpy array).
+    # Its dimension should match the representation_dim from config.
+    expected_representation_dim = representation_learner_instance.representation_dim
 
-    # 1. Çıktı bir numpy array mi?
-    assert isinstance(learned_representation, np.ndarray), f"Learn çıktısı numpy array olmalı, alınan tip: {type(learned_representation)}"
-    test_logger.debug("Assert geçti: Çıktı tipi numpy array.")
+    # 1. Is the output a numpy array?
+    assert isinstance(learned_representation, np.ndarray), f"Learn output should be a numpy array, received type: {type(learned_representation)}"
+    test_logger.debug("Assertion passed: Output type is numpy array.")
 
-    # 2. Beklenen şekle sahip mi? (Tek boyutlu representation vektörü bekleniyor)
+    # 2. Does it have the expected shape? (1D representation vector expected)
     expected_representation_shape = (expected_representation_dim,)
-    assert learned_representation.shape == expected_representation_shape, f"Representation vektörü beklenen şekle sahip olmalı. Beklenen: {expected_representation_shape}, Alınan: {learned_representation.shape}"
-    test_logger.debug("Assert geçti: Çıktı beklenen şekle sahip.")
+    assert learned_representation.shape == expected_representation_shape, f"Representation vector should have the expected shape. Expected: {expected_representation_shape}, Received: {learned_representation.shape}"
+    test_logger.debug("Assertion passed: Output has expected shape.")
 
-    # 3. Beklenen dtype'a sahip mi? (Genellikle float beklenir)
-    assert np.issubdtype(learned_representation.dtype, np.floating), f"Representation vektörü float tipi olmalı, alınan dtype: {learned_representation.dtype}"
-    test_logger.debug("Assert geçti: Çıktı float dtype'a sahip.")
+    # 3. Does it have the expected dtype? (Generally float expected)
+    # Check if it's a floating-point type.
+    assert np.issubdtype(learned_representation.dtype, np.floating), f"Representation vector should be of a float type, received dtype: {learned_representation.dtype}"
+    test_logger.debug("Assertion passed: Output has a float dtype.")
 
-    # 4. Çıktı None değil mi?
-    assert learned_representation is not None, "Representation vektörü None olmamalı."
-    test_logger.debug("Assert geçti: Çıktı None değil.")
+    # 4. Is the output not None?
+    assert learned_representation is not None, "Representation vector should not be None."
+    test_logger.debug("Assertion passed: Output is not None.")
 
-    # 5. Değerler makul mü? (Örneğin, NaN veya inf içermemeli)
-    # Bu, modelin ağırlıkları başlatıldığında bazen olabilir.
-    assert not np.isnan(learned_representation).any(), "Representation vektörü NaN değerler içeriyor."
-    assert not np.isinf(learned_representation).any(), "Representation vektörü Inf değerler içeriyor."
-    test_logger.debug("Assert geçti: Çıktı NaN veya Inf içermiyor.")
-
-
-    test_logger.info("test_representation_learner_basic_learn testi başarıyla tamamlandı.")
+    # 5. Are values reasonable? (e.g., should not contain NaN or Inf)
+    assert not np.isnan(learned_representation).any(), "Representation vector contains NaN values."
+    assert not np.isinf(learned_representation).any(), "Representation vector contains Inf values."
+    test_logger.debug("Assertion passed: Output does not contain NaN or Inf.")
 
 
-# TODO: RepresentationLearner için daha fazla test senaryosu eklenebilir:
-# - Boş veya geçersiz girdi formatları
-# - Farklı config değerleri (örn. representation_dim)
-# - Öğrenme adımlarının (eğer learn metodu tek adım yapıyorsa) doğru çalıştığını doğrulama (daha ileri testler)
-# - Hata işleme senaryoları
+    test_logger.info("test_representation_learner_basic_learn test completed successfully.")
+
+
+# TODO: More test scenarios for RepresentationLearner:
+# - Test with empty or invalid input formats.
+# - Test with different config values (e.g., representation_dim).
+# - Verify that the input combination logic works correctly with missing modalities (e.g., only visual, only audio).
+# - Test error handling scenarios.

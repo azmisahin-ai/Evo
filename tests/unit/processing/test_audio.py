@@ -1,4 +1,4 @@
-# tests/processing/test_audio.py
+# tests/unit/processing/test_audio.py
 
 import pytest
 import numpy as np
@@ -6,120 +6,139 @@ import os
 import sys
 import logging
 
-# Test edilecek modülü içe aktar
+# Import the module to be tested
 try:
     from src.processing.audio import AudioProcessor
-    from src.core.config_utils import load_config_from_yaml # Fixture için gerekmeyebilir ama dursun
-    from src.core.logging_utils import setup_logging
-    # Testler için loglamayı yapılandır (Sadece config ile, level argümanı yok)
-    setup_logging(config=None)
-    test_logger = logging.getLogger(__name__)
-    test_logger.info("src.processing.audio ve loglama başarıyla içe aktarıldı.")
-
+    # Import necessary config and utils helpers
+    from src.core.config_utils import get_config_value
+    from src.core.utils import check_numpy_input
 except ImportError as e:
-    pytest.fail(f"src modülleri içe aktarılamadı. Proje kök dizininden çalıştığınızdan emin olun veya PYTHONPATH'i ayarlayın. Hata: {e}")
+    pytest.fail(f"Failed to import src modules. Ensure you are running pytest from the project root or PYTHONPATH is configured correctly. Error: {e}")
+
+# Create a logger for this test file. Level will be configured by conftest.
+test_logger = logging.getLogger(__name__)
+test_logger.info("src.processing.audio and necessary helpers imported successfully for testing.")
 
 
 @pytest.fixture(scope="module")
-def dummy_audio_config():
-    """AudioProcessor testi için sahte yapılandırma sözlüğü sağlar."""
-    # AudioProcessor'ın init veya process sırasında ihtiyaç duyabileceği config değerleri
-    # scripts/test_module.py'deki create_dummy_method_inputs'dan ipuçları alındı.
+def dummy_audio_processor_config():
+    """Provides a dummy configuration dictionary for AudioProcessor testing."""
+    # Configuration values that AudioProcessor's init or process might need.
+    # These should reflect the structure in main_config.yaml.
     config = {
-        'audio': {
-            'audio_rate': 44100,        # Ses örnekleme hızı
-            'audio_chunk_size': 1024,   # İşlenecek ses bloğu boyutu
-            # ... AudioProcessor'ın kullandığı diğer audio configleri ...
-        },
          'processors': {
              'audio': {
-                 'output_dim': 2, # Process çıktısının boyutu (örneğin, özellik vektörü boyutu)
-                 'n_mfcc': 13,     # MFCC hesaplaması için kullanılan config (varsa)
-                 # ... AudioProcessor'ın kullandığı diğer processor.audio configleri ...
+                 'audio_rate': 44100,        # Audio sample rate
+                 'audio_chunk_size': 1024,   # Audio chunk size (used by sensor config, but processor might need it too)
+                 'output_dim': 2, # Process output dimension (e.g., feature vector dimension)
+                 # 'n_mfcc': 13,     # Config for MFCC calculation (if implemented)
              }
          },
-        # ... diğer genel configler ...
+         'cognition': { # Audio energy threshold is under cognition in main_config.yaml
+             'audio_energy_threshold': 1000.0,
+         },
+        # ... other general config sections ...
     }
-    test_logger.debug("Sahte audio config fixture oluşturuldu.")
+    test_logger.debug("Dummy audio processor config fixture created.")
     return config
 
 
 @pytest.fixture(scope="module")
-def audio_processor_instance(dummy_audio_config):
-    """Sahte yapılandırma ile AudioProcessor örneği sağlar."""
+def audio_processor_instance(dummy_audio_processor_config):
+    """Provides an AudioProcessor instance with dummy configuration."""
+    test_logger.debug("Creating AudioProcessor instance...")
     try:
-        # AudioProcessor'ın __init__ metodunun config aldığını varsayarak başlatıyoruz
-        processor = AudioProcessor(dummy_audio_config)
-        test_logger.debug("AudioProcessor instance oluşturuldu.")
-        yield processor # Test fonksiyonuna instance'ı ver
-        # Testler bittikten sonra cleanup (varsa) çağrılabilir
+        # Initialize the AudioProcessor. Assuming its __init__ takes a config dict.
+        processor = AudioProcessor(dummy_audio_processor_config)
+        test_logger.debug("AudioProcessor instance created.")
+        yield processor # Provide the instance to the test function
+        # Optional: Call cleanup if the module has one.
         if hasattr(processor, 'cleanup'):
              processor.cleanup()
-             test_logger.debug("AudioProcessor cleanup çağrıldı.")
+             test_logger.debug("AudioProcessor cleanup called.")
     except Exception as e:
-        pytest.fail(f"AudioProcessor başlatılırken hata oluştu: {e}", exc_info=True)
+        # If initialization fails, fail the test.
+        test_logger.error(f"AudioProcessor initialization failed: {e}", exc_info=True)
+        pytest.fail(f"AudioProcessor initialization failed: {e}")
 
 
-def test_audio_processor_basic_processing(audio_processor_instance, dummy_audio_config):
+def test_audio_processor_init_with_valid_config(audio_processor_instance):
+    """Tests that AudioProcessor initializes successfully with a valid config."""
+    test_logger.info("test_audio_processor_init_with_valid_config test started.")
+    # The fixture itself ensures successful initialization.
+    # Additional assertions can check if configuration values were assigned correctly.
+    assert audio_processor_instance.audio_rate == 44100
+    assert audio_processor_instance.output_dim == 2
+    # Note: audio_energy_threshold is used by UnderstandingModule, not AudioProcessor itself,
+    # so no need to check it here unless AudioProcessor uses it internally for some reason.
+
+    test_logger.info("test_audio_processor_init_with_valid_config test completed successfully.")
+
+
+def test_audio_processor_process_basic(audio_processor_instance, dummy_audio_processor_config):
     """
-    AudioProcessor'ın process metodunun sahte bir ses bloğu ile doğru çıktıyı ürettiğini test eder.
+    Tests that the AudioProcessor's process method produces the correct output format
+    with a basic dummy audio chunk input.
     """
-    test_logger.info("test_audio_processor_basic_processing testi başlatıldı.")
+    test_logger.info("test_audio_processor_process_basic test started.")
 
-    # AudioProcessor.process metodunun beklediği sahte girdi verisi (int16 numpy array)
-    # Boyutlar config ile uyumlu olmalı.
-    chunk_size = dummy_audio_config['audio']['audio_chunk_size']
-    # Sahte int16 ses verisi (örneğin, rastgele gürültü veya basit bir ton)
-    # np.iinfo(np.int16).max * 0.1 genlikte sinüs dalgası daha gerçekçi olabilir
-    frequency = 440 # A4 nota
+    # Dummy input data for AudioProcessor.process method (int16 numpy array).
+    # Use chunk size from config.
+    chunk_size = dummy_audio_processor_config['processors']['audio']['audio_chunk_size'] # Use processor config if available, else audio config
+    if chunk_size is None:
+         chunk_size = get_config_value(dummy_audio_processor_config, 'audio', 'audio_chunk_size', default=1024, expected_type=int) # Fallback to audio config if needed
+
+    sample_rate = audio_processor_instance.audio_rate # Use the rate the processor initialized with
+
+    # Create dummy int16 audio data (e.g., a simple tone)
+    frequency = 440 # A4 note
     amplitude = np.iinfo(np.int16).max * 0.1
-    t = np.linspace(0., chunk_size / dummy_audio_config['audio']['audio_rate'], chunk_size)
+    t = np.linspace(0., chunk_size / sample_rate, chunk_size)
     dummy_chunk = (amplitude * np.sin(2. * np.pi * frequency * t)).astype(np.int16)
 
-    test_logger.debug(f"Sahte girdi ses bloğu oluşturuldu: {dummy_chunk.shape}, {dummy_chunk.dtype}")
+    test_logger.debug(f"Created dummy input audio chunk: {dummy_chunk.shape}, {dummy_chunk.dtype}")
 
-    # Process metodunu çağır
+    # Call the process method
     try:
         processed_output = audio_processor_instance.process(dummy_chunk)
-        test_logger.debug(f"AudioProcessor.process çağrıldı. Çıktı tipi: {type(processed_output)}")
+        test_logger.debug(f"AudioProcessor.process called. Output type: {type(processed_output)}")
 
     except Exception as e:
-        pytest.fail(f"AudioProcessor.process çalıştırılırken hata oluştu: {e}", exc_info=True)
+        test_logger.error(f"Unexpected error while executing AudioProcessor.process: {e}", exc_info=True)
+        pytest.fail(f"Unexpected error while executing AudioProcessor.process: {e}")
 
 
-    # --- Çıktıyı Kontrol Et (Assert) ---
-    # scripts/test_module.py'deki create_dummy_method_inputs RepresentationLearner için
-    # AudioProcessor çıktısının np.random.rand(audio_out_dim).astype(np.float32) formatında olduğunu varsayıyor.
-    # Testimiz de bu varsayımı kontrol etsin.
+    # --- Assert the Output ---
+    # AudioProcessor.process is expected to return a numpy array feature vector.
+    # The format expected by RepresentationLearner is typically a 1D array of floats.
 
-    # Beklenen çıktı boyutu config'den
-    expected_output_dim = dummy_audio_config['processors']['audio']['output_dim']
+    # Get the expected output dimension from config.
+    expected_output_dim = audio_processor_instance.output_dim # Use the dimension the processor initialized with
 
-    # 1. Çıktı bir numpy array mi?
-    assert isinstance(processed_output, np.ndarray), f"Process çıktısı numpy array olmalı, alınan tip: {type(processed_output)}"
-    test_logger.debug("Assert geçti: Çıktı tipi numpy array.")
+    # 1. Is the output a numpy array?
+    assert isinstance(processed_output, np.ndarray), f"Process output should be a numpy array, received type: {type(processed_output)}"
+    test_logger.debug("Assertion passed: Output type is numpy array.")
 
-    # 2. Beklenen şekle sahip mi? (Tek boyutlu özellik vektörü bekleniyor)
+    # 2. Does it have the expected shape? (1D feature vector expected)
     expected_output_shape = (expected_output_dim,)
-    assert processed_output.shape == expected_output_shape, f"Çıktı beklenen şekle sahip olmalı. Beklenen: {expected_output_shape}, Alınan: {processed_output.shape}"
-    test_logger.debug("Assert geçti: Çıktı beklenen şekle sahip.")
+    assert processed_output.shape == expected_output_shape, f"Process output should have the expected shape. Expected: {expected_output_shape}, Received: {processed_output.shape}"
+    test_logger.debug("Assertion passed: Output has expected shape.")
 
-    # 3. Beklenen dtype'a sahip mi? (Genellikle float beklenir)
-    # RepresentationLearner float32 beklediği için float32 veya float64 kontrol edebiliriz.
-    # process çıktısının float tipinde olduğunu kontrol edelim.
-    assert np.issubdtype(processed_output.dtype, np.floating), f"Çıktı float tipi olmalı, alınan dtype: {processed_output.dtype}"
-    test_logger.debug("Assert geçti: Çıktı float dtype'a sahip.")
+    # 3. Does it have the expected dtype? (Generally float expected)
+    # Let's check if it's a floating-point type.
+    assert np.issubdtype(processed_output.dtype, np.floating), f"Process output should be of a float type, received dtype: {processed_output.dtype}"
+    test_logger.debug("Assertion passed: Output has a float dtype.")
 
-    # 4. Çıktı None değil mi?
-    assert processed_output is not None, "Process çıktısı None olmamalı."
-    test_logger.debug("Assert geçti: Çıktı None değil.")
+    # 4. Is the output not None?
+    assert processed_output is not None, "Process output should not be None."
+    test_logger.debug("Assertion passed: Output is not None.")
 
-
-    test_logger.info("test_audio_processor_basic_processing testi başarıyla tamamlandı.")
+    test_logger.info("test_audio_processor_basic_processing test completed successfully.")
 
 
-# TODO: AudioProcessor için daha fazla test senaryosu eklenebilir:
-# - Farklı girdi boyutları (eğer process esnekse)
-# - Boş veya geçersiz girdi (örn: 0 boyutta array)
-# - Config değerlerinin (örn. n_mfcc) çıktıyı etkilediği durumlar
-# - Hata işleme senaryoları (örn: yanlış dtype girdi)
+# TODO: More test scenarios for AudioProcessor:
+# - Test with different input sizes (if process is flexible).
+# - Test with None or empty input (e.g., 0-size array).
+# - Test with invalid input (e.g., wrong dtype input).
+# - Test scenarios where config values (e.g., n_mfcc for future features) affect the output.
+# - Test with simple deterministic signals (e.g., silence, pure tone) to verify energy and centroid calculation results.
