@@ -1,199 +1,168 @@
 # src/processing/vision.py
-#
-# Processes visual sensory data.
-# Extracts basic visual features (e.g., resizing, grayscale, edges) from raw pixel data.
-# Part of Evo's Phase 1 processing capabilities.
-
-import cv2 # OpenCV library, for camera capture and basic image processing. Should be in requirements.txt.
-import time # For timing or simulation if needed. Not directly used currently.
-import numpy as np # For numerical operations and arrays.
-import logging # For logging.
-
-# Import utility functions (input checks from src/core/utils, config from src/core/config_utils)
+import cv2
+import numpy as np
+import logging
+import torch 
+from src.core.compute_utils import get_device, get_backend, to_tensor 
 from src.core.config_utils import get_config_value
-from src.core.utils import check_input_not_none, check_numpy_input # <<< Utils imports
+from src.core.utils import check_input_not_none
 
-
-# Create a logger for this module
-# Returns a logger named 'src.processing.vision'.
 logger = logging.getLogger(__name__)
 
 class VisionProcessor:
-    """
-    Evo's visual data processing class (Phase 1 implementation).
-
-    Receives raw visual input (frame) from the VisionSensor.
-    Performs basic operations (resizing, grayscale conversion, edge detection)
-    to prepare it for the RepresentationLearner.
-    Manages potential errors during processing and ensures flow continuity.
-    Returns a dictionary containing different processed features.
-    """
     def __init__(self, config):
-        """
-        Initializes the VisionProcessor.
-
-        Args:
-            config (dict): Processor configuration settings (full config dict).
-                           Settings for this module are read from the 'processors.vision' section
-                           and also thresholds from the 'cognition' section.
-        """
-        self.config = config # VisionProcessor receives the full config
+        self.full_config = config # Tam config'i sakla (diğer bölümlere erişim için)
+        self.vp_config = config.get('processors', {}).get('vision', {})
+        self.sensor_vision_config = config.get('vision', {})
+        
         logger.info("VisionProcessor initializing...")
 
-        # Get output dimensions and Canny thresholds from config using get_config_value.
-        # These settings are under the 'processors.vision' key.
-        self.output_width = get_config_value(config, 'processors', 'vision', 'output_width', default=64, expected_type=int, logger_instance=logger)
-        self.output_height = get_config_value(config, 'processors', 'vision', 'output_height', default=64, expected_type=int, logger_instance=logger)
-        self.canny_low_threshold = get_config_value(config, 'processors', 'vision', 'canny_low_threshold', default=50, expected_type=int, logger_instance=logger)
-        self.canny_high_threshold = get_config_value(config, 'processors', 'vision', 'canny_high_threshold', default=150, expected_type=int, logger_instance=logger)
+        self.output_width = get_config_value(self.vp_config, 'output_width', default=64, expected_type=int, logger_instance=logger)
+        self.output_height = get_config_value(self.vp_config, 'output_height', default=64, expected_type=int, logger_instance=logger)
+        
+        self.process_color = get_config_value(self.sensor_vision_config, 'process_color', default=True, expected_type=bool, logger_instance=logger)
+        self.output_main_channels_config = get_config_value(self.vp_config, 'output_channels', default=3, expected_type=int, logger_instance=logger)
+        
+        # output_main_channels'ı process_color'a göre ayarla/doğrula
+        if self.process_color:
+            self.actual_output_main_channels = 3
+            if self.output_main_channels_config != 3:
+                logger.warning(f"VisionProcessor: 'vision.process_color' is True, but 'processors.vision.output_channels' is {self.output_main_channels_config}. "
+                               f"Output will be 3 channels (RGB). Consider updating config.")
+        else: # Grayscale
+            self.actual_output_main_channels = 1
+            if self.output_main_channels_config != 1:
+                logger.warning(f"VisionProcessor: 'vision.process_color' is False, but 'processors.vision.output_channels' is {self.output_main_channels_config}. "
+                               f"Output will be 1 channel (Grayscale). Consider updating config.")
 
-        # Get thresholds from config (These are under the 'cognition' key)
-        self.brightness_threshold_high = get_config_value(config, 'cognition', 'brightness_threshold_high', default=200.0, expected_type=(float, int), logger_instance=logger)
-        self.brightness_threshold_low = get_config_value(config, 'cognition', 'brightness_threshold_low', default=50.0, expected_type=(float, int), logger_instance=logger)
-        # Corrected: Add visual_edges_threshold which is also under cognition.
-        self.visual_edges_threshold = get_config_value(config, 'cognition', 'visual_edges_threshold', default=50.0, expected_type=(float, int), logger_instance=logger)
+        self.use_gpu_tensor = get_config_value(self.vp_config, 'use_gpu_if_available', default=True, expected_type=bool, logger_instance=logger)
+        
+        self.canny_low_threshold = get_config_value(self.vp_config, 'canny_low_threshold', default=50, expected_type=int, logger_instance=logger)
+        self.canny_high_threshold = get_config_value(self.vp_config, 'canny_high_threshold', default=150, expected_type=int, logger_instance=logger)
+
+        self.device_for_output_tensor = None
+        self.current_backend = get_backend()
+
+        if self.current_backend == "pytorch":
+            if self.use_gpu_tensor:
+                self.device_for_output_tensor = get_device()
+            else:
+                self.device_for_output_tensor = torch.device("cpu")
+            logger.info(f"VisionProcessor (PyTorch backend): Output tensors will be on device: {self.device_for_output_tensor}")
+        else: # numpy backend
+            self.device_for_output_tensor = "cpu" # NumPy için sembolik
+            logger.info("VisionProcessor (NumPy backend): Output will be NumPy arrays on CPU.")
 
 
-        # Ensure valid output dimensions (must be positive)
         if self.output_width <= 0 or self.output_height <= 0:
-             logger.error(f"VisionProcessor: Invalid output dimensions in config: {self.output_width}x{self.output_height}. Using defaults (64x64).")
+             logger.error(f"VisionProcessor: Invalid output dimensions. Using defaults (64x64).")
              self.output_width = 64
              self.output_height = 64
-             # Policy: Don't make initialization critical in this case, just log and use defaults.
+        
+        logger.info(f"VisionProcessor initialized. Output: {self.output_width}x{self.output_height}x{self.actual_output_main_channels} (main), Edges: ...x1. Color processing: {self.process_color}")
 
-        logger.info(f"VisionProcessor initialized. Output dimensions: {self.output_width}x{self.output_height}, Canny Thresholds: [{self.canny_low_threshold}, {self.canny_high_threshold}], Brightness Thresholds: [{self.brightness_threshold_low}, {self.brightness_threshold_high}]")
+    def get_output_shape_info(self):
+        shapes = {}
+        shapes['main_image'] = (self.actual_output_main_channels, self.output_height, self.output_width)
+        shapes['edges'] = (1, self.output_height, self.output_width) # Kenarlar her zaman tek kanal (C,H,W)
+        return shapes
 
-
-    def process(self, visual_input):
-        """
-        Processes raw visual input and extracts basic features.
-
-        Receives the input (typically a BGR numpy array), converts it to grayscale,
-        resizes it to the specified output dimensions, and applies edge detection.
-        Returns a dictionary containing the processed frame (grayscale and edge map)
-        to be sent to the RepresentationLearner.
-        Returns an empty dictionary `{}` if the input is None or an error occurs during processing.
-
-        Args:
-            visual_input (numpy.ndarray or None): Raw visual data (frame) or None.
-                                                  Typically comes from VisionSensor.
-                                                  Expected format: shape (Y, X, C) or (Y, X), dtype uint8.
-
-        Returns:
-            dict: A dictionary containing processed visual features.
-                  Keys: 'grayscale' (numpy.ndarray, shape (output_height, output_width), dtype uint8),
-                        'edges' (numpy.ndarray, shape (output_height, output_width), dtype uint8).
-                  Returns an empty dictionary `{}` on error or if input is None.
-        """
-        # Error handling: If input is None or not of expected type
-        # Use check_input_not_none function (logs and returns False if None)
-        if not check_input_not_none(visual_input, input_name="visual_input for VisionProcessor", logger_instance=logger):
-             # If input is None, skip processing and return an empty dictionary (Graceful failure).
-             logger.debug("VisionProcessor.process: Input is None. Returning empty dictionary.")
-             return {} # Return empty dictionary instead of None.
-
-
-        # Check if the input is a numpy array and has the correct dtype (uint8).
-        # Use check_numpy_input function. This function also checks for np.ndarray type.
-        # Expected dimensions can be 2D (gray) or 3D (color). uint8 dtype is expected.
-        # check_numpy_input logs an ERROR and returns False on failure.
-        if not check_numpy_input(visual_input, expected_dtype=np.uint8, expected_ndim=(2, 3), input_name="visual_input for VisionProcessor", logger_instance=logger):
-             # If type or dtype/dimensions are invalid, stop processing and return an empty dictionary.
-             logger.error("VisionProcessor.process: Input is not a numpy array or has wrong dtype/dimensions. Returning empty dictionary.") # check_numpy_input already logs internally.
-             return {} # Return empty dictionary instead of None.
-
-
-        # DEBUG log: Log input details (dimensions and type). Similar log exists in check_numpy_input, but kept here too.
-        logger.debug(f"VisionProcessor.process: Visual data received. Shape: {visual_input.shape}, Dtype: {visual_input.dtype}. Processing...")
-
-        processed_features = {} # Dictionary to hold processed results. Starts empty.
-
-        try:
-            # 1. Convert to grayscale (If input is color).
-            # Assuming input shape is (Height, Width, Channels) and channel count is 3 (BGR).
-            # Checking len(visual_input.shape) == 3 and visual_input.shape[2] == 3 is sufficient.
-            if len(visual_input.shape) == 3 and visual_input.shape[2] == 3:
-                gray_frame = cv2.cvtColor(visual_input, cv2.COLOR_BGR2GRAY)
-                logger.debug("VisionProcessor.process: Visual data converted from BGR to grayscale.")
-            elif len(visual_input.shape) == 2:
-                # If the input is already 2D (like grayscale), use it directly.
-                gray_frame = visual_input.copy() # Make a copy to avoid modifying the original input.
-                logger.debug("VisionProcessor.process: Visual input appears to be already grayscale. Skipping conversion.")
-            else:
-                 # The ndim=(2,3) check in check_numpy_input should prevent reaching here, but included for robustness.
-                 logger.warning(f"VisionProcessor.process: Unexpected visual input dimensions (not ndim 2 or 3): {visual_input.shape}. Could not process.")
-                 return {} # If dimensions are unexpected, cannot process, return empty dictionary.
-
-            # Ensure the grayscale frame is still uint8 dtype after conversion/copy.
-            if gray_frame.dtype != np.uint8:
-                 gray_frame = gray_frame.astype(np.uint8)
-                 logger.debug(f"VisionProcessor.process: Ensured grayscale frame dtype is uint8.")
-
-
-            # 2. Resize (To the output_width x output_height specified in config).
-            # Target size is provided as a tuple: (width, height).
-            # Interpolation method can be specified; INTER_AREA is good for shrinking.
-            # Target dimensions are checked to be positive during init or defaults assigned.
-            resized_frame = cv2.resize(gray_frame, (self.output_width, self.output_height), interpolation=cv2.INTER_AREA)
-            logger.debug(f"VisionProcessor.process: Visual data resized to ({self.output_width}, {self.output_height}) dimensions. Shape: {resized_frame.shape}, Dtype: {resized_frame.dtype}")
-
-            # Add the grayscale, resized frame to the processed features dictionary.
-            processed_features['grayscale'] = resized_frame
-
-
-            # 3. Apply edge detection.
-            # Canny edge detector works on grayscale 8-bit (uint8) images.
-            # resized_frame is uint8 and grayscale, so can be used directly.
-            # Thresholds were obtained from config during init and checked to be integers.
-            edges = cv2.Canny(resized_frame, self.canny_low_threshold, self.canny_high_threshold)
-            logger.debug(f"VisionProcessor.process: Applied Canny edge detection. Shape: {edges.shape}, Dtype: {edges.dtype}")
-
-            # Add the edge map to the processed features dictionary.
-            processed_features['edges'] = edges
-
-
-            # TODO: In the future: Add more low-level features (e.g., color histograms - from original color image, simple texture features).
-
-            # DEBUG Log: Average brightness and edge density comparison with thresholds.
-            # Only calculate means if the arrays are not empty.
-            if 'grayscale' in processed_features and processed_features['grayscale'].size > 0:
-                 avg_brightness = np.mean(processed_features['grayscale'])
-                 # Log comparing the mean brightness to config thresholds.
-                 logger.debug(f"VisionProcessor.process: Avg Brightness: {avg_brightness:.2f} (High: {self.brightness_threshold_high:.2f}, Low: {self.brightness_threshold_low:.2f})")
-            if 'edges' in processed_features and processed_features['edges'].size > 0:
-                 avg_edges = np.mean(processed_features['edges'])
-                 # Log comparing the mean edges to config threshold.
-                 # Use self.visual_edges_threshold which is now assigned in __init__
-                 logger.debug(f"VisionProcessor.process: Avg Edges: {avg_edges:.2f} (Threshold: {self.visual_edges_threshold:.2f})")
-
-
-        # Corrected: Use a general Exception catch as cv2.Error might not inherit from BaseException in all environments.
-        # This also catches the AttributeError if self.visual_edges_threshold was not defined.
-        # However, defining it in __init__ is the correct fix.
-        except Exception as e:
-            # Catch any unexpected error during processing steps (e.g., opencv, numpy, or other errors).
-            # These errors are logged, and an empty dictionary is returned.
-            logger.error(f"VisionProcessor: Unexpected error during processing: {e}", exc_info=True)
-            # Even if the processed_features dictionary is partially filled in case of error,
-            # processing is considered failed for this frame, and an empty dictionary is returned.
+    def process(self, visual_input_bgr):
+        if not check_input_not_none(visual_input_bgr, "visual_input_bgr for VisionProcessor", logger):
             return {}
 
-        # Return the processed features dictionary on success.
-        # DEBUG log: Information that the processing was successful.
-        logger.debug(f"VisionProcessor.process: Visual data processed successfully. Output Features: {list(processed_features.keys())}")
-        # Logging the processed_features dictionary content itself can be very verbose,
-        # basic info like keys is logged above.
-        return processed_features
+        if not isinstance(visual_input_bgr, np.ndarray) or visual_input_bgr.dtype != np.uint8:
+            logger.error(f"VisionProcessor: Input must be a NumPy array with dtype uint8. Got {type(visual_input_bgr)}")
+            return {}
+        
+        processed_features_np = {}
+        
+        try:
+            # 1. Ana Görüntü (Renkli veya Gri)
+            main_image_for_resize_np = None
+            if self.process_color: # Renkli işleme (BGR -> RGB)
+                if visual_input_bgr.ndim == 3 and visual_input_bgr.shape[2] == 3:
+                    main_image_for_resize_np = cv2.cvtColor(visual_input_bgr, cv2.COLOR_BGR2RGB)
+                else: # Beklenmedik format, griye çevirip 3 kanal yap
+                    logger.warning(f"VisionProcessor: process_color=True but input is not BGR. Shape: {visual_input_bgr.shape}. Converting to 3-channel gray.")
+                    gray = visual_input_bgr
+                    if visual_input_bgr.ndim == 3 and visual_input_bgr.shape[2] == 1: gray = visual_input_bgr[:,:,0]
+                    elif visual_input_bgr.ndim != 2: gray = cv2.cvtColor(visual_input_bgr, cv2.COLOR_BGR2GRAY) # Garantiye al
+                    main_image_for_resize_np = cv2.cvtColor(gray, cv2.COLOR_GRAY2RGB)
+            else: # Gri tonlamalı işleme
+                if visual_input_bgr.ndim == 3 and visual_input_bgr.shape[2] == 3:
+                    main_image_for_resize_np = cv2.cvtColor(visual_input_bgr, cv2.COLOR_BGR2GRAY)
+                elif visual_input_bgr.ndim == 2:
+                    main_image_for_resize_np = visual_input_bgr.copy()
+                elif visual_input_bgr.ndim == 3 and visual_input_bgr.shape[2] == 1: # Zaten tek kanal gri
+                     main_image_for_resize_np = visual_input_bgr[:,:,0]
+                else: # Bilinmeyen format, griye zorla
+                    logger.warning(f"VisionProcessor: process_color=False, input unusual. Shape: {visual_input_bgr.shape}. Forcing to grayscale.")
+                    main_image_for_resize_np = cv2.cvtColor(visual_input_bgr, cv2.COLOR_BGR2GRAY)
+
+            # Yeniden Boyutlandır (Ana Görüntü)
+            resized_main_np = cv2.resize(main_image_for_resize_np, (self.output_width, self.output_height), interpolation=cv2.INTER_AREA)
+            if resized_main_np.ndim == 2: # Eğer sonuç gri ise kanal boyutu ekle (H,W) -> (H,W,1)
+                resized_main_np = np.expand_dims(resized_main_np, axis=-1)
+            
+            # Kanal sayısının self.actual_output_main_channels ile eşleştiğinden emin ol
+            if resized_main_np.shape[2] != self.actual_output_main_channels:
+                 logger.error(f"VisionProcessor: Internal channel mismatch for main_image. Expected {self.actual_output_main_channels}, got {resized_main_np.shape[2]}. This is a bug.")
+                 # Hata durumunda bu özelliği atla
+            else:
+                processed_features_np['main_image'] = resized_main_np
+
+
+            # 2. Kenar Tespiti (Her zaman orijinal BGR'nin gri tonlamalısı üzerinden)
+            gray_for_edges_np = None
+            if visual_input_bgr.ndim == 3 and visual_input_bgr.shape[2] == 3:
+                gray_for_edges_np = cv2.cvtColor(visual_input_bgr, cv2.COLOR_BGR2GRAY)
+            elif visual_input_bgr.ndim == 2: # Zaten gri ise
+                gray_for_edges_np = visual_input_bgr.copy()
+            elif visual_input_bgr.ndim == 3 and visual_input_bgr.shape[2] == 1: # Zaten tek kanal gri
+                gray_for_edges_np = visual_input_bgr[:,:,0].copy()
+            else: # Garantiye almak için
+                logger.warning(f"VisionProcessor: Unusual input for edge detection. Shape: {visual_input_bgr.shape}. Forcing to grayscale.")
+                gray_for_edges_np = cv2.cvtColor(visual_input_bgr, cv2.COLOR_BGR2GRAY)
+
+            if gray_for_edges_np is not None:
+                resized_gray_for_edges_np = cv2.resize(gray_for_edges_np, (self.output_width, self.output_height), interpolation=cv2.INTER_AREA)
+                edges_np = cv2.Canny(resized_gray_for_edges_np, self.canny_low_threshold, self.canny_high_threshold)
+                processed_features_np['edges'] = np.expand_dims(edges_np, axis=-1) # (H, W) -> (H, W, 1)
+
+        except cv2.error as e:
+            logger.error(f"VisionProcessor: OpenCV error: {e}", exc_info=True)
+            return {}
+        except Exception as e:
+            logger.error(f"VisionProcessor: Unexpected error during NumPy processing: {e}", exc_info=True)
+            return {}
+
+        # NumPy array'lerini backend tensor'lerine/array'lerine çevir
+        processed_features_backend = {}
+        for key, np_array in processed_features_np.items():
+            if np_array is None: continue
+
+            # Normalizasyon (0-1 arasına, tensöre çevirmeden önce)
+            # Kenarlar zaten 0 veya 255, ana görüntü 0-255 uint8
+            # PyTorch float tensör bekler, bu yüzden /255.0 iyi bir pratiktir.
+            np_array_float = np_array.astype(np.float32) / 255.0
+            
+            if self.current_backend == "pytorch":
+                # (H, W, C) -> (C, H, W) PyTorch formatına çevir
+                chw_array = np_array_float.transpose((2, 0, 1))
+                # to_tensor zaten float'a çeviriyor ve hedef cihaza yolluyor
+                tensor_chw = to_tensor(chw_array, target_device=self.device_for_output_tensor)
+                if tensor_chw is not None:
+                    processed_features_backend[key] = tensor_chw
+            else: # numpy backend
+                processed_features_backend[key] = np_array_float # Zaten NumPy array, normalize edilmiş float
+
+        if not processed_features_backend: # Eğer hiçbir özellik işlenemediyse
+            logger.warning("VisionProcessor: No features could be processed.")
+            return {}
+            
+        logger.debug(f"VisionProcessor: Processing complete. Output keys: {list(processed_features_backend.keys())}")
+        return processed_features_backend
 
     def cleanup(self):
-        """
-        Cleans up VisionProcessor resources.
-
-        Currently, this processor does not use specific resources (files, connections, etc.)
-        and does not require a cleanup step beyond basic object deletion.
-        Includes an informational log.
-        Called by module_loader.py when the program terminates (if it exists).
-        """
-        logger.info("VisionProcessor object cleaning up.")
-        # Processor typically does not require explicit cleanup.
-        pass
+        logger.info("VisionProcessor cleaning up.")
