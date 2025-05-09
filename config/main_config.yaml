@@ -12,14 +12,13 @@ compute:
 # Sense Modülleri Ayarları
 vision:
   # source_type: "usb_camera" | "ip_camera" | "video_file" | "image_folder" | "screen_capture"
-  source_type: "usb_camera" 
+  source_type: "ip_camera" 
   
   # Eğer source_type: "usb_camera" ise:
   camera_index: 0 # Kullanılacak USB kamera indeksi (0, 1, 2...)
 
   # Eğer source_type: "ip_camera" ise:
-  ip_camera_url: "rtsp://username:password@ip_address:port/stream_path" # Örnek RTSP URL'si
-                  # veya "http://ip_address/video.mjpg" gibi
+  ip_camera_url: "http://192.168.1.84:4747/video" # Örnek RTSP URL'si
 
   # Eğer source_type: "video_file" ise:
   video_file_path: "data/videos/test_video.mp4" # Video dosyasının yolu
@@ -145,4 +144,11 @@ logging:
     src.cognition.understanding: INFO # similarity_score'ları görmek için DEBUG yapılabilir
     src.cognition.decision: INFO
     src.cognition.learning: INFO      # Kavram öğrenme logları için INFO/DEBUG
-    __main__: INFO 
+    __main__: INFO
+
+debug:
+  show_camera_feed: True          # Ham kamera görüntüsünü göster (True/False)
+  show_processed_main_image: True # VisionProcessor'dan çıkan ana işlenmiş görüntüyü göster (True/False)
+  show_processed_edges_image: True # VisionProcessor'dan çıkan kenar görüntüsünü göster (True/False)
+  # log_level_override: DEBUG     # Gelecekte, ana log seviyesini buradan override etmek için
+  # cognitive_loop_break_after: 0 # 0 ise normal çalışır, >0 ise o kadar döngüden sonra durur (test için)
