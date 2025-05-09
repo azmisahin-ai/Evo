@@ -2,7 +2,7 @@
 # Evo Projesi Ana Yapılandırma Dosyası
 
 # Genel Ayarlar
-cognitive_loop_interval: 0.1 
+cognitive_loop_interval: 0.1 # Daha hızlı tepki için deneyelim, AE GPU'da olmalı
 
 # Hesaplama Ayarları
 compute:
@@ -53,8 +53,8 @@ processors:
     output_channels_main_image: 3 # process_color:True ise 3 (RGB), False ise 1 (Gri)
     enable_edge_detection: False # Kenar tespiti aktif mi? TRUE?
     gaussian_blur_kernel_size: "5,5" # Kenar tespiti öncesi Gaussian Blur kernel boyutu (tek_sayi,tek_sayi)
-    canny_low_threshold: 75          # Canny düşük eşiği (gürültüye göre ayarlayın)
-    canny_high_threshold: 200        # Canny yüksek eşiği (gürültüye göre ayarlayın)
+    canny_low_threshold: 70          # Canny düşük eşiği (gürültüye göre ayarlayın)
+    canny_high_threshold: 190        # Canny yüksek eşiği (gürültüye göre ayarlayın)
     use_gpu_if_available: True       # OpenCV sonrası tensörler GPU'ya taşınsın mı? (PyTorch backend için)
   audio:
     output_dim: 2 # Enerji ve Spektral Sentroid
@@ -62,40 +62,40 @@ processors:
 
 # Representation Learner (Autoencoder) Ayarları
 representation:
-  input_dim: "auto" 
-  representation_dim: 64     # <<< Daha küçük bir latent boyut
-  hidden_dim_ae: 256       # <<< Daha küçük bir gizli katman
-  learning_rate: 0.001    # <<< Daha agresif bir öğrenme oranı
+  input_dim: "auto"    # Sadece main_image (12288) + audio (2) = 12290 olacak
+  representation_dim: 128     # <<< Daha küçük bir latent boyut : 64, 128, 256
+  hidden_dim_ae: 1024       # <<< Daha küçük bir gizli katman 512 (veya 256, 1024).
+  learning_rate: 0.0002    # <<< Daha agresif bir öğrenme oranı 1e-3 (0.001), 5e-4 (0.0005), 1e-4 (0.0001), 5e-5 (0.00005)
 
 # Memory Modülleri Ayarları
 memory:
-  max_working_memory_size: 50  # <<< LTM'ye daha hızlı transfer için : Kısa süreli/çalışma belleği için daha küçük bir boyut
+  max_working_memory_size: 100  # <<< LTM'ye daha hızlı transfer için : Kısa süreli/çalışma belleği için daha küçük bir boyut
   num_retrieved_working_memories: 5 
   
   # Uzun Süreli Bellek (LTM) Ayarları - Episodik ve/veya Semantik için temel
   enable_ltm_persistence: True      # <<< YENİ: LTM'yi dosyaya kaydet/yükle
   ltm_file_path: "data/evo_ltm.pkl" # <<< YENİ: Uzun süreli anılar için ayrı bir dosya
-  max_ltm_size: 5000                # <<< YENİ: LTM için daha büyük bir kapasite (isteğe bağlı)
+  max_ltm_size: 2000                # <<< YENİ: LTM için daha büyük bir kapasite (isteğe bağlı)
 
 # Cognition Modülleri Ayarları
 cognition:
-  familiarity_threshold: 0.75 # Yüksek bir değer, sadece çok benzerleri "tanıdık" sayar.
-  concept_recognition_threshold: 0.80 # Tanıdık eşiğinden biraz daha yüksek.
+  familiarity_threshold: 0.80 # Yüksek bir değer, sadece çok benzerleri "tanıdık" sayar.
+  concept_recognition_threshold: 0.85 # Tanıdık eşiğinden biraz daha yüksek.
   audio_energy_threshold: 1000.0
   visual_edges_threshold: 0.15 # Eğer kenarlar normalize ise, bu eşik daha anlamlı olabilir
                                # Eğer kenarlar 0/255 ise, bu değer 20-50 gibi olmalı. VisionProcessor çıktısına bağlı.
   brightness_threshold_high: 200.0
   brightness_threshold_low: 50.0
-  curiosity_threshold: 3.0          # Daha kolay meraklan
-  curiosity_increment_new: 1.5      # Yeniye daha çok merak
-  curiosity_decrement_familiar: 0.4  # Tanıdıktan daha az sıkıl
-  curiosity_decay: 0.02           # Merak daha yavaş azalsın
+  curiosity_threshold: 3.5          # Daha kolay meraklan
+  curiosity_increment_new: 1.2      # Yeniye daha çok merak
+  curiosity_decrement_familiar: 0.5  # Tanıdıktan daha az sıkıl
+  curiosity_decay: 0.03           # Merak daha yavaş azalsın
   learning:
     enable_concept_persistence: True  # <<< YENİ: Öğrenilen kavramları dosyaya kaydet/yükle
     concept_file_path: "data/evo_concepts_final.pkl" # Bu zaten vardı, enable ile kontrol edilecek
     learning_frequency: 100            # <<< Seyrekleştirdik
     learning_memory_sample_size: 50   # <<< Artırdık
-    new_concept_threshold: 0.60 # <<< Yeni kavram öğrenmeyi kolaylaştırmak için önemli ölçüde
+    new_concept_threshold: 0.70 # Latent temsiller için (max_sim < 0.70 ise YENİ)
 
 # Motor Control Modülleri Ayarları
 motor_control:
@@ -127,7 +127,7 @@ logging:
     __main__: DEBUG                     # RUN_EVO_COSINE logları için
 
 debug:
-  show_camera_feed: False           # Ham kamera görüntüsünü göster (True/False)
+  show_camera_feed: True           # Ham kamera görüntüsünü göster (True/False)
   show_processed_main_image: False  # VisionProcessor'dan çıkan ana işlenmiş görüntüyü göster (True/False)
   show_processed_edges_image: True   # VisionProcessor'dan çıkan kenar görüntüsünü göster (True/False)
    # log_level_override: DEBUG     # Gelecekte, ana log seviyesini buradan override etmek için
