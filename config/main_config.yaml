@@ -2,25 +2,24 @@
 # Evo Projesi Ana Yapılandırma Dosyası
 
 # Genel Ayarlar
-cognitive_loop_interval: 0.07 # Bilişsel döngü sıklığı (saniye). Performansa göre ayarlanabilir.
+cognitive_loop_interval: 0.1 
 
 # Hesaplama Ayarları
 compute:
-  backend: "pytorch" # 
-  device: "cuda"     # "cpu", "cuda", "cuda:0", "mps"
+  backend: "pytorch"
+  device: "cuda"
 
 # Sense Modülleri Ayarları
 vision:
   # source_type: "usb_camera" | "ip_camera" | "video_file" | "image_folder" | "screen_capture"
-  source_type: "ip_camera" 
-  
+  source_type: "ip_camera"
+
   # Eğer source_type: "usb_camera" ise:
   camera_index: 0 # Kullanılacak USB kamera indeksi (0, 1, 2...)
 
-  # Eğer source_type: "ip_camera" ise:
-  ip_camera_url: "http://192.168.1.84:4747/video" # Örnek RTSP URL'si
+  ip_camera_url: "http://192.168.1.84:4747/video"
 
-  # Eğer source_type: "video_file" ise:
+ # Eğer source_type: "video_file" ise:
   video_file_path: "data/videos/test_video.mp4" # Video dosyasının yolu
   loop_video: True # Video bittiğinde başa sarsın mı?
 
@@ -52,57 +51,51 @@ processors:
     # output_channels, VisionSensor.process_color'a göre VisionProcessor'da belirlenir.
     # Bu ayar, module_loader'ın input_dim hesaplamasında referans olabilir.
     output_channels_main_image: 3 # process_color:True ise 3 (RGB), False ise 1 (Gri)
-    
-    enable_edge_detection: True # Kenar tespiti aktif mi?
+    enable_edge_detection: False # Kenar tespiti aktif mi? TRUE?
     gaussian_blur_kernel_size: "5,5" # Kenar tespiti öncesi Gaussian Blur kernel boyutu (tek_sayi,tek_sayi)
     canny_low_threshold: 75          # Canny düşük eşiği (gürültüye göre ayarlayın)
     canny_high_threshold: 200        # Canny yüksek eşiği (gürültüye göre ayarlayın)
     use_gpu_if_available: True       # OpenCV sonrası tensörler GPU'ya taşınsın mı? (PyTorch backend için)
-
   audio:
     output_dim: 2 # Enerji ve Spektral Sentroid
     audio_rate: 44100
 
 # Representation Learner (Autoencoder) Ayarları
 representation:
-  input_dim: "auto" # module_loader tarafından otomatik hesaplanır.
-                    # (main_image_size) + (edges_size if enabled) + (audio_size)
-  representation_dim: 128     # Autoencoder latent (gizli) katman boyutu.
-  hidden_dim_ae: 1024        # Autoencoder ara katman boyutu (örn: input_dim/4 veya input_dim/2).
-                              # None ise ara katman kullanılmaz.
-  learning_rate: 0.0001     # Autoencoder öğrenme oranı.
+  input_dim: "auto" 
+  representation_dim: 64     # <<< Daha küçük bir latent boyut
+  hidden_dim_ae: 256       # <<< Daha küçük bir gizli katman
+  learning_rate: 0.001    # <<< Daha agresif bir öğrenme oranı
 
 # Memory Modülleri Ayarları
 memory:
-  max_memory_size: 1500 # Biraz daha fazla anı
-  num_retrieved_memories: 70 # Biraz daha fazla geri çağır
-  memory_file_path: data/evo_memory_prod.pkl # Farklı bir dosya adı
+  max_working_memory_size: 50  # <<< LTM'ye daha hızlı transfer için : Kısa süreli/çalışma belleği için daha küçük bir boyut
+  num_retrieved_working_memories: 5 
+  
+  # Uzun Süreli Bellek (LTM) Ayarları - Episodik ve/veya Semantik için temel
+  enable_ltm_persistence: True      # <<< YENİ: LTM'yi dosyaya kaydet/yükle
+  ltm_file_path: "data/evo_ltm.pkl" # <<< YENİ: Uzun süreli anılar için ayrı bir dosya
+  max_ltm_size: 5000                # <<< YENİ: LTM için daha büyük bir kapasite (isteğe bağlı)
 
 # Cognition Modülleri Ayarları
 cognition:
-  familiarity_threshold: 0.50 # Yüksek bir değer, sadece çok benzerleri "tanıdık" sayar.
-  concept_recognition_threshold: 0.55 # Tanıdık eşiğinden biraz daha yüksek.
-  
+  familiarity_threshold: 0.75 # Yüksek bir değer, sadece çok benzerleri "tanıdık" sayar.
+  concept_recognition_threshold: 0.80 # Tanıdık eşiğinden biraz daha yüksek.
   audio_energy_threshold: 1000.0
   visual_edges_threshold: 0.15 # Eğer kenarlar normalize ise, bu eşik daha anlamlı olabilir
                                # Eğer kenarlar 0/255 ise, bu değer 20-50 gibi olmalı. VisionProcessor çıktısına bağlı.
   brightness_threshold_high: 200.0
   brightness_threshold_low: 50.0
-  
-  curiosity_threshold: 3.0            # Daha kolay meraklan
-  curiosity_increment_new: 1.5        # Yeniye daha çok merak
-  curiosity_decrement_familiar: 0.4   # Tanıdıktan daha az sıkıl
-  curiosity_decay: 0.02               # Merak daha yavaş azalsın
-
+  curiosity_threshold: 3.0          # Daha kolay meraklan
+  curiosity_increment_new: 1.5      # Yeniye daha çok merak
+  curiosity_decrement_familiar: 0.4  # Tanıdıktan daha az sıkıl
+  curiosity_decay: 0.02           # Merak daha yavaş azalsın
   learning:
-    concept_file_path: data/evo_concepts_prod.pkl
-    learning_frequency: 10             # Daha sık öğrenmeyi deneyebiliriz
-    learning_memory_sample_size: 10   # Daha fazla örnekle öğrenme
-    new_concept_threshold: 0.50        # Yeni bir kavram için gereken minimum "farklılık" (1 - max_similarity)
-                                       # Yani, max_similarity < (1 - new_concept_threshold) ise yeni kavramdır.
-                                       # Ya da, mevcut yorumla: max_similarity < new_concept_threshold ise yeni.
-                                       # LearningModule implementasyonuna göre bu eşiğin anlamı değişir.
-                                       # Mevcut LearningModule: `max_similarity_to_concepts < self.new_concept_threshold` ise YENİ.
+    enable_concept_persistence: True  # <<< YENİ: Öğrenilen kavramları dosyaya kaydet/yükle
+    concept_file_path: "data/evo_concepts_final.pkl" # Bu zaten vardı, enable ile kontrol edilecek
+    learning_frequency: 100            # <<< Seyrekleştirdik
+    learning_memory_sample_size: 50   # <<< Artırdık
+    new_concept_threshold: 0.60 # <<< Yeni kavram öğrenmeyi kolaylaştırmak için önemli ölçüde
 
 # Motor Control Modülleri Ayarları
 motor_control:
@@ -114,41 +107,28 @@ interaction:
     - console
   channel_configs:
     console: {}
-    # web_api:
-    #   port: 5000
-    #   host: "127.0.0.1"
-    #   endpoint: "/output"
 
 # Loglama Ayarları
 logging:
   level: INFO 
   handlers:
     - type: console
-      level: INFO
+      level: INFO   
       color: true
     - type: file
-      filename: logs/evo_prod.log 
+      filename: logs/evo_test_simple_ae.log 
       level: DEBUG            
       color: false
-      # maxBytes: 20971520  # 20MB
-      # backupCount: 3
   modules:
-    src.core.compute_utils: INFO
-    src.core.module_loader: INFO
-    src.senses: INFO
-    src.processing.vision: INFO # Kenar titremesi çözülürse INFO, sorun devam ederse DEBUG
-    src.processing.audio: INFO
-    src.representation.models: INFO # Eğitim kaybını görmek için DEBUG yapılabilir (her N adımda bir)
-    src.memory.core: INFO
-    src.cognition.core: INFO
-    src.cognition.understanding: INFO # similarity_score'ları görmek için DEBUG yapılabilir
-    src.cognition.decision: INFO
-    src.cognition.learning: INFO      # Kavram öğrenme logları için INFO/DEBUG
-    __main__: INFO
+    src.memory.core: DEBUG          # <<< LTM'ye geçişleri görmek için
+    src.cognition.learning: DEBUG   # <<< Kavram öğrenme detayları için
+    src.representation.models: DEBUG # <<< AE kaybı için
+    src.cognition.understanding: DEBUG # <<< Benzerlik skorları için
+    __main__: DEBUG                     # RUN_EVO_COSINE logları için
 
 debug:
-  show_camera_feed: True          # Ham kamera görüntüsünü göster (True/False)
-  show_processed_main_image: True # VisionProcessor'dan çıkan ana işlenmiş görüntüyü göster (True/False)
-  show_processed_edges_image: True # VisionProcessor'dan çıkan kenar görüntüsünü göster (True/False)
-  # log_level_override: DEBUG     # Gelecekte, ana log seviyesini buradan override etmek için
+  show_camera_feed: False           # Ham kamera görüntüsünü göster (True/False)
+  show_processed_main_image: False  # VisionProcessor'dan çıkan ana işlenmiş görüntüyü göster (True/False)
+  show_processed_edges_image: True   # VisionProcessor'dan çıkan kenar görüntüsünü göster (True/False)
+   # log_level_override: DEBUG     # Gelecekte, ana log seviyesini buradan override etmek için
   # cognitive_loop_break_after: 0 # 0 ise normal çalışır, >0 ise o kadar döngüden sonra durur (test için)
