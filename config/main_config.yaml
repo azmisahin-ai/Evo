@@ -4,73 +4,155 @@
 
 # Genel Ayarlar
 cognitive_loop_interval: 0.1 # Bilişsel döngünün ne sıklıkta çalışacağı (saniye)
+# Açıklama: Sistemin ne kadar hızlı tepki vereceğini belirler.
+#   - Daha düşük değer (örn: 0.05): Daha hızlı tepki, daha fazla CPU kullanımı. Gerçek zamanlı etkileşimler için ideal olabilir.
+#   - Daha yüksek değer (örn: 0.5): Daha yavaş tepki, daha az CPU kullanımı. Kaynak kısıtlı sistemler veya daha az acil görevler için uygun.
+#   - "En hızlı" tepki için: Mümkün olan en düşük değer (sistemin kaldırabileceği).
+#   - "En iyi" denge için: 0.1-0.2 arası genellikle iyi bir başlangıç noktasıdır.
 
 # Sense modülleri ayarları
 vision:
   camera_index: 0 # Varsayılan kamera indeksi
+  # Açıklama: Sistemde birden fazla kamera varsa, hangisinin kullanılacağını belirtir.
   dummy_width: 640 # Simüle kare genişliği (gerçek kamera yoksa)
   dummy_height: 480 # Simüle kare yüksekliği (gerçek kamera yoksa)
+  # Açıklama: Gerçek kamera olmadan test yapılıyorsa, simüle edilecek karelerin boyutu.
+  #   - Daha büyük boyutlar: Test sırasında daha fazla veriyle çalışmayı simüle eder, ancak dummy olduğu için performansa etkisi azdır.
   is_dummy: False # Gerçek kamera yerine simülasyon kullanılsın mı?
+  # Açıklama: True ise, fiziksel kamera yerine sahte görüntü verisi üretilir. Geliştirme/test için kullanışlıdır.
 
 audio:
-  audio_rate: 44100 # Ses örnekleme oranı
+  audio_rate: 44100 # Ses örnekleme oranı (Hz)
+  # Açıklama: Saniyede kaç ses örneği alınacağını belirler.
+  #   - Daha yüksek değer (örn: 48000, 96000): Daha yüksek ses kalitesi, daha fazla veri, daha fazla işlem gücü gereksinimi.
+  #   - Daha düşük değer (örn: 22050, 16000): Daha düşük ses kalitesi, daha az veri, daha az işlem gücü. Konuşma tanıma için 16000Hz yeterli olabilir.
+  #   - "En iyi" kalite için: 44100Hz veya 48000Hz standarttır.
+  #   - "En hızlı" işlem için: Daha düşük bir değer (örn: 16000Hz) düşünülebilir, ancak kalite kaybı olur.
   audio_chunk_size: 1024 # Her seferinde işlenecek ses örneği sayısı
+  # Açıklama: Ses verisinin ne kadar büyük parçalar halinde işleneceğini belirler.
+  #   - Daha küçük değer (örn: 512): Daha düşük gecikme (latency), daha sık işlem. Gerçek zamanlı analiz için daha iyi olabilir.
+  #   - Daha büyük değer (örn: 2048, 4096): Daha yüksek gecikme, daha seyrek ama daha büyük veri bloklarıyla işlem. Bazı analiz türleri (örn: FFT) için daha stabil olabilir.
+  #   - Dengeli bir değer: 1024 genellikle iyi bir başlangıçtır.
   audio_input_device_index: null # null varsayılan cihazı kullanır, belirli bir index verilebilir.
+  # Açıklama: Birden fazla mikrofon varsa, hangisinin kullanılacağını belirtir. `null` genellikle sistem varsayılanını seçer.
   is_dummy: False # Gerçek mikrofon yerine simülasyon kullanılsın mı?
+  # Açıklama: True ise, fiziksel mikrofon yerine sahte ses verisi üretilir.
 
 # Processor modülleri ayarları
 processors:
   vision:
     output_width: 64
     output_height: 64
+    # Açıklama: Kamera görüntüsünün işlendikten sonra hangi boyuta indirgeneceğini belirler.
+    #   Bu boyut, `representation.input_dim`'i doğrudan etkiler.
+    #   - Daha büyük boyutlar (örn: 128x128): Daha fazla detay, daha büyük girdi boyutu, daha yavaş temsil öğrenme ve bellek işlemleri. Daha iyi kavram ayrımı potansiyeli.
+    #   - Daha küçük boyutlar (örn: 32x32): Daha az detay, daha küçük girdi boyutu, daha hızlı işlemler. Detay kaybı nedeniyle kavram ayrımı zorlaşabilir.
+    #   - "En hızlı" için: Küçük boyutlar (örn: 32x32).
+    #   - "En iyi" detay için: Sistemin kaldırabileceği daha büyük boyutlar (örn: 128x128), ancak `representation_dim` de buna göre ayarlanmalı.
+    #   - Daha fazla kavram öğrenmek için: Detay önemliyse, boyutu artırmak faydalı olabilir. Ancak, işlem süresi artar. 64x64 iyi bir denge noktasıdır.
     canny_low_threshold: 50 # Canny kenar tespiti düşük eşiği
     canny_high_threshold: 150 # Canny kenar tespiti yüksek eşiği
+    # Açıklama: Canny kenar algoritmasının hassasiyetini ayarlar.
+    #   - Düşük eşikler (low_threshold ve high_threshold değerleri birbirine yakın ve düşük): Daha fazla kenar (gürültü dahil) tespit edilir.
+    #   - Yüksek eşikler (veya aralarındaki fark büyük): Daha az, belirgin kenarlar tespit edilir.
+    #   - "En iyi" kenarlar için: Ortam ve görüntü içeriğine göre ayarlanmalıdır. Gürültülü bir ortamda yüksek eşikler daha iyi olabilir.
+    #   - Daha fazla kavram öğrenmek için: Eğer kenarlar kavramlar için önemli bir özellikse, iyi ayarlanmış eşikler önemlidir. Aşırı gürültü veya detay kaybı öğrenmeyi zorlaştırabilir.
+
   audio:
-    # output_dim: AudioProcessor'ın döndüreceği özellik sayısı (Enerji, Spectral Centroid).
-    # Kod implementasyonu şu anda 2 özellik döndürüyor.
     output_dim: 2
-    # audio_rate AudioSensor'dan gelebilir, ama burada da belirtilebilir.
-    audio_rate: 44100 # İsteğe bağlı olarak burada belirtilebilir
+    # Açıklama: AudioProcessor'ın döndüreceği özellik sayısı. Mevcut implementasyonda Enerji ve Spektral Sentroid (2 özellik).
+    #   - Bu değer, AudioProcessor kodundaki değişikliğe göre güncellenmelidir. Daha fazla özellik eklenirse (örn: MFCC'ler), bu sayı artar.
+    #   - Daha fazla özellik: Sesin daha zengin bir temsilini sağlayabilir, bu da daha iyi kavram ayrımına yol açabilir, ancak `representation.input_dim`'i artırır.
+    audio_rate: 44100 # İsteğe bağlı olarak burada belirtilebilir (AudioSensor'dan alır)
+    # Açıklama: Eğer AudioProcessor'ın, AudioSensor'dan gelen `audio_rate`'den farklı bir rate ile çalışması gerekiyorsa (örn: yeniden örnekleme yapıyorsa) burada belirtilir. Genellikle AudioSensor ile aynı tutulur.
 
 # Representation Learner ayarları
 representation:
   # input_dim: Encoder'ın beklediği toplam girdi boyutu.
-  # (VisionProcessor grayscale 64*64) + (VisionProcessor edges 64*64) + (AudioProcessor output_dim 2)
-  # 4096 + 4096 + 2 = 8194
+  # (VisionProcessor grayscale output_width*output_height) + (VisionProcessor edges output_width*output_height) + (AudioProcessor output_dim)
+  # (64*64) + (64*64) + 2 = 4096 + 4096 + 2 = 8194
   input_dim: 8194
+  # Açıklama: Bu değer, tüm işlemcilerden gelen birleştirilmiş verinin toplam boyutudur. Elle hesaplanmalı ve işlemci çıktı boyutları değiştikçe güncellenmelidir.
+  #   - Hatalı bir değer, modelin çökmesine veya yanlış çalışmasına neden olur.
   representation_dim: 128 # Temsil vektörünün boyutu
+  # Açıklama: Öğrenilen sıkıştırılmış temsilin boyutu.
+  #   - Daha büyük değer (örn: 256, 512): Daha fazla bilgi saklayabilir, potansiyel olarak daha iyi kavram ayrımı, ancak daha fazla bellek ve işlem gücü gerektirir. Aşırı büyük olması overfitting'e yol açabilir.
+  #   - Daha küçük değer (örn: 32, 64): Daha az bilgi, daha hızlı işlem, daha az bellek. Bilgi kaybı nedeniyle kavram ayrımı zorlaşabilir (underfitting).
+  #   - "En hızlı" için: Daha küçük değer.
+  #   - "En iyi" temsil için: Genellikle 64-256 arası iyi bir başlangıç noktasıdır. `input_dim`'in karmaşıklığına ve öğrenilecek kavramların çeşitliliğine bağlıdır.
+  #   - Daha fazla kavram öğrenmek için: Bu boyutun yeterince büyük olması, farklı kavramları ayırt edebilecek kadar bilgi taşımasını sağlar. Çok küçükse, farklı girdiler aynı temsile sıkışabilir.
 
 # Memory modülleri ayarları
 memory:
   max_memory_size: 1000 # Saklanacak maksimum temsil sayısı (core/working memory)
+  # Açıklama: Bellekte tutulacak en son deneyimlerin (temsillerin) sayısı.
+  #   - Daha büyük değer: Daha fazla geçmişe erişim, potansiyel olarak daha iyi bağlamsal kararlar ve daha zengin veri setiyle öğrenme. Daha fazla RAM kullanımı.
+  #   - Daha küçük değer: Daha az RAM kullanımı, daha sınırlı geçmiş.
+  #   - Daha fazla kavram öğrenmek için: `learning_memory_sample_size` ile birlikte, öğrenme algoritmasına yeterli ve çeşitli veri sağlamak için önemli.
   num_retrieved_memories: 5 # Retrieve metodunda varsayılan olarak geri çağrılacak anı sayısı
+  # Açıklama: Bir sorgu yapıldığında bellekten kaç tane benzer anının getirileceği.
+  #   - Daha büyük değer: Mevcut duruma daha fazla bağlam sağlar, karar verme ve tanıdıklık değerlendirmesi için daha fazla bilgi. Getirme işlemi biraz daha yavaşlayabilir.
+  #   - Daha küçük değer: Daha hızlı getirme, ancak daha az bağlam.
+  #   - "En iyi" bağlam için: 5-10 arası genellikle iyi bir değerdir.
   memory_file_path: data/core_memory.pkl # Belleğin kaydedileceği/yükleneceği dosya yolu. data/ dizini oluşturulacak.
 
 # Cognition modülleri ayarları
 cognition:
   # Anlama (Understanding) ve Karar (Decision) ayarları
   familiarity_threshold: 0.8
+  # Açıklama: Bir girdinin bellekteki bir anıya ne kadar "benzer" olması gerektiğini belirler (genellikle kosinüs benzerliği gibi bir metrikle ölçülür).
+  #   - Daha yüksek değer (örn: 0.9): Çok benzer olması gerekir, sistem daha "seçici" olur, daha fazla şeyi "yeni" olarak algılar.
+  #   - Daha düşük değer (örn: 0.7): Daha az benzerlik yeterlidir, sistem daha "hoşgörülü" olur, daha fazla şeyi "tanıdık" olarak algılar.
+  #   - Daha fazla kavram öğrenmek için: Bu eşik, neyin "yeni" ve dolayısıyla potansiyel bir öğrenme fırsatı olduğunu belirlemede rol oynar. Çok düşükse, yeni şeyler tanıdık sanılabilir. Çok yüksekse, her küçük değişiklik yeni olarak algılanabilir.
   audio_energy_threshold: 1000.0
+  # Açıklama: Sesin "önemli" kabul edilmesi için gereken minimum enerji seviyesi. Ortam gürültüsünü filtrelemek için kullanılır.
+  #   - Değer, mikrofon hassasiyetine ve ortam gürültüsüne göre ayarlanmalıdır.
   visual_edges_threshold: 50.0
-  brightness_threshold_high: 200.0
-  brightness_threshold_low: 50.0
+  # Açıklama: Görüntüdeki kenar yoğunluğunun "önemli" kabul edilmesi için gereken eşik. Durgun veya çok basit sahneleri ayırt etmeye yardımcı olabilir.
+  #   - Değer, `processors.vision.canny_*_threshold` ayarlarına ve sahne karmaşıklığına bağlıdır.
+  brightness_threshold_high: 200.0 # (0-255 arası)
+  brightness_threshold_low: 50.0 # (0-255 arası)
+  # Açıklama: Görüntünün genel parlaklığının aşırı parlak veya aşırı karanlık olarak sınıflandırılması için eşikler.
   # İçsel Durum (Curiosity - DecisionModule içinde kullanılır)
   curiosity_threshold: 5.0
+  # Açıklama: Merak seviyesinin, sistemi keşif davranışına (örn: yeni bir şeye odaklanma) itmesi için gereken eşik.
   curiosity_increment_new: 1.0
+  # Açıklama: Yeni bir durumla karşılaşıldığında merakın ne kadar artacağı.
   curiosity_decrement_familiar: 0.5
+  # Açıklama: Tanıdık bir durumla karşılaşıldığında merakın ne kadar azalacağı.
   curiosity_decay: 0.1
-  # Kavram Tanıma eşiği (DecisionModule kullanır)
+  # Açıklama: Merakın zamanla pasif olarak ne kadar azalacağı.
+  #   - Bu dört merak parametresi, sistemin ne kadar "keşfetmeye istekli" olacağını belirler.
+  #   - Daha fazla kavram öğrenmek için: Daha yüksek `curiosity_increment_new` ve daha düşük `curiosity_decrement_familiar` / `curiosity_decay`, sistemi yeni deneyimlere daha açık hale getirebilir. `curiosity_threshold` ise bu davranışın ne zaman tetikleneceğini ayarlar.
   concept_recognition_threshold: 0.85
+  # Açıklama: Bir girdinin mevcut öğrenilmiş bir kavrama ne kadar benzemesi gerektiğini belirler. `familiarity_threshold`'dan genellikle daha yüksektir çünkü bir kavram, tek bir anıdan daha genel bir temsildir.
+  #   - Daha yüksek değer: Daha katı kavram tanıma, daha az yanlış pozitif.
+  #   - Daha düşük değer: Daha esnek kavram tanıma, potansiyel olarak daha fazla yanlış pozitif.
+  #   - Daha fazla kavram öğrenmek için: Bu eşik, mevcut kavramların ne zaman "tanındığını" belirler. Eğer yeni girdiler mevcut kavramlara benzemiyorsa, bu yeni bir kavram öğrenme fırsatı olabilir.
   # Öğrenme (Learning) ayarları (LearningModule ve ilgili CognitionCore parametreleri)
   learning:
     concept_file_path: data/concepts.pkl # Öğrenilen kavramların kaydedileceği dosya yolu
     learning_frequency: 100 # Öğrenme sıklığı (her 100 döngüde bir öğrenme işlemi yapılır)
+    # Açıklama: Öğrenme algoritmasının ne kadar sık çalıştırılacağı (bilişsel döngü sayısı cinsinden).
+    #   - Daha düşük değer (örn: 10, 50): Daha sık öğrenme, kavramlar daha hızlı güncellenir/oluşur. Daha fazla CPU kullanımı.
+    #   - Daha yüksek değer (örn: 500, 1000): Daha seyrek öğrenme, daha az CPU kullanımı. Kavramların oluşması daha uzun sürer.
+    #   - "En hızlı" öğrenme için: Düşük değer.
+    #   - Daha fazla kavram öğrenmek için: Daha sık öğrenme (düşük `learning_frequency`) ve yeterli `learning_memory_sample_size` önemlidir.
     learning_memory_sample_size: 50 # Öğrenme için bellekten alınacak örnek sayısı
-    new_concept_threshold: 0.7 # Yeni bir kavramın oluşması için eşik
+    # Açıklama: Öğrenme algoritması (örn: kümeleme) çalıştırıldığında bellekten kaç tane temsilin kullanılacağı.
+    #   - Daha büyük değer (örn: 100, 200): Daha fazla veriyle öğrenme, potansiyel olarak daha stabil ve doğru kavramlar. Daha yavaş öğrenme adımı. `max_memory_size`'dan büyük olmamalıdır.
+    #   - Daha küçük değer (örn: 20, 30): Daha az veriyle öğrenme, daha hızlı öğrenme adımı, ancak kavramlar daha az stabil olabilir.
+    #   - Daha fazla kavram öğrenmek için: Yeterli çeşitlilikte ve sayıda örnek sağlamak önemlidir. Bu değer, `max_memory_size` ile dengeli olmalıdır.
+    new_concept_threshold: 0.7 # Yeni bir kavramın oluşması için eşik (örn: kümeleme sonrası küme içi benzerlik veya kümeler arası ayrım)
+    # Açıklama: Bellekteki temsillerden yeni bir kavram oluşturulması için gereken "ayrışma" veya "yoğunluk" eşiği. Bu, kullanılan öğrenme algoritmasına bağlıdır (örn: DBSCAN için `eps` ve `min_samples` gibi parametrelerle dolaylı olarak ayarlanabilir veya bir kümenin ortalama iç benzerliği vb.).
+    #   Bu değeri genellikle bir benzerlik metriği olarak düşünebiliriz (0-1 arası).
+    #   - Daha düşük değer (örn: 0.6): Daha kolay yeni kavramlar oluşur. Potansiyel olarak daha granüler ama gürültülü kavramlar.
+    #   - Daha yüksek değer (örn: 0.8, 0.9): Yeni kavramların oluşması daha zordur. Daha az sayıda ama daha belirgin kavramlar.
+    #   - Daha fazla kavram öğrenmek için: Bu eşiği dikkatli ayarlamak gerekir. Çok yüksekse az kavram öğrenilir. Çok düşükse her şey ayrı bir kavram gibi görünebilir (anlamsız). Bu, `representation_dim` ve genel veri çeşitliliği ile de etkileşim içindedir. İyi bir temsil ve çeşitli deneyimler, anlamlı kavramların daha kolay ayırt edilmesini sağlar.
 
 # Motor Control modülleri ayarları
 motor_control:
-  # default_output_type: text # Örnek ayar
+  # default_output_type: text # Örnek ayar (spesifik implementasyona bağlı)
 
 # Interaction modülleri ayarları
 interaction:
@@ -89,11 +171,11 @@ logging:
   level: INFO # Ana loglama seviyesi
   handlers:
     - type: console
-      level: DEBUG # Konsol için daha detaylı loglama (geliştirme sırasında)
+      level: INFO
       color: true
     - type: file
       filename: logs/all.log
-      level: DEBUG # Dosyaya tüm DEBUG logları
+      level: DEBUG
       color: false
     - type: socket
       host: 127.0.0.1
@@ -101,7 +183,6 @@ logging:
       udp: true
       level: WARNING
   modules:
-    # Belirli modüller için log seviyeleri override edilebilir
     src.senses.vision: DEBUG
     src.senses.audio: DEBUG
     src.processing.vision: DEBUG
@@ -115,8 +196,11 @@ logging:
     src.motor_control.core: DEBUG
     src.motor_control.expression: DEBUG
     src.interaction.api: DEBUG
-    src.interaction.output_channels.console: INFO # Konsol çıktısı kanalı için INFO
+    src.interaction.output_channels.console: INFO
     src.interaction.output_channels.web_api: INFO
-
-    # __main__ (test_module.py ve run_evo.py gibi scriptler için)
-    __main__: INFO # Ana scriptler için varsayılan INFO, testlerde DEBUG olabilir
+    __main__: INFO
+# Açıklama: Loglama ayarları, sistemin çalışması hakkında ne kadar detaylı bilgi kaydedileceğini belirler.
+#   - `level`: DEBUG (en detaylı) < INFO < WARNING < ERROR < CRITICAL (en az detaylı).
+#   - Geliştirme sırasında: Modül bazında DEBUG seviyesi kullanmak sorunları tespit etmek için çok faydalıdır.
+#   - Üretimde/uzun süreli çalışmalarda: INFO veya WARNING genel seviyesi, dosya logları için DEBUG tutulabilir.
+#   - "En hızlı" çalışma için: Loglamayı minimuma indirmek (örn: WARNING veya ERROR) performansa küçük bir olumlu etki yapabilir, ancak hata ayıklamayı zorlaştırır.

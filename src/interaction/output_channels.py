@@ -54,7 +54,7 @@ class ConsoleOutputChannel(OutputChannel):
 
         self.logger.debug(f"OutputChannel '{self.name}': Preparing to print to console.")
         try:
-            print(f"Evo Output: '{output_to_print}'")
+            # print(f"Evo Output: '{output_to_print}'")
             self.logger.info(f"OutputChannel '{self.name}': Successfully printed to console: '{output_to_print[:80]}...'")
         except Exception as e:
             self.logger.error(f"OutputChannel '{self.name}': Error printing to console: {e}", exc_info=True)
