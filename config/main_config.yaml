@@ -11,7 +11,28 @@ compute:
 
 # Sense Modülleri Ayarları
 vision:
-  camera_index: 0
+  # source_type: "usb_camera" | "ip_camera" | "video_file" | "image_folder" | "screen_capture"
+  source_type: "usb_camera" 
+  
+  # Eğer source_type: "usb_camera" ise:
+  camera_index: 0 # Kullanılacak USB kamera indeksi (0, 1, 2...)
+
+  # Eğer source_type: "ip_camera" ise:
+  ip_camera_url: "rtsp://username:password@ip_address:port/stream_path" # Örnek RTSP URL'si
+                  # veya "http://ip_address/video.mjpg" gibi
+
+  # Eğer source_type: "video_file" ise:
+  video_file_path: "data/videos/test_video.mp4" # Video dosyasının yolu
+  loop_video: True # Video bittiğinde başa sarsın mı?
+
+  # Eğer source_type: "image_folder" ise (Daha karmaşık implementasyon gerektirir):
+  # image_folder_path: "data/image_sequence/"
+  # image_file_pattern: "frame_%04d.png" # Örn: frame_0001.png, frame_0002.png
+  # image_sequence_fps: 10 # Saniyede kaç kare okunacağı
+
+  # Eğer source_type: "screen_capture" ise (Platforma özel kütüphane gerektirebilir):
+  # screen_capture_region: null # null ise tüm ekran, veya [x, y, width, height]
+  
   is_dummy: False
   process_color: True # VisionProcessor renkli (True) mi gri (False) mi işlesin?
   # Dummy ayarları sadece is_dummy: True ise kullanılır.
@@ -104,7 +125,7 @@ logging:
   level: INFO 
   handlers:
     - type: console
-      level: INFO   
+      level: INFO
       color: true
     - type: file
       filename: logs/evo_prod.log 
