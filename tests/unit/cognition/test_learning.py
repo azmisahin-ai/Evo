@@ -40,7 +40,10 @@ class TestLearningModule(unittest.TestCase):
         # LearningModule needs cognition.new_concept_threshold and representation.representation_dim.
         self.default_config = {
             'cognition': {
-                'new_concept_threshold': 0.7,
+                'learning':{
+                    'new_concept_threshold': 0.7,
+                }
+                
                 # Other cognition settings not used by LearningModule init directly
             },
             'representation': {
@@ -117,20 +120,20 @@ class TestLearningModule(unittest.TestCase):
     def test_init_new_concept_threshold_out_of_range(self):
         """Tests when new_concept_threshold is set outside the 0.0-1.0 range."""
         # The __init__ method's internal range checks should reset the value to the default 0.7.
-        config_high = {'cognition': {'new_concept_threshold': 1.5}, 'representation': {'representation_dim': 10}}
+        config_high = {'cognition': {'learning': {'new_concept_threshold': 1.5}}, 'representation': {'representation_dim': 10}}
         module_high = LearningModule(config_high)
         self.assertEqual(module_high.new_concept_threshold, 0.7) # Should be reset
 
-        config_low = {'cognition': {'new_concept_threshold': -0.5}, 'representation': {'representation_dim': 10}}
+        config_low = {'cognition': {'learning': {'new_concept_threshold': -0.5}}, 'representation': {'representation_dim': 10}}
         module_low = LearningModule(config_low)
         self.assertEqual(module_low.new_concept_threshold, 0.7) # Should be reset
 
         # Test boundary values - they should be accepted.
-        config_at_boundaries_high = {'cognition': {'new_concept_threshold': 1.0}, 'representation': {'representation_dim': 10}}
+        config_at_boundaries_high = {'cognition': {'learning':{'new_concept_threshold': 1.0}}, 'representation': {'representation_dim': 10}}
         module_boundaries_high = LearningModule(config_at_boundaries_high)
         self.assertEqual(module_boundaries_high.new_concept_threshold, 1.0) # Boundaries should be included
 
-        config_at_boundaries_low = {'cognition': {'new_concept_threshold': 0.0}, 'representation': {'representation_dim': 10}}
+        config_at_boundaries_low = {'cognition': {'learning':{'new_concept_threshold': 0.0}}, 'representation': {'representation_dim': 10}}
         module_boundaries_low = LearningModule(config_at_boundaries_low)
         self.assertEqual(module_boundaries_low.new_concept_threshold, 0.0) # Boundaries should be included
 
