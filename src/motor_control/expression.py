@@ -1,103 +1,107 @@
 # src/motor_control/expression.py
-#
-# Evo'nın dışsal ifade modülünü temsil eder.
-# MotorControl'den gelen komutları metin çıktılara dönüştürür.
-
 import logging
-# import numpy as np # Gerekirse görsel veya ses çıktısı için
+import random # Rastgele seçimler için
+from src.core.utils import check_input_not_none
 
-# Yardımcı fonksiyonları import et (girdi kontrolleri için)
-from src.core.utils import check_input_not_none, check_input_type # <<< Utils importları
-
-# Bu modül için bir logger oluştur
 logger = logging.getLogger(__name__)
 
 class ExpressionGenerator:
-    """
-    Evo'nın dışsal ifade yeteneğini sağlayan sınıf (Faz 3/4 implementasyonu).
-
-    MotorControl modülünden gelen komutları alır.
-    Mevcut implementasyon: Belirli metin komutlarına göre sabit stringler döndürür.
-    Gelecekte metin sentezi (NLG), ses sentezi (TTS), görsel üretim algoritmaları implement edilecektir.
-    """
     def __init__(self, config):
-        """
-        ExpressionGenerator modülünü başlatır.
+        self.config = config # Config ileride kullanılabilir (örn: dil, ses tonu)
+        logger.info("ExpressionGenerator initializing...")
+        logger.info("ExpressionGenerator initialized.")
 
-        Args:
-            config (dict): İfade üretme modülü yapılandırma ayarları.
-                           Gelecekte sentezleyici ayarları, çıktı formatları gibi ayarlar gelebilir.
-        """
-        self.config = config
-        logger.info("ExpressionGenerator başlatılıyor (Faz 3/4)...")
-        # Modül başlatma mantığı buraya gelebilir (örn: model yükleme)
-        logger.info("ExpressionGenerator başlatıldı.")
+    def generate(self, decision_or_command):
+        if not check_input_not_none(decision_or_command, "decision_or_command for ExpressionGenerator", logger) and decision_or_command is not None:
+             logger.warning(f"ExpressionGenerator: Received non-string command: {type(decision_or_command)}. Defaulting.")
+             decision_or_command = "default_response" # Varsayılana düş
+        elif decision_or_command is None:
+            logger.debug("ExpressionGenerator: Command is None. Defaulting.")
+            decision_or_command = "default_response"
 
-    def generate(self, command):
-        """
-        MotorControl'den gelen komuta göre bir ifade (çıktı) üretir.
+        logger.debug(f"ExpressionGenerator: Generating expression for '{decision_or_command}'")
 
-        Mevcut implementasyon: Belirli string komutlara göre sabit metin stringleri döndürür.
+        output_text = None
 
-        Args:
-            command (str or any): MotorControlCore'dan gelen komut.
-                                  Beklenen format: "familiar_response", "new_response", "sound_detected_response", "complex_visual_response", "bright_light_response", "dark_environment_response", "recognized_concept_X", "explore_randomly_response", "make_noise_response", "default_response" stringleri veya None.
+        # DecisionModule'den gelen kararlara göre ifadeler
+        # Bu anahtarlar DecisionModule.decide() içindeki karar stringleriyle eşleşmeli
+        responses = {
+            "explore_surroundings": [
+                "Etrafıma bir göz atayım.",
+               #  "Acaba etrafta ne var?",
+               #  "Biraz keşif yapma zamanı."
+            ],
+            "make_a_random_sound": [
+                "Bip bop!",
+               #  "Vızzz!",
+               #  "Bir ses çıkarıyorum: hummm."
+            ],
+            "focus_on_new_detail": [
+                "Bu ilginç görünüyor, daha yakından bakmalıyım.",
+               #  "Şuna odaklanayım.",
+               #  "Bu detayı incelemek istiyorum."
+            ],
+            "react_to_loud_sound": [
+                "Bu ses de neydi?!",
+               #  "Bir gürültü duydum!",
+               #  "Sesli bir şey oldu."
+            ],
+            "examine_complex_visual": [
+                "Bu karmaşık bir görüntü.",
+               #  "Burada çok fazla detay var.",
+               #  "Bu gördüğüm şeyi anlamaya çalışıyorum."
+            ],
+            "acknowledge_bright_light": [
+                "Ne kadar parlak!",
+               #  "Işık gözümü alıyor.",
+               #  "Çok aydınlık burası."
+            ],
+            "acknowledge_darkness": [
+                "Burası oldukça karanlık.",
+               #  "Işıkları açsak mı?",
+               #  "Görüş mesafem azaldı."
+            ],
+            "observe_familiar_input": [
+                "Bunu daha önce görmüştüm.",
+               #  "Bu bana tanıdık geliyor.",
+               #  "Evet, bunu hatırlıyorum."
+            ],
+            "perceive_new_stimulus": [
+                "Bu da ne? Yeni bir şey.",
+               #  "Daha önce böyle bir şeyle karşılaşmamıştım.",
+               #  "Yeni bir uyaran algıladım."
+            ],
+            "default_response": [ # MotorControlCore'dan "default_response" komutu gelirse
+                "Ne yapacağımdan emin değilim.",
+               #  "Biraz kafam karıştı.",
+               #  "Hmm, ilginç."
+            ]
+            # "interact_with_concept_X" için özel işlem aşağıda
+        }
 
-        Returns:
-            str or None: Üretilen metin stringi veya hata durumunda None.
-        """
-        # Girdi kontrolleri. command'ın string olup olmadığını kontrol et.
-        if not check_input_not_none(command, input_name="command for ExpressionGenerator", logger_instance=logger) and command is not None:
-             logger.warning(f"ExpressionGenerator.generate: Komut beklenmeyen tipte: {type(command)}. String veya None bekleniyordu.")
-             return None # Geçersiz tipte komut gelirse None döndür.
+        if decision_or_command in responses:
+            output_text = random.choice(responses[decision_or_command])
+        elif isinstance(decision_or_command, str) and decision_or_command.startswith("interact_with_concept_"):
+            try:
+                concept_id_str = decision_or_command.split("_")[-1]
+                # concept_id_str'ın sayı olup olmadığını kontrol etmeye gerek yok, string olarak kullanabiliriz.
+                output_text = random.choice([
+                    f"Ah, bu {concept_id_str} numaralı kavrama benziyor.",
+                    # f"Bu {concept_id_str} kavramıyla ilgili bir şeyler düşünüyorum.",
+                    # f"Kavram {concept_id_str} ile ne yapabilirim acaba?"
+                ])
+            except IndexError:
+                logger.warning(f"ExpressionGenerator: Malformed 'interact_with_concept_' command: {decision_or_command}")
+                output_text = random.choice(responses["default_response"])
+        else: # Bilinmeyen bir komut/karar ise
+            logger.warning(f"ExpressionGenerator: Unknown command/decision '{decision_or_command}'. Using default response.")
+            output_text = random.choice(responses["default_response"])
+        
+        if output_text:
+            logger.debug(f"ExpressionGenerator: Produced output: '{output_text}' for command: '{decision_or_command}'")
+        
+        return output_text
 
-        logger.debug(f"ExpressionGenerator.generate: '{command}' komutu için ifade üretme işlemi simüle ediliyor.")
-
-        output_data = None # Üretilen çıktıyı tutacak değişken.
-
-        try:
-            # İfade Üretme Mantığı (Faz 3/4):
-            # MotorControl'den gelen spesifik string komutlara göre sabit metin stringleri döndür.
-            if command == "familiar_response":
-                 output_data = "Bu tanıdık geliyor." # Tanıdık input için yanıt
-            elif command == "new_response":
-                 output_data = "Yeni bir şey algıladım." # Yeni input için yanıt
-            elif command == "sound_detected_response":
-                 output_data = "Bir ses duyuyorum." # Ses algılama için yanıt
-            elif command == "complex_visual_response":
-                 output_data = "Detaylı bir şey görüyorum." # Detaylı görsel algılama için yanıt
-            elif command == "bright_light_response": # Yeni yanıt
-                 output_data = "Ortam çok parlak." # Parlak ortam için yanıt
-            elif command == "dark_environment_response": # Yeni yanıt
-                 output_data = "Ortam biraz karanlık." # Karanlık ortam için yanıt
-            elif command == "explore_randomly_response": # Yeni yanıt
-                 output_data = "Etrafı keşfetmek istiyorum." # Keşif kararı için yanıt
-            elif command == "make_noise_response": # Yeni yanıt
-                 output_data = "Rastgele bir ses çıkarıyorum." # Gürültü yapma kararı için yanıt
-            elif isinstance(command, str) and command.startswith("recognized_concept_response_"): # Yeni kavram tanıma yanıtı
-                 # Komut örn: "recognized_concept_response_0". ID'yi alalım.
-                 concept_id_str = command.split("_")[-1]
-                 output_data = f"Sanırım bu bir kavram {concept_id_str}." # Kavram ID'sini içeren yanıt.
-                 # TODO: Gelecekte kavram ID'sine göre daha anlamlı/eğitilmiş yanıtlar üretilebilir.
-            elif command == "default_response":
-                 output_data = "Ne yapacağımı bilemedim." # Varsayılan yanıt
-            # Gelecekte eklenecek diğer komutlar (örn: ses çalma komutu, görsel çizim komutu) buraya eklenecek.
-            # elif command == "play_sound_X":
-            #      # Ses çalma mantığı buraya gelecek. Metin çıktı döndürmeyebilir.
-            #      output_data = None
-
-
-            if output_data is not None: # Eğer bir çıktı (metin) üretildiyse
-                 logger.debug(f"ExpressionGenerator.generate: İ ifade üretildi: '{output_data}'")
-            else: # Eğer command bilinen komutlardan biri değilse veya None ise
-                 if command is not None: # Komut None değildi ama eşleşmedi
-                      logger.warning(f"ExpressionGenerator.generate: Bilinmeyen komut '{command}'. Çıktı üretilemedi.")
-                 # Eğer command None ise, zaten yukarıdaki check_input_not_none loglamış olmalı.
-                 # logger.debug("ExpressionGenerator.generate: Komut None veya bilinmiyor. Çıktı None.") # Bu log üstteki uyarılarla çakışabilir, kaldırdım.
-
-
-        except Exception as e:
-            logger.error(f"ExpressionGenerator.generate: İ ifade üretme sırasında beklenmedik hata: {e}", exc_info=True)
-            return None # Hata durumunda None döndür
-
-        return output_data # Üretilen metin stringi veya None döndürülür.
+    def cleanup(self):
+        logger.info("ExpressionGenerator cleaning up.")
+        pass
