@@ -1,23 +1,22 @@
 # config/main_config.yaml
-# Evo projesinin ana yapılandırma dosyası.
-# Modül ayarları, genel parametreler ve diğer yapılandırmalar burada tanımlanır.
+# Evo Projesi Ana Yapılandırma Dosyası
 
 # Genel Ayarlar
-cognitive_loop_interval: 0.1 # Bilişsel döngünün ne sıklıkta çalışacağı (saniye)
+cognitive_loop_interval: 0.07 # Bilişsel döngü sıklığı (saniye). Performansa göre ayarlanabilir.
 
 # Hesaplama Ayarları
 compute:
-  backend: "pytorch"  # "numpy", "pytorch", "tensorflow" (gelecekte)
-  device: "cuda"      # "cpu", "cuda", "cuda:0", "mps" (PyTorch için)
-                      # TensorFlow için farklı olabilir ("gpu:0" vb.)
+  backend: "pytorch" # 
+  device: "cuda"     # "cpu", "cuda", "cuda:0", "mps"
 
-# Sense modülleri ayarları
+# Sense Modülleri Ayarları
 vision:
   camera_index: 0
+  is_dummy: False
+  process_color: True # VisionProcessor renkli (True) mi gri (False) mi işlesin?
+  # Dummy ayarları sadece is_dummy: True ise kullanılır.
   dummy_width: 640
   dummy_height: 480
-  is_dummy: False
-  process_color: True # VisionProcessor'ın renkli mi gri mi işleyeceğini belirler
 
 audio:
   audio_rate: 44100
@@ -25,100 +24,104 @@ audio:
   audio_input_device_index: null
   is_dummy: False
 
-# Processor modülleri ayarları
+# Processor Modülleri Ayarları
 processors:
   vision:
-    output_width: 64
+    output_width: 64  # Yeniden boyutlandırılacak ana görüntü ve kenar haritası için
     output_height: 64
-    # output_channels, process_color True ise 3 (RGB), False ise 1 (Gri) olmalı.
-    # VisionProcessor __init__ içinde process_color'a göre bunu doğrular/ayarlar.
-    output_channels: 3 
-    use_gpu_if_available: True # VisionProcessor'ın OpenCV sonrası tensörleri GPU'ya taşıması
-    canny_low_threshold: 50
-    canny_high_threshold: 150
+    # output_channels, VisionSensor.process_color'a göre VisionProcessor'da belirlenir.
+    # Bu ayar, module_loader'ın input_dim hesaplamasında referans olabilir.
+    output_channels_main_image: 3 # process_color:True ise 3 (RGB), False ise 1 (Gri)
+    
+    enable_edge_detection: True # Kenar tespiti aktif mi?
+    gaussian_blur_kernel_size: "5,5" # Kenar tespiti öncesi Gaussian Blur kernel boyutu (tek_sayi,tek_sayi)
+    canny_low_threshold: 75          # Canny düşük eşiği (gürültüye göre ayarlayın)
+    canny_high_threshold: 200        # Canny yüksek eşiği (gürültüye göre ayarlayın)
+    use_gpu_if_available: True       # OpenCV sonrası tensörler GPU'ya taşınsın mı? (PyTorch backend için)
+
   audio:
-    # output_dim, AudioProcessor içindeki implementasyona göre belirlenir (şu an 2).
-    # Bu ayar, uyarı/referans için kullanılabilir.
-    output_dim: 2 
-    audio_rate: 44100 # AudioSensor'dan gelen rate ile aynı olmalı (veya AudioProcessor yeniden örnekleme yapmalı)
+    output_dim: 2 # Enerji ve Spektral Sentroid
+    audio_rate: 44100
 
-# Representation Learner ayarları
+# Representation Learner (Autoencoder) Ayarları
 representation:
-  # input_dim, module_loader.py tarafından işlemci çıktılarına göre otomatik hesaplanır.
-  # "auto" veya herhangi bir sayısal değer girilebilir, üzerine yazılacaktır.
-  input_dim: "auto" 
-  representation_dim: 128
+  input_dim: "auto" # module_loader tarafından otomatik hesaplanır.
+                    # (main_image_size) + (edges_size if enabled) + (audio_size)
+  representation_dim: 128     # Autoencoder latent (gizli) katman boyutu.
+  hidden_dim_ae: 1024        # Autoencoder ara katman boyutu (örn: input_dim/4 veya input_dim/2).
+                              # None ise ara katman kullanılmaz.
+  learning_rate: 0.0001     # Autoencoder öğrenme oranı.
 
-# Memory modülleri ayarları
+# Memory Modülleri Ayarları
 memory:
-  max_memory_size: 1000
-  num_retrieved_memories: 5
-  memory_file_path: data/core_memory.pkl
+  max_memory_size: 1500 # Biraz daha fazla anı
+  num_retrieved_memories: 70 # Biraz daha fazla geri çağır
+  memory_file_path: data/evo_memory_prod.pkl # Farklı bir dosya adı
 
-# Cognition modülleri ayarları
+# Cognition Modülleri Ayarları
 cognition:
-  familiarity_threshold: 0.8
+  familiarity_threshold: 0.50 # Yüksek bir değer, sadece çok benzerleri "tanıdık" sayar.
+  concept_recognition_threshold: 0.55 # Tanıdık eşiğinden biraz daha yüksek.
+  
   audio_energy_threshold: 1000.0
-  visual_edges_threshold: 50.0
+  visual_edges_threshold: 0.15 # Eğer kenarlar normalize ise, bu eşik daha anlamlı olabilir
+                               # Eğer kenarlar 0/255 ise, bu değer 20-50 gibi olmalı. VisionProcessor çıktısına bağlı.
   brightness_threshold_high: 200.0
   brightness_threshold_low: 50.0
-  curiosity_threshold: 5.0
-  curiosity_increment_new: 1.0
-  curiosity_decrement_familiar: 0.5
-  curiosity_decay: 0.1
-  concept_recognition_threshold: 0.85
+  
+  curiosity_threshold: 3.0            # Daha kolay meraklan
+  curiosity_increment_new: 1.5        # Yeniye daha çok merak
+  curiosity_decrement_familiar: 0.4   # Tanıdıktan daha az sıkıl
+  curiosity_decay: 0.02               # Merak daha yavaş azalsın
+
   learning:
-    concept_file_path: data/concepts.pkl
-    learning_frequency: 100
-    learning_memory_sample_size: 50
-    new_concept_threshold: 0.7
+    concept_file_path: data/evo_concepts_prod.pkl
+    learning_frequency: 10             # Daha sık öğrenmeyi deneyebiliriz
+    learning_memory_sample_size: 10   # Daha fazla örnekle öğrenme
+    new_concept_threshold: 0.50        # Yeni bir kavram için gereken minimum "farklılık" (1 - max_similarity)
+                                       # Yani, max_similarity < (1 - new_concept_threshold) ise yeni kavramdır.
+                                       # Ya da, mevcut yorumla: max_similarity < new_concept_threshold ise yeni.
+                                       # LearningModule implementasyonuna göre bu eşiğin anlamı değişir.
+                                       # Mevcut LearningModule: `max_similarity_to_concepts < self.new_concept_threshold` ise YENİ.
 
-# Motor Control modülleri ayarları
-motor_control: {} # Spesifik ayarlar eklenebilir
+# Motor Control Modülleri Ayarları
+motor_control:
+  expression: {}
 
-# Interaction modülleri ayarları
+# Interaction Modülleri Ayarları
 interaction:
   enabled_channels:
     - console
   channel_configs:
     console: {}
-    web_api:
-      port: 5000
-      host: "127.0.0.1"
-      endpoint: "/output"
+    # web_api:
+    #   port: 5000
+    #   host: "127.0.0.1"
+    #   endpoint: "/output"
 
 # Loglama Ayarları
 logging:
-  level: INFO
+  level: INFO 
   handlers:
     - type: console
-      level: INFO
+      level: INFO   
       color: true
     - type: file
-      filename: logs/all.log
-      level: DEBUG
+      filename: logs/evo_prod.log 
+      level: DEBUG            
       color: false
-    - type: socket
-      host: 127.0.0.1
-      port: 9000
-      udp: true
-      level: WARNING
+      # maxBytes: 20971520  # 20MB
+      # backupCount: 3
   modules:
-    src.core.compute_utils: DEBUG
-    src.core.module_loader: DEBUG
-    src.senses.vision: INFO # Veya DEBUG
-    src.senses.audio: INFO  # Veya DEBUG
-    src.processing.vision: DEBUG
-    src.processing.audio: DEBUG
-    src.representation.models: DEBUG
-    src.memory.core: DEBUG
-    src.cognition.core: DEBUG
-    src.cognition.understanding: DEBUG
-    src.cognition.decision: DEBUG
-    src.cognition.learning: DEBUG
-    src.motor_control.core: DEBUG
-    src.motor_control.expression: DEBUG
-    src.interaction.api: DEBUG
-    src.interaction.output_channels.console: INFO
-    src.interaction.output_channels.web_api: INFO
-    __main__: INFO
+    src.core.compute_utils: INFO
+    src.core.module_loader: INFO
+    src.senses: INFO
+    src.processing.vision: INFO # Kenar titremesi çözülürse INFO, sorun devam ederse DEBUG
+    src.processing.audio: INFO
+    src.representation.models: INFO # Eğitim kaybını görmek için DEBUG yapılabilir (her N adımda bir)
+    src.memory.core: INFO
+    src.cognition.core: INFO
+    src.cognition.understanding: INFO # similarity_score'ları görmek için DEBUG yapılabilir
+    src.cognition.decision: INFO
+    src.cognition.learning: INFO      # Kavram öğrenme logları için INFO/DEBUG
+    __main__: INFO 
