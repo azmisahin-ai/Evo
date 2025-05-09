@@ -159,8 +159,9 @@ def run_evo():
                     decision = cog_core.decide(processed_inputs, learned_latent_rep_np, relevant_mem, concepts)
                     # Dont open
                     # if decision: logger.info(f"RUN_EVO (L{loop_count}): Decision: {str(decision)}")
-                except Exception as e: logger.error(f"RUN_EVO (L{loop_count}): CognitionCore.decide error: {e}", exc_info=False)
-
+                except Exception as e: 
+                    #logger.error(f"RUN_EVO (L{loop_count}): CognitionCore.decide error: {e}", exc_info=False)
+                    pass
             response = None; motor_core = motor_control_modules.get('core_motor_control')
             if motor_core:
                 try:
@@ -190,8 +191,9 @@ def run_evo():
             
             final_elapsed = time.time() - start_time
             if final_elapsed > loop_interval * 1.25: 
-                 logger.warning(f"RUN_EVO (L{loop_count}): Loop overrun: {final_elapsed:.4f}s (target: {loop_interval:.2f}s)")
-
+                 #logger.warning(f"RUN_EVO (L{loop_count}): Loop overrun: {final_elapsed:.4f}s (target: {loop_interval:.2f}s)")
+                 pass
+            
     except KeyboardInterrupt: logger.warning("Ctrl+C detected. Evo shutting down...")
     except Exception as e: logger.critical(f"Evo main loop critical error: {e}", exc_info=True)
     finally:

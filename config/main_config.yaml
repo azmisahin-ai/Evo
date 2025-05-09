@@ -2,7 +2,7 @@
 # Evo Projesi Ana Yapılandırma Dosyası
 
 # Genel Ayarlar
-cognitive_loop_interval: 0.1 # Daha hızlı tepki için deneyelim, AE GPU'da olmalı
+cognitive_loop_interval: 0.03 # Daha hızlı tepki için deneyelim, AE GPU'da olmalı
 
 # Hesaplama Ayarları
 compute:
@@ -17,7 +17,7 @@ vision:
   # Eğer source_type: "usb_camera" ise:
   camera_index: 0 # Kullanılacak USB kamera indeksi (0, 1, 2...)
 
-  ip_camera_url: "http://192.168.1.84:4747/video"
+  ip_camera_url: "http://192.168.1.84:8080/video"
 
  # Eğer source_type: "video_file" ise:
   video_file_path: "data/videos/test_video.mp4" # Video dosyasının yolu
@@ -51,7 +51,7 @@ processors:
     # output_channels, VisionSensor.process_color'a göre VisionProcessor'da belirlenir.
     # Bu ayar, module_loader'ın input_dim hesaplamasında referans olabilir.
     output_channels_main_image: 3 # process_color:True ise 3 (RGB), False ise 1 (Gri)
-    enable_edge_detection: False # Kenar tespiti aktif mi? TRUE?
+    enable_edge_detection: True # Kenar tespiti aktif mi? TRUE?
     gaussian_blur_kernel_size: "5,5" # Kenar tespiti öncesi Gaussian Blur kernel boyutu (tek_sayi,tek_sayi)
     canny_low_threshold: 70          # Canny düşük eşiği (gürültüye göre ayarlayın)
     canny_high_threshold: 190        # Canny yüksek eşiği (gürültüye göre ayarlayın)
@@ -79,8 +79,8 @@ memory:
 
 # Cognition Modülleri Ayarları
 cognition:
-  familiarity_threshold: 0.80 # Yüksek bir değer, sadece çok benzerleri "tanıdık" sayar.
-  concept_recognition_threshold: 0.85 # Tanıdık eşiğinden biraz daha yüksek.
+  familiarity_threshold: 0.70 # Yüksek bir değer, sadece çok benzerleri "tanıdık" sayar.
+  concept_recognition_threshold: 0.75 # Tanıdık eşiğinden biraz daha yüksek.
   audio_energy_threshold: 1000.0
   visual_edges_threshold: 0.15 # Eğer kenarlar normalize ise, bu eşik daha anlamlı olabilir
                                # Eğer kenarlar 0/255 ise, bu değer 20-50 gibi olmalı. VisionProcessor çıktısına bağlı.
@@ -93,8 +93,8 @@ cognition:
   learning:
     enable_concept_persistence: True  # <<< YENİ: Öğrenilen kavramları dosyaya kaydet/yükle
     concept_file_path: "data/evo_concepts_final.pkl" # Bu zaten vardı, enable ile kontrol edilecek
-    learning_frequency: 100            # <<< Seyrekleştirdik
-    learning_memory_sample_size: 50   # <<< Artırdık
+    learning_frequency: 15          # <<< Seyrekleştirdik
+    learning_memory_sample_size: 10   # <<< Artırdık
     new_concept_threshold: 0.70 # Latent temsiller için (max_sim < 0.70 ise YENİ)
 
 # Motor Control Modülleri Ayarları
@@ -129,6 +129,6 @@ logging:
 debug:
   show_camera_feed: True           # Ham kamera görüntüsünü göster (True/False)
   show_processed_main_image: False  # VisionProcessor'dan çıkan ana işlenmiş görüntüyü göster (True/False)
-  show_processed_edges_image: True   # VisionProcessor'dan çıkan kenar görüntüsünü göster (True/False)
+  show_processed_edges_image: False   # VisionProcessor'dan çıkan kenar görüntüsünü göster (True/False)
    # log_level_override: DEBUG     # Gelecekte, ana log seviyesini buradan override etmek için
   # cognitive_loop_break_after: 0 # 0 ise normal çalışır, >0 ise o kadar döngüden sonra durur (test için)
